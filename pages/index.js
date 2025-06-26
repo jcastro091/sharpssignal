@@ -1,14 +1,16 @@
-// pages/index.js (React + Tailwind via CDN fallback)
+// pages/index.js (React + Tailwind via CDN fallback using next/script)
 import Head from 'next/head'
+import Script from 'next/script'
 
 export default function Home() {
   return (
     <>
+      {/* Load Tailwind via CDN before React mounts to ensure all classes are available */}
+      <Script src="https://cdn.tailwindcss.com" strategy="beforeInteractive" />
+
       <Head>
         <title>SharpSignal | AI-Powered Picks</title>
         <meta name="description" content="AI-Powered Picks for Sports, Stocks, FX & Commodities" />
-        {/* Fallback via CDN to ensure Tailwind is loaded */}
-        <script src="https://cdn.tailwindcss.com"></script>
       </Head>
 
       <main className="container mx-auto px-4 py-8 space-y-16">
@@ -120,7 +122,7 @@ function Pricing() {
       <h2 className="text-2xl font-bold mb-4">Pricing Plans</h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {plans.map(plan => (
-          <div key={plan.name} className={`p-6 rounded-lg ${plan.popular ? 'border-4 border-blue-600 bg-blue-50' : 'border'} shadow-lg`}>`
+          <div key={plan.name} className={`p-6 rounded-lg ${plan.popular ? 'border-4 border-blue-600 bg-blue-50' : 'border'} shadow-lg`}>
             {plan.popular && <div className="text-blue-600 uppercase text-sm mb-2">Most Popular</div>}
             <h3 className="text-xl font-semibold mb-2">{plan.name}</h3>
             <p className="text-2xl font-bold mb-4">{plan.price}</p>
