@@ -1,20 +1,46 @@
 // pages/index.js (Next.js + Tailwind + Plausible + Lucide Icons)
 import Head from 'next/head'
 import Script from 'next/script'
+import { useState, useMemo } from 'react'
 import {
-  Globe,
-  Bell,
-  BarChart2,
-  Activity,
-  Clock,
-  Tag,
-  Star
-} from 'lucide-react'
+   Globe,
+   Bell,
+   BarChart2,
+   Activity,
+   Clock,
+   Tag,
+   Star
+ } from 'lucide-react'
+ import {
+   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer
+ } from 'recharts'
+
+
+
 
 export default function Home() {
   const starterUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER
   const proUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_PRO
   const enterpriseUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_ENTERPRISE
+  const [bankroll, setBankroll] = useState(1000)
+  
+  // replace this static array with your real data, or fetch it from an API
+  const baseStats = [
+    { market: 'H2H Away',   bets: 28, profitPerThousand: 811.8 },
+    { market: 'H2H Home',   bets: 16, profitPerThousand: 366.85 },
+    { market: 'Spread Home',bets: 39, profitPerThousand: 229.44 },
+    { market: 'Spread Away',bets: 40, profitPerThousand: -343.57 },
+    { market: 'Total Over', bets: 24, profitPerThousand: -149.37 },
+  ]
+
+  const chartData = useMemo(() => {
+    return baseStats.map(s => ({
+      market: s.market,
+      // scale profit by (bankroll / 1000)
+      profit: s.profitPerThousand * (bankroll/1000),
+      staked: (s.bets * 25) * (bankroll/1000), // example: using $25/baseUnit
+    }))
+  }, [bankroll])
 
   return (
     <>
@@ -30,6 +56,7 @@ export default function Home() {
           rel="stylesheet"
         />
         <style>{`body { font-family: 'Poppins', sans-serif; }`}</style>
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       <Script
         strategy="afterInteractive"
@@ -41,7 +68,7 @@ export default function Home() {
         {/* Hero Section */}
         <section className="text-center py-24 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
           <div className="container mx-auto px-6">
-            <h1 className="text-5xl md:text-7xl font-extrabold mb-6 drop-shadow-lg">
+			<h1 className="text-3xl sm:text-5xl md:text-7xl font-extrabold mb-4 sm:mb-6 drop-shadow-lg">
               AI-Powered Picks for Every Market
             </h1>
             <p className="text-lg md:text-2xl mb-8 max-w-3xl mx-auto leading-relaxed">
@@ -74,7 +101,7 @@ export default function Home() {
         {/* How It Works */}
         <section className="container mx-auto px-6 py-16">
           <h2 className="text-3xl font-bold mb-8 text-center">How It Works</h2>
-          <div className="flex flex-col md:flex-row justify-around items-start gap-10">
+		  <div className="flex flex-col sm:flex-row flex-wrap justify-center sm:justify-around items-start gap-6 sm:gap-10">
             {[
               { icon: <Tag size={32} className="text-blue-600" />, text: 'Subscribe to your plan' },
               { icon: <Bell size={32} className="text-indigo-600" />, text: 'Get instant Telegram alerts' },
@@ -93,7 +120,7 @@ export default function Home() {
         <section className="bg-white py-16">
           <div className="container mx-auto px-6 text-center">
             <h2 className="text-3xl font-bold mb-10">Pricing Plans</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
               {/* Starter */}
               <div className="border rounded-xl p-8 hover:shadow-xl transition bg-gradient-to-br from-blue-50 to-white">
                 <Tag size={28} className="text-blue-600 mb-4 mx-auto" />
@@ -185,6 +212,44 @@ export default function Home() {
             </div>
           </div>
         </section>
+		
+		
+		{/* Performance Simulator */}
+		<section className="container mx-auto px-6 py-16">
+		  <h2 className="text-3xl font-bold mb-6 text-center">Performance Simulator</h2>
+		  <div className="max-w-full sm:max-w-xl mx-auto px-4 sm:px-0">
+		   <label className="block mb-2 font-medium">
+		      Bankroll: <span className="font-bold">${bankroll.toLocaleString()}</span>
+		   </label>
+		   <input
+		     type="range"
+		     min="1000"
+		     max="10000"
+		     step="500"
+		     value={bankroll}
+		     onChange={e => setBankroll(+e.target.value)}
+		     className="w-full"
+		   />
+		  </div>
+
+		  <div className="mt-8 h-64 sm:h-80 md:h-96">
+		    <ResponsiveContainer width="100%" height="100%">
+		      <BarChart data={chartData}>
+		        <XAxis dataKey="market" />
+		        <YAxis />
+		        <Tooltip
+		         formatter={(value, name) => {
+		           if (name === 'profit') return [`$${value.toFixed(2)}`, 'Profit']
+		           if (name === 'staked') return [`$${value.toFixed(2)}`, 'Staked']
+		           return value
+		         }}
+		       />
+		       <Bar dataKey="profit" name="Profit" barSize={30} radius={[4,4,0,0]} />
+		     </BarChart>
+		   </ResponsiveContainer>
+		 </div>
+	   </section>
+
 
         {/* Testimonials */}
         <section className="bg-indigo-50 py-16">
@@ -225,7 +290,7 @@ export default function Home() {
         <footer className="bg-gray-100 py-8">
           <div className="container mx-auto px-6 text-center space-y-2 text-sm text-gray-600">
             <a href="mailto:support@sharpsignal.com" className="text-indigo-600 hover:underline">
-              support@sharpsignal.com
+              SharpsSignal@gmail.com
             </a>
             <p>© 2025 SharpSignal. All rights reserved.</p>
           </div>
