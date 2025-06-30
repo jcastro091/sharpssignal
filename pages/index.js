@@ -101,16 +101,16 @@ export default function Home() {
         {/* How It Works */}
         <section className="container mx-auto px-6 py-16">
           <h2 className="text-3xl font-bold mb-8 text-center">How It Works</h2>
-		  <div className="flex flex-col sm:flex-row flex-wrap justify-center sm:justify-around items-start gap-6 sm:gap-10">
+		  <div className="flex flex-col sm:flex-row flex-wrap justify-center sm:justify-around items-center gap-6 sm:gap-10">
             {[
-              { icon: <Tag size={32} className="text-blue-600" />, text: 'Subscribe to your plan' },
+			  { icon: <Tag className="text-blue-600 text-2xl sm:text-3xl" />, text: 'Subscribe to your plan' },
               { icon: <Bell size={32} className="text-indigo-600" />, text: 'Get instant Telegram alerts' },
               { icon: <BarChart2 size={32} className="text-purple-600" />, text: 'Track on your dashboard' },
               { icon: <Clock size={32} className="text-blue-600" />, text: 'Receive weekly recaps' }
             ].map((step, i) => (
-              <div key={i} className="flex flex-col items-center text-center max-w-xs">
+			  <div key={i} className="flex flex-col items-center text-center max-w-[140px] sm:max-w-xs">
                 <div className="bg-white p-4 rounded-full shadow-md mb-4">{step.icon}</div>
-                <p className="font-medium text-lg">{step.text}</p>
+				<p className="font-medium text-base sm:text-lg">{step.text}</p>
               </div>
             ))}
           </div>
@@ -232,21 +232,36 @@ export default function Home() {
 		   />
 		  </div>
 
-		  <div className="mt-8 h-64 sm:h-80 md:h-96">
-		    <ResponsiveContainer width="100%" height="100%">
-		      <BarChart data={chartData}>
-		        <XAxis dataKey="market" />
-		        <YAxis />
-		        <Tooltip
-		         formatter={(value, name) => {
-		           if (name === 'profit') return [`$${value.toFixed(2)}`, 'Profit']
-		           if (name === 'staked') return [`$${value.toFixed(2)}`, 'Staked']
-		           return value
-		         }}
-		       />
-		       <Bar dataKey="profit" name="Profit" barSize={30} radius={[4,4,0,0]} />
-		     </BarChart>
-		   </ResponsiveContainer>
+		  <div className="mt-8 h-64 sm:h-80 md:h-96 overflow-x-auto px-2 sm:px-0">
+			<ResponsiveContainer width="100%" height="100%">
+			  <BarChart
+				data={chartData}
+				margin={{ top: 0, right: 20, left: 0, bottom: 40 }}
+			  >
+				<XAxis
+				  dataKey="market"
+				  interval={0}
+				  height={40}
+				  tick={{ fontSize: 10 }}
+				  angle={-30}
+				  textAnchor="end"
+				/>
+				<YAxis tick={{ fontSize: 10 }} />
+				<Tooltip
+				  formatter={(value, name) => {
+					if (name === 'profit') return [`$${value.toFixed(2)}`, 'Profit'];
+					if (name === 'staked') return [`$${value.toFixed(2)}`, 'Staked'];
+					return value;
+				  }}
+				/>
+				<Bar
+				  dataKey="profit"
+				  name="Profit"
+				  barSize={20}
+				  radius={[4, 4, 0, 0]}
+				/>
+			  </BarChart>
+			</ResponsiveContainer>
 		 </div>
 	   </section>
 
