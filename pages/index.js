@@ -115,6 +115,32 @@ export default function Home() {
             ))}
           </div>
         </section>
+		
+		{/* Sample Pick Demo */}
+		<section className="bg-gray-100 py-16">
+		  <h2 className="text-3xl font-bold mb-6 text-center">What a Pick Looks Like</h2>
+		  <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-6 space-y-4">
+			{/* Header: market & odds */}
+			<div className="flex justify-between items-center">
+			  <span className="font-semibold text-lg">H2H Away Underdog</span>
+			  <span className="text-indigo-600 font-bold text-xl">+200</span>
+			</div>
+
+			{/* Details */}
+			<p><span className="font-medium">Game:</span> Raptors @ Warriors</p>
+			<p><span className="font-medium">Game Time:</span> Apr 12, 7:00 PM EST</p>
+			<p><span className="font-medium">Recommended Stake:</span> $50 (¼ Kelly)</p>
+
+			{/* CTA */}
+			<a
+			  href="/dashboard"
+			  className="block text-center bg-indigo-600 text-white font-semibold py-2 rounded-full hover:bg-indigo-700 transition"
+			>
+			  See It on Your Dashboard
+			</a>
+		  </div>
+		</section>
+
 
         {/* Pricing Plans */}
         <section className="bg-white py-16">
@@ -289,15 +315,43 @@ export default function Home() {
           <div className="space-y-4 max-w-3xl mx-auto">
             {[
               { q: 'What markets do you cover?', a: 'Sports, stocks, FX, commodities.' },
-              { q: 'How fast are alerts?', a: 'Within seconds of AI signal generation.' },
-              { q: 'Cancel anytime?', a: 'Yes—no contracts and prorated refunds.' },
-              { q: 'Free trial?', a: '7-day trial on Pro plan.' }
+              { q: 'How fast are alerts?',     a: 'Within seconds of AI signal generation.' },
+              { q: 'Cancel anytime?',          a: 'Yes—no contracts and prorated refunds.' },
+              { q: 'Free trial?',              a: '7-day trial on Pro plan.' }
             ].map((item, i) => (
-              <details key={i} className="border rounded-lg p-4 hover:shadow" open={i === 0}>
+              <details
+                key={i}
+                className="border rounded-lg p-4 hover:shadow"
+                open={i === 0}
+              >
                 <summary className="font-medium cursor-pointer">{item.q}</summary>
                 <p className="mt-2 text-gray-700">{item.a}</p>
               </details>
             ))}
+
+           {/* extra FAQ entries */}
+           <details className="border rounded-lg p-4 hover:shadow">
+             <summary className="font-medium cursor-pointer">
+               What does a typical pick include?
+             </summary>
+             <p className="mt-2 text-gray-700">Every pick card shows:</p>
+             <ul className="list-disc list-inside mt-2 space-y-1">
+               <li>Market type (e.g. H2H, Spread, Totals)</li>
+               <li>Odds (American format)</li>
+               <li>Game teams & start time</li>
+               <li>Recommended stake (quarter-Kelly)</li>
+               <li>A link to view full analytics in your dashboard</li>
+             </ul>
+           </details>
+
+           <details className="border rounded-lg p-4 hover:shadow">
+             <summary className="font-medium cursor-pointer">
+               How quickly will I see my first pick?
+             </summary>
+             <p className="mt-2 text-gray-700">
+               As soon as you subscribe, you’ll receive your first Telegram alert within minutes—then you can log into your web dashboard to see the same pick in this card format.
+             </p>
+           </details>
           </div>
         </section>
 
