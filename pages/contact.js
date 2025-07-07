@@ -51,9 +51,9 @@ export default function Contact() {
               </div>
               <div>
                 <h3 className="text-xl font-semibold">Call Us</h3>
-                <a href="tel:+1234567890" className="text-indigo-600 hover:underline">
+                <Link href="tel:+1234567890" className="text-indigo-600 hover:underline">
                   +1 (234) 567-890
-                </a>
+                </Link>
               </div>
             </div>
           </div>

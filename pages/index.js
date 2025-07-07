@@ -369,11 +369,11 @@ export default function Home() {
         {/* Footer */}
         <footer className="bg-gray-100 py-8">
           <div className="container mx-auto px-6 text-center space-y-2 text-sm text-gray-600">
-            <a href="mailto:support@sharpsignal.com" className="text-indigo-600 hover:underline">
+            <Link href="mailto:support@sharpsignal.com" className="text-indigo-600 hover:underline">
               SharpsSignal@gmail.com
-            </a>
+            </Link>
             <p>© 2025 SharpSignal. All rights reserved.</p>
-				<a href="/about" className="ml-4 text-indigo-600 hover:underline">About & Contact</a>
+				<Link href="/about" className="ml-4 text-indigo-600 hover:underline">About & Contact</Link>
           </div>
         </footer>
       </main>
