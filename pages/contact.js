@@ -1,6 +1,6 @@
 // pages/contact.js
 import Head from 'next/head'
-import { Mail, Phone, MessageSquare } from 'lucide-react'
+import { Mail, Phone, MessageSquare } from 'lucide-react' 
 import Link from "next/link"
 
 export default function Contact() {
@@ -51,9 +51,9 @@ export default function Contact() {
               </div>
               <div>
                 <h3 className="text-xl font-semibold">Call Us</h3>
-                <Link href="tel:+1234567890" className="text-indigo-600 hover:underline">
+                <a href="tel:+1234567890" className="text-indigo-600 hover:underline">
                   +1 (234) 567-890
-                </Link>
+                </a>
               </div>
             </div>
           </div>
