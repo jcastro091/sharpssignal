@@ -16,7 +16,17 @@ import {
  } from 'recharts'
 
 
+// pages/index.js
 
+/* // 1️⃣ Server‐side redirect from “/” → “/about”
+export async function getServerSideProps() {
+  return {
+    redirect: {
+      destination: '/about',
+      permanent: false,
+    },
+  }
+} */
 
 export default function Home() {
   const starterUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER
@@ -362,6 +372,7 @@ export default function Home() {
               SharpsSignal@gmail.com
             </a>
             <p>© 2025 SharpSignal. All rights reserved.</p>
+				<a href="/about" className="ml-4 text-indigo-600 hover:underline">About & Contact</a>
           </div>
         </footer>
       </main>
