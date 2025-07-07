@@ -14,6 +14,7 @@ import {
  import {
    BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer
  } from 'recharts'
+ import Link from 'next/link'
 
 
 // pages/index.js

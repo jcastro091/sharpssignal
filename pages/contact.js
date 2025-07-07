@@ -1,6 +1,7 @@
 // pages/contact.js
 import Head from 'next/head'
 import { Mail, Phone, MessageSquare } from 'lucide-react'
+import Link from "next/link"
 
 export default function Contact() {
   return (

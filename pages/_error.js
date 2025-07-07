@@ -1,5 +1,7 @@
 // pages/_error.js
 
+import Link from 'next/link'
+
 function ErrorPage({ statusCode }) {
   return (
     <html lang="en">
@@ -18,9 +20,9 @@ function ErrorPage({ statusCode }) {
         </h1>
         <p>
           Sorry about that. You can go back to the home page:{' '}
-          <a href="/" style={{ color: '#4f46e5', textDecoration: 'underline' }}>
+          <Link href="/" style={{ color: '#4f46e5', textDecoration: 'underline' }}>
             Home
-          </a>
+          </Link>
         </p>
       </body>
     </html>
