@@ -40,3 +40,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 "telegrambetlogger-9533fe12f488.json" 
+".env.local" 
