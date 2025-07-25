@@ -1,39 +1,18 @@
-// pages/_app.js
-import "../styles/globals.css";
-import Script from "next/script";
+import { AuthProvider } from '../lib/AuthContext'
+import Header from '../components/Header'
+import '../styles/globals.css'
+import GA from '../components/GA'
 
-export default function MyApp({ Component, pageProps }) {
-  const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
-
+function MyApp({ Component, pageProps }) {
   return (
     <>
-      {/* Tailwind CDN (optional if using compiled CSS) */}
-      <Script
-        src="https://cdn.tailwindcss.com"
-        strategy="beforeInteractive"
-      />
-
-      {/* Global GA4 snippet */}
-      {gaId && (
-        <>
-          <Script
-            src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
-            strategy="afterInteractive"
-          />
-          <Script id="ga4-config" strategy="afterInteractive">
-            {`
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', '${gaId}', {
-                page_path: window.location.pathname
-              });
-            `}
-          </Script>
-        </>
-      )}
-
-      <Component {...pageProps} />
+      <GA />
+      <AuthProvider>
+        <Header />
+        <Component {...pageProps} />
+      </AuthProvider>
     </>
-  );
+  )
 }
+
+export default MyApp

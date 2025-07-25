@@ -15,6 +15,8 @@ import {
    BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer
  } from 'recharts'
  import Link from 'next/link'
+ import Footer from '../components/Footer'
+
 
 
 // pages/index.js
@@ -78,6 +80,12 @@ export default function Home() {
       <main className="bg-gray-50 text-gray-800">
         {/* Hero Section */}
         <section className="text-center py-24 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+		<div className="container mx-auto px-6">
+
+		</div>
+		
+		
+		
           <div className="container mx-auto px-6">
 			<h1 className="text-3xl sm:text-5xl md:text-7xl font-extrabold mb-4 sm:mb-6 drop-shadow-lg">
               AI-Powered Picks for Every Market
@@ -251,8 +259,8 @@ export default function Home() {
         </section>
 		
 		
-		{/* Performance Simulator */}
-		<section className="container mx-auto px-6 py-16">
+		//{/* Performance Simulator */}
+/* 		<section className="container mx-auto px-6 py-16">
 		  <h2 className="text-3xl font-bold mb-6 text-center">Performance Simulator</h2>
 		  <div className="max-w-full sm:max-w-xl mx-auto px-4 sm:px-0">
 		   <label className="block mb-2 font-medium">
@@ -300,11 +308,11 @@ export default function Home() {
 			  </BarChart>
 			</ResponsiveContainer>
 		 </div>
-	   </section>
+	   </section> */
 
 
         {/* Testimonials */}
-        <section className="bg-indigo-50 py-16">
+/*         <section className="bg-indigo-50 py-16">
           <div className="container mx-auto px-6 text-center">
             <h2 className="text-3xl font-bold mb-8">What Our Subscribers Say</h2>
             <div className="space-y-8 max-w-2xl mx-auto">
@@ -318,64 +326,56 @@ export default function Home() {
               </blockquote>
             </div>
           </div>
-        </section>
+        </section> */
 
-        {/* FAQ */}
-        <section className="container mx-auto px-6 py-16">
-          <h2 className="text-3xl font-bold mb-6 text-center">Frequently Asked Questions</h2>
-          <div className="space-y-4 max-w-3xl mx-auto">
-            {[
-              { q: 'What markets do you cover?', a: 'Sports, stocks, FX, commodities.' },
-              { q: 'How fast are alerts?',     a: 'Within seconds of AI signal generation.' },
-              { q: 'Cancel anytime?',          a: 'Yes—no contracts and prorated refunds.' },
-              { q: 'Free trial?',              a: '7-day trial on Pro plan.' }
-            ].map((item, i) => (
-              <details
-                key={i}
-                className="border rounded-lg p-4 hover:shadow"
-                open={i === 0}
-              >
-                <summary className="font-medium cursor-pointer">{item.q}</summary>
-                <p className="mt-2 text-gray-700">{item.a}</p>
-              </details>
-            ))}
+		{/* FAQ */}
+		<section className="container mx-auto px-6 py-16">
+		  <h2 className="text-3xl font-bold mb-6 text-center">Frequently Asked Questions</h2>
+		  <div className="space-y-4 max-w-3xl mx-auto">
+			{[
+			  { q: '📊 What markets do you cover?', a: 'Sports (NFL, NBA, MLB, etc.), stocks, forex, and select commodities. More markets coming soon.' },
+			  { q: '⚡ How fast are alerts?', a: 'Within seconds of our AI models confirming a high-confidence setup. Alerts are pushed instantly via Telegram.' },
+			  { q: '📲 How do I receive alerts?', a: 'All alerts are sent via our private Telegram channel. You’ll get betting picks, trade signals, and updates in real-time.' },
+			  { q: '🎯 How do I know which bets or trades to take?', a: 'Each alert includes full details — symbol or matchup, direction (e.g., LONG, OVER), entry/odds, and confidence level (✅ High, 🟡 Medium, ⚪ Low).' },
+			  { q: '🧠 What does confidence level mean?', a: 'It reflects the strength of the setup based on odds movement, limits, timing, and historical models. ✅ means high-quality edge, 🟡 is good but may carry more risk.' },
+			  { q: '📈 How accurate is the system?', a: 'We publicly track performance with ROI charts, win rates, and filters by sport, tag, and confidence. Full transparency. No cherry-picking.' },
+			  { q: '📅 Where can I see past picks?', a: 'Our dashboard shows all confirmed picks, results, and analytics. You can filter by sport, tag, or date to explore what’s working.' },
+			  { q: '🤖 Can I automate my bets or trades?', a: 'Yes — if you\'re tech-savvy, we offer webhook-compatible alerts. Full automation tutorials coming soon.' },
+			  { q: '🚫 Can I cancel anytime?', a: 'Yes. There are no contracts. You can cancel anytime and receive a prorated refund for unused time.' },
+			  { q: '🎁 Is there a free trial?', a: 'Yes — the Pro plan includes a 7-day trial so you can test alerts and dashboard tools.' },
+			  { q: '🙋 Do I need to be a pro bettor or trader to use this?', a: 'Not at all. We built SharpSignal for anyone who wants to follow smart signals and level up using data. You stay in control — we provide the edge.' },
+			  { q: '🛟 How do I contact support?', a: 'You can reach us on Telegram, email, or via the in-dashboard support button. We respond fast and actually care.' }
+			].map((item, i) => (
+			  <details
+				key={i}
+				className="border rounded-lg p-4 hover:shadow"
+				open={i === 0}
+			  >
+				<summary className="font-medium cursor-pointer">{item.q}</summary>
+				<p className="mt-2 text-gray-700">{item.a}</p>
+			  </details>
+			))}
+		  </div>
+		</section>
 
-           {/* extra FAQ entries */}
-           <details className="border rounded-lg p-4 hover:shadow">
-             <summary className="font-medium cursor-pointer">
-               What does a typical pick include?
-             </summary>
-             <p className="mt-2 text-gray-700">Every pick card shows:</p>
-             <ul className="list-disc list-inside mt-2 space-y-1">
-               <li>Market type (e.g. H2H, Spread, Totals)</li>
-               <li>Odds (American format)</li>
-               <li>Game teams & start time</li>
-               <li>Recommended stake (quarter-Kelly)</li>
-               <li>A link to view full analytics in your dashboard</li>
-             </ul>
-           </details>
+		
+		{/* Footer */}
+		<footer className="bg-gray-100 py-8">
+		  <div className="container mx-auto px-6 text-center space-y-2 text-sm text-gray-600">
+			<Link href="mailto:support@sharpsignal.com" className="text-indigo-600 hover:underline">
+			  SharpSignal@gmail.com
+			</Link>
+			<p>© 2025 SharpSignal. All rights reserved.</p>
+			<div className="space-x-4">
+			  <Link href="/about" className="text-indigo-600 hover:underline">About & Contact</Link>
+			  <Link href="/legal#terms" className="text-indigo-600 hover:underline">📜 Terms</Link>
+			  <Link href="/legal#privacy" className="text-indigo-600 hover:underline">🔐 Privacy</Link>
+			</div>
+		  </div>
+		</footer>
 
-           <details className="border rounded-lg p-4 hover:shadow">
-             <summary className="font-medium cursor-pointer">
-               How quickly will I see my first pick?
-             </summary>
-             <p className="mt-2 text-gray-700">
-               As soon as you subscribe, you’ll receive your first Telegram alert within minutes—then you can log into your web dashboard to see the same pick in this card format.
-             </p>
-           </details>
-          </div>
-        </section>
-
-        {/* Footer */}
-        <footer className="bg-gray-100 py-8">
-          <div className="container mx-auto px-6 text-center space-y-2 text-sm text-gray-600">
-            <Link href="mailto:support@sharpsignal.com" className="text-indigo-600 hover:underline">
-              SharpsSignal@gmail.com
-            </Link>
-            <p>© 2025 SharpSignal. All rights reserved.</p>
-				<Link href="/about" className="ml-4 text-indigo-600 hover:underline">About & Contact</Link>
-          </div>
-        </footer>
+		
+		
       </main>
     </>
   )
