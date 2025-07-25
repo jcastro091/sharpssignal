@@ -16,8 +16,10 @@ export default async function handler(req, res) {
   if (!email) return res.status(400).json({ error: 'Email is required' });
 
   // 1. Save email to Supabase
-  const { data, error } = await supabase.from('email_signups').insert([{ email }]);
+  //const { data, error } = await supabase.from('email_signups').insert([{ email }]);
+  const { error } = await supabase.from('email_signups').insert([{ email }]);
 
+ 
   if (error) return res.status(500).json({ error: 'Failed to save email' });
 
   // 2. Send welcome email via Resend
