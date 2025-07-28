@@ -125,7 +125,7 @@ export default function Home() {
 			  { icon: <Tag className="text-blue-600 text-2xl sm:text-3xl" />, text: 'Subscribe to your plan' },
               { icon: <Bell size={32} className="text-indigo-600" />, text: 'Get instant Telegram alerts' },
               { icon: <BarChart2 size={32} className="text-purple-600" />, text: 'Track on your dashboard' },
-              { icon: <Clock size={32} className="text-blue-600" />, text: 'Receive weekly recaps' }
+              { icon: <Clock size={32} className="text-blue-600" />, text: 'Receive weekly recap' }
             ].map((step, i) => (
 			  <div key={i} className="flex flex-col items-center text-center max-w-[140px] sm:max-w-xs">
                 <div className="bg-white p-4 rounded-full shadow-md mb-4">{step.icon}</div>
