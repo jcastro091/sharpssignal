@@ -1,7 +1,7 @@
-// postcss.config.js  (project‐root)
+// postcss.config.js
 module.exports = {
   plugins: {
-    '@tailwindcss/postcss': {},   // ← this must be the key
+    tailwindcss: {},       // ✅ This is the actual plugin you want
     autoprefixer: {},
   },
-}
+};
