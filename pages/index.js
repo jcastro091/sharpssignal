@@ -17,16 +17,7 @@ export default function Home() {
   const starterUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER
   const proUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_PRO
   const enterpriseUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_ENTERPRISE
-  const bankroll = 1000
   
-  // replace this static array with your real data, or fetch it from an API
-  const baseStats = [
-    { market: 'H2H Away',   bets: 28, profitPerThousand: 811.8 },
-    { market: 'H2H Home',   bets: 16, profitPerThousand: 366.85 },
-    { market: 'Spread Home',bets: 39, profitPerThousand: 229.44 },
-    { market: 'Spread Away',bets: 40, profitPerThousand: -343.57 },
-    { market: 'Total Over', bets: 24, profitPerThousand: -149.37 },
-  ]
 
   return (
     <>
