@@ -1,17 +1,17 @@
 // pages/_error.js
-
+import Head from 'next/head'
 import Link from 'next/link'
 
 function ErrorPage({ statusCode }) {
   return (
     <html lang="en">
-      <head>
+      <Head>
         <title>
           {statusCode
             ? `Error ${statusCode}`
             : 'An unexpected error occurred'}
         </title>
-      </head>
+      </Head>
       <body style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem' }}>
         <h1 style={{ marginBottom: '1rem' }}>
           {statusCode

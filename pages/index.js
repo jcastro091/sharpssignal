@@ -1,7 +1,6 @@
 // pages/index.js (Next.js + Tailwind + Plausible + Lucide Icons)
 import Head from 'next/head'
 import Script from 'next/script'
-import { useState, useMemo } from 'react'
 import {
    Globe,
    Bell,
