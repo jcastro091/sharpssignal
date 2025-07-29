@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import Link from 'next/link';
 
 export default function SignInPage() {
   const router = useRouter();
@@ -64,9 +65,9 @@ export default function SignInPage() {
 
         <p className="mt-4 text-sm text-center">
           Don’t have an account?{' '}
-          <a href="/signup" className="text-indigo-600 hover:underline">
+          <Link href="/signup" className="text-indigo-600 hover:underline">
             Sign Up
-          </a>
+          </Link>
         </p>
       </div>
     </div>
