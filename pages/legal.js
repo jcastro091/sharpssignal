@@ -22,7 +22,7 @@ export default function LegalPage() {
 
       {/* Privacy Policy */}
       <h2 className="text-2xl font-bold mt-10 mb-4" id="privacy">🔐 Privacy Policy</h2>
-      <p className="mb-4">Your privacy matters. Here's what we collect and how it's used:</p>
+      <p className="mb-4">Your privacy matters. Here&apos;s what we collect and how it&apos;s used:</p>
 
       <ul className="list-disc list-inside space-y-3">
         <li><strong>What We Collect:</strong> Email address, login metadata, Telegram handle, and interaction data with our dashboard and alerts.</li>

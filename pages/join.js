@@ -32,7 +32,7 @@ export default function JoinPage() {
           <p className="text-gray-600">Be first to receive high-conviction picks, performance recaps, and exclusive subscriber tools.</p>
 
           {submitted ? (
-            <p className="text-green-600 font-semibold">Thanks! You're on the list ✅</p>
+            <p className="text-green-600 font-semibold">Thanks! You&apos;re on the list ✅</p>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <input
