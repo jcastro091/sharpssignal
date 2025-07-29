@@ -11,9 +11,6 @@ import {
    Tag,
    Star
  } from 'lucide-react'
- import {
-   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer
- } from 'recharts'
  import Link from 'next/link'
 
 
@@ -21,7 +18,7 @@ export default function Home() {
   const starterUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER
   const proUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_PRO
   const enterpriseUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_ENTERPRISE
-  const [bankroll, setBankroll] = useState(1000)
+  const bankroll = 1000
   
   // replace this static array with your real data, or fetch it from an API
   const baseStats = [
@@ -31,15 +28,6 @@ export default function Home() {
     { market: 'Spread Away',bets: 40, profitPerThousand: -343.57 },
     { market: 'Total Over', bets: 24, profitPerThousand: -149.37 },
   ]
-
-  const chartData = useMemo(() => {
-    return baseStats.map(s => ({
-      market: s.market,
-      // scale profit by (bankroll / 1000)
-      profit: s.profitPerThousand * (bankroll/1000),
-      staked: (s.bets * 25) * (bankroll/1000), // example: using $25/baseUnit
-    }))
-  }, [bankroll, baseStats])
 
   return (
     <>
