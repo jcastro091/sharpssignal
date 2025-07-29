@@ -1,5 +1,6 @@
 // pages/auth/signin.js
 import { getCsrfToken } from "next-auth/react"
+import Link from 'next/link';
 
 export default function SignIn({ csrfToken, error }) {
   return (
@@ -43,9 +44,9 @@ export default function SignIn({ csrfToken, error }) {
         </button>
         <p className="mt-4 text-center">
           Don’t have an account?{" "}
-          <a href="/auth/signup" className="underline text-blue-600">
+          <Link href="/auth/signup" className="underline text-blue-600">
             Sign up
-          </a>
+          </Link>
         </p>
       </form>
     </div>

@@ -95,24 +95,24 @@ export default function Home() {
               recaps—transparent, data-driven, and easy to follow.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <a
+              <Link
                 href={starterUrl}
                 className="inline-block bg-white text-blue-600 px-8 py-4 rounded-full shadow-lg font-semibold hover:shadow-xl transition"
               >
                 Starter — $29/mo
-              </a>
-              <a
+              </Link>
+              <Link
                 href={proUrl}
                 className="inline-block bg-white text-indigo-600 px-8 py-4 rounded-full shadow-lg font-semibold hover:shadow-xl transition"
               >
                 Pro — $59/mo
-              </a>
-              <a
+              </Link>
+              <Link
                 href={enterpriseUrl}
                 className="inline-block bg-white text-purple-700 px-8 py-4 rounded-full shadow-lg font-semibold hover:shadow-xl transition"
               >
                 Enterprise — $99/mo
-              </a>
+              </Link>
             </div>
           </div>
         </section>
@@ -151,12 +151,12 @@ export default function Home() {
 			<p><span className="font-medium">Recommended Stake:</span> $50 (¼ Kelly)</p>
 
 			{/* CTA */}
-			<a
+			<Link
 			  href="/dashboard"
 			  className="block text-center bg-indigo-600 text-white font-semibold py-2 rounded-full hover:bg-indigo-700 transition"
 			>
 			  See It on Your Dashboard
-			</a>
+			</Link>
 		  </div>
 		</section>
 
@@ -176,12 +176,12 @@ export default function Home() {
                   <li>Basic alerts</li>
                   <li>Email reports</li>
                 </ul>
-                <a
+                <Link
                   href={starterUrl}
                   className="inline-block bg-blue-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-blue-700 transition"
                 >
                   Subscribe
-                </a>
+                </Link>
               </div>
               {/* Pro */}
               <div className="relative border-2 border-indigo-600 rounded-xl p-8 hover:shadow-2xl transition bg-gradient-to-br from-indigo-50 to-white">
@@ -196,12 +196,12 @@ export default function Home() {
                   <li>Priority alerts</li>
                   <li>Live chat support</li>
                 </ul>
-                <a
+                <Link
                   href={proUrl}
                   className="inline-block bg-indigo-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-indigo-700 transition"
                 >
                   Subscribe
-                </a>
+                </Link>
               </div>
               {/* Enterprise */}
               <div className="border rounded-xl p-8 hover:shadow-xl transition bg-gradient-to-br from-purple-50 to-white">
@@ -212,12 +212,12 @@ export default function Home() {
                   <li>Dedicated manager</li>
                   <li>Custom signals</li>
                 </ul>
-                <a
+                <Link
                   href={enterpriseUrl}
                   className="inline-block bg-purple-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-purple-700 transition"
                 >
                   Subscribe
-                </a>
+                </Link>
               </div>
             </div>
           </div>
