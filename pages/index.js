@@ -15,21 +15,7 @@ import {
    BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer
  } from 'recharts'
  import Link from 'next/link'
- import Footer from '../components/Footer'
 
-
-
-// pages/index.js
-
-/* // 1️⃣ Server‐side redirect from “/” → “/about”
-export async function getServerSideProps() {
-  return {
-    redirect: {
-      destination: '/about',
-      permanent: false,
-    },
-  }
-} */
 
 export default function Home() {
   const starterUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER
@@ -53,7 +39,7 @@ export default function Home() {
       profit: s.profitPerThousand * (bankroll/1000),
       staked: (s.bets * 25) * (bankroll/1000), // example: using $25/baseUnit
     }))
-  }, [bankroll])
+  }, [bankroll, baseStats])
 
   return (
     <>
@@ -258,75 +244,6 @@ export default function Home() {
           </div>
         </section>
 		
-		
-		//{/* Performance Simulator */}
-/* 		<section className="container mx-auto px-6 py-16">
-		  <h2 className="text-3xl font-bold mb-6 text-center">Performance Simulator</h2>
-		  <div className="max-w-full sm:max-w-xl mx-auto px-4 sm:px-0">
-		   <label className="block mb-2 font-medium">
-		      Bankroll: <span className="font-bold">${bankroll.toLocaleString()}</span>
-		   </label>
-		   <input
-		     type="range"
-		     min="1000"
-		     max="10000"
-		     step="500"
-		     value={bankroll}
-		     onChange={e => setBankroll(+e.target.value)}
-		     className="w-full"
-		   />
-		  </div>
-
-		  <div className="mt-8 h-64 sm:h-80 md:h-96 overflow-x-auto px-2 sm:px-0">
-			<ResponsiveContainer width="100%" height="100%">
-			  <BarChart
-				data={chartData}
-				margin={{ top: 0, right: 20, left: 0, bottom: 40 }}
-			  >
-				<XAxis
-				  dataKey="market"
-				  interval={0}
-				  height={40}
-				  tick={{ fontSize: 10 }}
-				  angle={-30}
-				  textAnchor="end"
-				/>
-				<YAxis tick={{ fontSize: 10 }} />
-				<Tooltip
-				  formatter={(value, name) => {
-					if (name === 'profit') return [`$${value.toFixed(2)}`, 'Profit'];
-					if (name === 'staked') return [`$${value.toFixed(2)}`, 'Staked'];
-					return value;
-				  }}
-				/>
-				<Bar
-				  dataKey="profit"
-				  name="Profit"
-				  barSize={20}
-				  radius={[4, 4, 0, 0]}
-				/>
-			  </BarChart>
-			</ResponsiveContainer>
-		 </div>
-	   </section> */
-
-
-        {/* Testimonials */}
-/*         <section className="bg-indigo-50 py-16">
-          <div className="container mx-auto px-6 text-center">
-            <h2 className="text-3xl font-bold mb-8">What Our Subscribers Say</h2>
-            <div className="space-y-8 max-w-2xl mx-auto">
-              <blockquote className="italic text-lg">
-                “Game changer—up 18% this month alone!”
-                <footer className="mt-2 font-semibold">— Alex P.</footer>
-              </blockquote>
-              <blockquote className="italic text-lg">
-                “Saved me countless hours of analysis.”
-                <footer className="mt-2 font-semibold">— Maria L.</footer>
-              </blockquote>
-            </div>
-          </div>
-        </section> */
 
 		{/* FAQ */}
 		<section className="container mx-auto px-6 py-16">
