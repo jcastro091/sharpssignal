@@ -152,8 +152,15 @@ export async function getServerSideProps(ctx) {
   const { GoogleAuth } = await import("google-auth-library");
   const { google } = await import("googleapis");
 
+
   const rawUrl = process.env.SPREADSHEET_URL;
   const m = rawUrl.match(/\/d\/([^\/]+)/);
+  if (!m) {
+    throw new Error("Invalid SPREADSHEET_URL");
+  }
+
+  
+  
   if (!m) throw new Error("Invalid SPREADSHEET_URL");
   const spreadsheetId = m[1];
 
