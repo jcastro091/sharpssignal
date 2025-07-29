@@ -34,10 +34,6 @@ export default function Header() {
         </Link>
 
         <div className="space-x-4 flex items-center">
-          {/* Sportsbook Offers link always visible */}
-          <Link href="/sportsbooks" className="text-indigo-600 hover:underline">
-            📣 Sportsbook Offers
-          </Link>
 		  
 		  <Link href="/join" className="text-indigo-600 hover:underline">
 		    🎯 Join for Free Picks
