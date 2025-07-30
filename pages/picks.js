@@ -140,53 +140,36 @@ function StatCard({ label, value, color }) {
 }
 
 export async function getServerSideProps(ctx) {
-  const supabase = createServerSupabaseClient(ctx)
-  const { data: { session } } = await supabase.auth.getSession()
+  const supabase = createServerSupabaseClient(ctx);
+  const { data: { session } } = await supabase.auth.getSession();
 
   if (!session) {
     return {
       redirect: { destination: '/signin', permanent: false },
-    }
+    };
   }
 
-  const { GoogleAuth } = await import("google-auth-library");
-  const { google } = await import("googleapis");
-
-
-  const rawUrl = process.env.SPREADSHEET_URL;
-  const m = rawUrl.match(/\/d\/([^\/]+)/);
-  if (!m) {
-    throw new Error("Invalid SPREADSHEET_URL");
-  }
-
-  
-  
-  if (!m) throw new Error("Invalid SPREADSHEET_URL");
-  const spreadsheetId = m[1];
-
-  const auth = new GoogleAuth({
-    keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  const res = await fetch(`${baseUrl}/api/picks`, {
+    headers: {
+      cookie: ctx.req.headers.cookie || '',
+    },
   });
-  const client = await auth.getClient();
-  const sheets = google.sheets({ version: "v4", auth: client });
-
-  const { data } = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: "AllBets!A:Z",
-  });
-
-  if (!data || !data.values || data.values.length === 0) {
-    return { props: { picks: [] } };
+    
+  let picks = []
+  try {
+    const data = await res.json();
+    picks = Array.isArray(data.picks) ? data.picks.map(pick => {
+      // Ensure all values are defined (replace undefined with null)
+      return Object.fromEntries(
+        Object.entries(pick).map(([key, value]) => [key, value ?? null])
+      )
+    }) : [];
+  } catch (err) {
+    console.error("❌ Failed to parse picks:", err);
+    picks = [];
   }
 
-  const [header, ...rows] = data.values;
-  const picks = rows
-    .map(row => Object.fromEntries(row.map((cell, i) => [header[i], cell])))
-    .filter(pick => {
-      const gt = pick["Game Time"];
-      return gt && !isNaN(new Date(gt));
-    });
 
   return { props: { picks } };
 }
