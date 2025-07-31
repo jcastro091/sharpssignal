@@ -28,18 +28,23 @@ export default async function handler(req, res) {
       from: 'SharpSignal <noreply@sharps-signal.com>',
       to: email,
       subject: '🎯 Welcome to SharpSignal',
-      html: `		
-		<div style="font-family:sans-serif;padding:20px;">
+      html: `	
+	    <div style="font-family:sans-serif;padding:20px;">
 		  <h2>Welcome to SharpSignal!</h2>
 		  <p>You're now part of the beta. Expect picks, recaps, and real-time performance straight to your inbox or dashboard.</p>
 
 		  <p style="margin-top:20px;">🧠 Built by bettors, for bettors. Let's beat the books.</p>
 
 		  <a href="https://t.me/+I-yXomYH5oNmN2Rh" 
-			 style="display:inline-block;margin-top:25px;padding:12px 20px;background-color:#6366f1;color:white;text-decoration:none;border-radius:6px;font-weight:bold;">
-			👉 Join the Telegram Channel
+		     style="display:inline-block;margin-top:25px;padding:12px 20px;background-color:#6366f1;color:white;text-decoration:none;border-radius:6px;font-weight:bold;">
+		    👉 Join the Telegram Channel
 		  </a>
-		</div>
+
+		  <a href="https://www.sharps-signal.com/signup" 
+		     style="display:inline-block;margin-top:15px;padding:12px 20px;background-color:#10b981;color:white;text-decoration:none;border-radius:6px;font-weight:bold;">
+		    🔐 Create Your Dashboard Login
+		  </a>
+	    </div>		
       `,
     });
   } catch (err) {
