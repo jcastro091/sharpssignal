@@ -1,12 +1,12 @@
 import { google } from 'googleapis';
-import fs from 'fs';
-import path from 'path';
 
 export default async function handler(req, res) {
   try {
-    const keyPath = path.join(process.cwd(), 'telegrambetlogger-9533fe12f488.json');
-    const keyFile = fs.readFileSync(keyPath, 'utf8');
-    const credentials = JSON.parse(keyFile);
+    // 🔐 Decode the base64 environment variable
+    const serviceAccountBuffer = Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_B64, 'base64');
+    const credentials = JSON.parse(serviceAccountBuffer.toString('utf8'));
+
+    // 🔑 Authorize JWT client
     const jwtClient = new google.auth.JWT({
       email: credentials.client_email,
       key: credentials.private_key.replace(/\\n/g, '\n'),
