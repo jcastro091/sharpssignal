@@ -28,7 +28,10 @@ export default async function sendWelcomeEmail(email) {
         <p>At SharpSignal, we combine real data with AI to deliver smarter, sharper picks — not just hype. You're joining a community that values transparency, data-backed confidence, and long-term edge.</p>
         <p>We’re not just building a newsletter — we’re building a movement. And you’re part of it 💡</p>
         <p>No spam. No pressure. Just signals that matter.</p>
-        <a href="https://sharpsignal.ai" class="button">View Latest Picks</a>
+
+        <a href="https://www.sharps-signal.com/signup" class="button">Create Your Dashboard Login</a>
+        <a href="https://sharpsignal.ai" class="button" style="background-color:#10b981;margin-left:10px;">View Latest Picks</a>
+
         <div class="footer">
           You can unsubscribe at any time — but we hope you stick around.<br>
           Sent by SharpSignal · AI. Confidence. Clarity.
@@ -37,7 +40,6 @@ export default async function sendWelcomeEmail(email) {
     </body>
   </html>
   `;
-
 
   return await resend.emails.send({
     from: 'SharpSignal <welcome@sharpsignal.ai>',
