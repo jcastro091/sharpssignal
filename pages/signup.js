@@ -13,19 +13,39 @@ export default function SignUp() {
     e.preventDefault()
     setLoading(true)
     setError(null)
+	setMessage(null)
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-      //emailRedirectTo: 'http://localhost:3000/welcome',
-	  emailRedirectTo: 'https://sharps-signal.com/welcome',
+      emailRedirectTo: 'http://localhost:3000/welcome',
+	  //emailRedirectTo: 'https://sharps-signal.com/welcome',
       }
     })
 
     if (error) {
       setError(error.message)
     } else {
+		
+		// Only insert profile if user is immediately returned (i.e., no email confirmation needed)
+		if (data?.user?.id) {
+		  const { error: profileError } = await supabase.from('profiles').upsert([
+			{
+			  id: data.user.id,
+			  email: email,
+			  role: 'user',
+			},
+		  ]);
+
+		  if (profileError) {
+			setError(`Signup succeeded but profile creation failed: ${profileError.message}`);
+			setLoading(false);
+			return;
+		  }
+		}
+		
+		
       setMessage('✅ Check your inbox for a confirmation email before signing in.')
     }
     setLoading(false)
