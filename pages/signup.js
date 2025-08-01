@@ -20,7 +20,7 @@ export default function SignUp() {
       password,
       options: {
       emailRedirectTo: 'http://localhost:3000/welcome',
-	  //emailRedirectTo: 'https://sharps-signal.com/welcome',
+	  emailRedirectTo: 'https://sharps-signal.com/welcome',
       }
     })
 
