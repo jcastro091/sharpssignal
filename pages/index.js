@@ -43,43 +43,28 @@ export default function Home() {
 
       <main className="bg-gray-50 text-gray-800">
         {/* Hero Section */}
-        <section className="text-center py-24 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
-		<div className="container mx-auto px-6">
+		<section className="text-center py-24 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+		  <div className="container mx-auto px-6">
+			<h1 className="text-4xl sm:text-6xl font-extrabold mb-4 drop-shadow-lg">
+			  AI-Powered Signals for Sports, Stocks & FX
+			</h1>
+			<p className="text-lg sm:text-2xl mb-6 max-w-2xl mx-auto leading-relaxed">
+			  Now tracking sports, stocks, forex, and commodities — real-time alerts, transparent results.
+			</p>
+			<p className="text-md sm:text-lg mb-8 max-w-xl mx-auto text-yellow-300 font-semibold">
+			  🚨 Limited Beta Access – Join Free & Start Winning
+			</p>
+			<div className="flex justify-center">
+			  <Link
+				href="/join"
+				className="inline-block bg-white text-blue-600 px-8 py-4 rounded-full shadow-lg font-semibold hover:shadow-xl transition"
+			  >
+				Join Free Now
+			  </Link>
+			</div>
+		  </div>
+		</section>
 
-		</div>
-		
-		
-		
-          <div className="container mx-auto px-6">
-			<h1 className="text-3xl sm:text-5xl md:text-7xl font-extrabold mb-4 sm:mb-6 drop-shadow-lg">
-              AI-Powered Picks for Every Market
-            </h1>
-            <p className="text-lg md:text-2xl mb-8 max-w-3xl mx-auto leading-relaxed">
-              Real-time Telegram alerts, an interactive dashboard, and weekly performance
-              recaps—transparent, data-driven, and easy to follow.
-            </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <Link
-                href={starterUrl}
-                className="inline-block bg-white text-blue-600 px-8 py-4 rounded-full shadow-lg font-semibold hover:shadow-xl transition"
-              >
-                Starter — $29/mo
-              </Link>
-              <Link
-                href={proUrl}
-                className="inline-block bg-white text-indigo-600 px-8 py-4 rounded-full shadow-lg font-semibold hover:shadow-xl transition"
-              >
-                Pro — $59/mo
-              </Link>
-              <Link
-                href={enterpriseUrl}
-                className="inline-block bg-white text-purple-700 px-8 py-4 rounded-full shadow-lg font-semibold hover:shadow-xl transition"
-              >
-                Enterprise — $99/mo
-              </Link>
-            </div>
-          </div>
-        </section>
 
         {/* How It Works */}
         <section className="container mx-auto px-6 py-16">
@@ -268,9 +253,6 @@ export default function Home() {
 			</div>
 		  </div>
 		</footer>
-
-		
-		
       </main>
     </>
   )

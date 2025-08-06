@@ -6,9 +6,12 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
 } from "recharts";
 import DatePicker from "react-datepicker";
+import TradesTable from "../components/TradesTable";
 import "react-datepicker/dist/react-datepicker.css";
 
-export default function PicksPage({ picks = [] }) {
+
+export default function PicksPage({ picks = [], trades = [] }) {
+
   const [mounted, setMounted] = useState(false);
   const [bankroll, setBankroll] = useState(1000);
   const [kellyFraction, setKellyFraction] = useState(1);
@@ -36,6 +39,9 @@ export default function PicksPage({ picks = [] }) {
     profit,
     drawdown
   } = calculateROI(filtered);
+  
+  const [viewMode, setViewMode] = useState('picks'); // default to picks view
+
 
   return (
     <div className="bg-gray-50 text-gray-900 min-h-screen p-4 sm:p-8">
@@ -123,9 +129,16 @@ export default function PicksPage({ picks = [] }) {
           </LineChart>
         </ResponsiveContainer>
       </div>
+	  
+	  <div className="flex space-x-2 mb-4">
+	    <button onClick={() => setViewMode('picks')} className={`px-4 py-2 rounded ${viewMode === 'picks' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>Picks</button>
+	    <button onClick={() => setViewMode('trades')} className={`px-4 py-2 rounded ${viewMode === 'trades' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>Trades</button>
+	  </div>
+
 
       {/* Picks Table */}
-      {mounted && <PicksTable picks={filtered} />}
+	  {mounted && viewMode === 'picks' && <PicksTable picks={filtered} />}
+	  {mounted && viewMode === 'trades' && <TradesTable trades={trades} />}
     </div>
   );
 }
@@ -149,27 +162,35 @@ export async function getServerSideProps(ctx) {
     };
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-  const res = await fetch(`${baseUrl}/api/picks`, {
-    headers: {
-      cookie: ctx.req.headers.cookie || '',
-    },
-  });
+  const protocol = ctx.req.headers['x-forwarded-proto'] || 'http';
+  const host = ctx.req.headers.host;
+  const baseUrl = `${protocol}://${host}`;
+
+  
+  
+  const [picksRes, tradesRes] = await Promise.all([
+    fetch(`${baseUrl}/api/picks`, { headers: { cookie: ctx.req.headers.cookie || '' } }),
+    fetch(`${baseUrl}/api/trades`, { headers: { cookie: ctx.req.headers.cookie || '' } }),
+  ]);
     
-  let picks = []
+  let picks = [], trades = [];
   try {
-    const data = await res.json();
-    picks = Array.isArray(data.picks) ? data.picks.map(pick => {
-      // Ensure all values are defined (replace undefined with null)
-      return Object.fromEntries(
-        Object.entries(pick).map(([key, value]) => [key, value ?? null])
-      )
-    }) : [];
+    const picksData = await picksRes.json();
+    picks = Array.isArray(picksData.picks) ? picksData.picks.map(p => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, v ?? null]))) : [];
+    
+    let tradesData = {};
+	try {
+	  tradesData = await tradesRes.json();
+	  console.log("✅ Trades JSON parsed:", tradesData);
+	} catch (err) {
+	  console.error("❌ Failed to parse trades JSON:", err);
+	}
+
+    trades = Array.isArray(tradesData.trades) ? tradesData.trades.map(t => Object.fromEntries(Object.entries(t).map(([k, v]) => [k, v ?? null]))) : [];
   } catch (err) {
-    console.error("❌ Failed to parse picks:", err);
-    picks = [];
+    console.error("❌ Error parsing picks/trades:", err);
   }
 
+  return { props: { picks, trades } };
 
-  return { props: { picks } };
 }

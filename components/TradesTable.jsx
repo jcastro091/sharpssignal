@@ -1,28 +1,23 @@
-
 import { useState } from "react";
 
-export default function PicksTable({ picks }) {
+export default function TradesTable({ trades }) {
   const columns = [
     { key: "Timestamp", label: "Date" },
-    { key: "Sport", label: "Sport" },
-    { key: "Away Team", label: "Away" },
-    { key: "Home Team", label: "Home" },
-    { key: "Market", label: "Market" },
-    { key: "Direction", label: "Side" },
-    { key: "Predicted", label: "Prediction" },
-    { key: "Game Time", label: "Game Time" },
-    { key: "Tags", label: "Tags" },
-    { key: "Actual Winner", label: "Winner" },
-    { key: "Prediction Result", label: "Result" },
-    { key: "Kelly", label: "Kelly %" },
+    { key: "Symbol", label: "Symbol" },
+    { key: "Trade Direction", label: "Side" },
+    { key: "Entry Price", label: "Entry" },
+    { key: "Exit Price", label: "Exit" },
+    { key: "SL", label: "Stop Loss" },
+    { key: "TP", label: "Take Profit" },
+    { key: "RR", label: "R:R" },
+    { key: "Result", label: "Result" },
     { key: "Confidence", label: "Confidence" },
-    { key: "Plan", label: "Plan" },
-    { key: "Odds Taken", label: "Odds" }
+    { key: "Posted?", label: "Plan" }
   ];
 
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
-  const sorted = [...picks].sort((a, b) => {
+  const sorted = [...trades].sort((a, b) => {
     const key = sortConfig.key;
     if (!key) return 0;
     const aVal = a[key] || '';
@@ -58,11 +53,11 @@ export default function PicksTable({ picks }) {
           </tr>
         </thead>
         <tbody>
-          {sorted.map((pick, i) => (
+          {sorted.map((trade, i) => (
             <tr key={i} className="border-b hover:bg-gray-50">
               {columns.map(col => (
                 <td key={col.key} className="p-2 whitespace-nowrap">
-                  {pick[col.key] || "-"}
+                  {trade[col.key] || "-"}
                 </td>
               ))}
             </tr>
