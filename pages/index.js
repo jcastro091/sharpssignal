@@ -9,7 +9,6 @@ import {
   Activity,
   Clock,
   Tag,
-  Star,
   BrainCircuit,
   LineChart
 } from 'lucide-react'
