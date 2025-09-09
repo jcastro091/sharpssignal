@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     await jwtClient.authorize();
 
     const sheets = google.sheets({ version: 'v4', auth: jwtClient });
-    const spreadsheetId = process.env.SPREADSHEET_ID;
+    const spreadsheetId = process.env.GSHEET_ID;
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
