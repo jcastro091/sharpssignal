@@ -1,8 +1,11 @@
-import { Resend } from 'resend';
+// /pages/api/send-welcome.js
+import { sendEmail } from '../../utils/email';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+  const { email } = req.body || {};
+  if (!email) return res.status(400).json({ error: 'Email is required' });
 
-export default async function sendWelcomeEmail(email) {
   const html = `
   <!DOCTYPE html>
   <html>
@@ -23,26 +26,28 @@ export default async function sendWelcomeEmail(email) {
         <ul>
           <li>✅ AI-powered betting picks</li>
           <li>✅ Weekly performance recaps</li>
-          <li>✅ Exclusive insights from the team</li>
+          <li>✅ Real-time performance dashboards</li>
         </ul>
-        <p>At SharpSignal, we combine real data with AI to deliver smarter, sharper picks — not just hype. You're joining a community that values transparency, data-backed confidence, and long-term edge.</p>
-        <p>We’re not just building a newsletter — we’re building a movement. And you’re part of it 💡</p>
-        <p>No spam. No pressure. Just signals that matter.</p>
-        <a href="https://sharpsignal.ai" class="button">View Latest Picks</a>
+        <p>We combine real data with AI to deliver smarter, sharper picks — not just hype.</p>
+        <a href="https://t.me/+I-yXomYH5oNmN2Rh" class="button">👉 Join Free Telegram</a>
+        <a href="https://www.sharps-signal.com/signup" class="button" style="background:#10b981;margin-left:8px;">🔐 Create Dashboard Login</a>
         <div class="footer">
           You can unsubscribe at any time — but we hope you stick around.<br>
-          Sent by SharpSignal · AI. Confidence. Clarity.
+          Sent by SharpSignal · sharps-signal.com
         </div>
       </div>
     </body>
-  </html>
-  `;
-
-
-  return await resend.emails.send({
-    from: 'SharpSignal <welcome@sharpsignal.ai>',
-    to: email,
-    subject: 'Welcome to SharpSignal 🔥',
-    html,
-  });
+  </html>`;
+  try {
+    await sendEmail({
+      from: 'SharpSignal <noreply@sharps-signal.com>',
+      to: email,
+      subject: 'Welcome to SharpSignal 🔥',
+      html,
+    });
+    res.status(200).json({ ok: true })
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to send welcome' })
+  }
 }
