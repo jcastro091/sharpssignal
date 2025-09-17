@@ -35,7 +35,7 @@ export default function Header() {
             SharpSignal
           </Link>
           <Link
-            href="/join"
+            href="/subscribe"
             className="inline-flex items-center px-3 py-1 text-sm bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 transition"
           >
             🎯 Join for Free Picks
