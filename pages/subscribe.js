@@ -7,21 +7,37 @@ export default function JoinPage() {
   const [submitted, setSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // inside pages/subscribe.js
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const res = await fetch('/api/join', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setSubmitted(true);
-      setErrorMsg('');
-    } else {
-      setErrorMsg(data.error || 'Something went wrong');
-    }
-  };
+
+    try {
+      const res = await fetch('/api/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          // include these if you capture them:
+          sport_interest: 'all',
+          utm_source: window?.utm_source || null,
+          utm_medium: window?.utm_medium || null,
+          utm_campaign: window?.utm_campaign || null,
+          referrer: document?.referrer || null,
+        }),
+      });
+
+    // Guard: server might return HTML on errors (e.g., static deploy/404)
+    const ct = res.headers.get('content-type') || '';
+    const payload = ct.includes('application/json') ? await res.json() : { error: await res.text() };
+
+    if (!res.ok) throw new Error(payload?.error || `Join failed (${res.status})`);
+
+    setSubmitted(true);
+    setErrorMsg('');
+  } catch (err) {
+    setErrorMsg(err.message || 'Something went wrong');
+  }
+};
 
   return (
     <>
