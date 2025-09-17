@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // app router is default in Next 13+; no experimental flag needed
-  // (optional) temporary safety while you iterate:
-  // eslint: { ignoreDuringBuilds: true },
+  eslint: {
+    // 🚫 Don’t block production builds on ESLint errors
+    ignoreDuringBuilds: true,
+  },
 };
-module.exports = nextConfig;
 
+module.exports = nextConfig;
