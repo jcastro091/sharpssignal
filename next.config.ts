@@ -1,9 +1,13 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  eslint: {
-    // 🚫 Don’t block production builds on ESLint errors
-    ignoreDuringBuilds: true,
-  },
-};
+// next.config.ts
+import type { NextConfig } from 'next'
 
-module.exports = nextConfig;
+const nextConfig: NextConfig = {
+  // ✅ keep this if you added it earlier to unblock lint
+  eslint: { ignoreDuringBuilds: true },
+
+  // ❌ REMOVE anything like this:
+  // output: 'export',
+  // distDir: 'out',
+}
+
+export default nextConfig
