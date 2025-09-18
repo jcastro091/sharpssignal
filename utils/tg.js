@@ -1,14 +1,24 @@
-// /utils/tg.js
-const TG_API = `https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}`;
+// utils/tg.js
+export async function tgSendMessage(chatId, text) {
+  const token = process.env.TG_BOT_TOKEN;
+  if (!token) throw new Error('TG_BOT_TOKEN missing');
+  if (!chatId) throw new Error('FOUNDER_TG_CHAT_ID missing');
 
-export async function tgSendMessage(chatId, text, extra = {}) {
-  const res = await fetch(`${TG_API}/sendMessage`, {
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
-    headers: { 'Content-Type':'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, ...extra })
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: 'HTML',
+      disable_web_page_preview: true,
+    }),
   });
-  if (!res.ok) {
-    const err = await res.text();
-    console.error('TG sendMessage error:', err);
+
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok || payload.ok === false) {
+    console.error('Telegram sendMessage failed:', { status: res.status, payload });
+    throw new Error(`Telegram send failed: ${payload?.description || res.status}`);
   }
+  return payload;
 }

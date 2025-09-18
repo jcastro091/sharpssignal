@@ -70,13 +70,14 @@ export default async function handler(req, res) {
       email,
       `Sport: ${sport_interest || 'all'}`,
       `UTM: ${utm_source || '-'}/${utm_medium || '-'}/${utm_campaign || '-'}`,
-      referrer ? `Referrer: ${referrer}` : null
+      referrer ? `Referrer: ${referrer}` : null,
     ].filter(Boolean).join('\n');
 
     await tgSendMessage(process.env.FOUNDER_TG_CHAT_ID, lines);
   } catch (e) {
     console.error('Telegram notify error:', e);
   }
+
 
   res.status(200).json({ success: true })
 }
