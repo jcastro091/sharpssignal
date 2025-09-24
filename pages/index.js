@@ -2,6 +2,9 @@
 import Head from 'next/head'
 import Script from 'next/script'
 import Link from 'next/link'
+import { Bot, MessageSquareText, Sparkles, Table as TableIcon, ShieldQuestion } from 'lucide-react'
+import { useRouter } from 'next/router' // (safe even if unused on the homepage)
+
 import {
   Globe,
   Bell,
@@ -46,33 +49,158 @@ export default function Home() {
 
       <main className="bg-gray-50 text-gray-800">
         {/* Hero */}
-        <section className="text-center py-24 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
-          <div className="container mx-auto px-6">
-            <h1 className="text-4xl sm:text-6xl font-extrabold mb-4 drop-shadow-lg">
-              AI‑Powered Signals for Sports, Stocks &amp; FX
-            </h1>
-            <p className="text-lg sm:text-2xl mb-6 max-w-2xl mx-auto leading-relaxed">
-              Real‑time alerts, transparent results, now enhanced with Machine Learning.
-            </p>
-            <p className="text-md sm:text-lg mb-8 max-w-xl mx-auto text-yellow-300 font-semibold">
-              🚨 Limited Beta Access – Join Free & Start Winning
-            </p>
-            <div className="flex justify-center gap-3">
-              <Link
-                href="/join"
-                className="inline-block bg-white text-blue-600 px-8 py-4 rounded-full shadow-lg font-semibold hover:shadow-xl transition"
-              >
-                Get Free Picks
-              </Link>
-              <Link
-                href={enterpriseUrl || '/join'}
-                className="inline-block bg-indigo-500 text-white px-8 py-4 rounded-full shadow-lg font-semibold hover:bg-indigo-600 transition"
-              >
-                All Bets ($20/mo)
-              </Link>
-            </div>
-          </div>
-        </section>
+		{/* HERO — SharpsSignal Assistant */}
+		<section id="hero" className="relative overflow-hidden text-white">
+		  {/* bg */}
+		  <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 via-indigo-600 to-blue-700" />
+		  <div className="absolute -top-24 -left-24 w-[40rem] h-[40rem] rounded-full bg-white/10 blur-3xl" />
+		  <div className="absolute -bottom-40 -right-24 w-[45rem] h-[45rem] rounded-full bg-black/10 blur-3xl" />
+
+		  <div className="relative container mx-auto px-6 py-20 lg:py-28">
+			<div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+			  {/* Copy + CTAs */}
+			  <div>
+				<div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur px-3 py-1.5 rounded-full mb-4 border border-white/20">
+				  <Bot className="w-4 h-4" />
+				  <span className="text-sm font-semibold">Now Live: SharpsSignal Assistant</span>
+				</div>
+
+				<h1 className="text-4xl sm:text-5xl font-extrabold leading-tight drop-shadow-md">
+				  Ask. Compare. Understand.
+				  <span className="block text-emerald-200">Your AI for betting & markets.</span>
+				</h1>
+
+				<p className="mt-4 text-lg sm:text-xl text-white/90 max-w-xl">
+				  The Assistant finds <span className="font-semibold">best odds</span> across books,
+				  explains the <span className="font-semibold">why behind picks</span>, and gives
+				  <span className="font-semibold"> matchup summaries</span>—fast, transparent, and easy.
+				</p>
+
+				{/* Feature list */}
+				<ul className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
+				  <li className="flex items-center gap-3 bg-white/10 border border-white/15 rounded-xl px-3 py-2">
+					<TableIcon className="w-5 h-5 text-emerald-200" />
+					<span className="text-sm">Best odds in seconds</span>
+				  </li>
+				  <li className="flex items-center gap-3 bg-white/10 border border-white/15 rounded-xl px-3 py-2">
+					<MessageSquareText className="w-5 h-5 text-emerald-200" />
+					<span className="text-sm">Pick explanations & movement</span>
+				  </li>
+				  <li className="flex items-center gap-3 bg-white/10 border border-white/15 rounded-xl px-3 py-2">
+					<ShieldQuestion className="w-5 h-5 text-emerald-200" />
+					<span className="text-sm">Quick matchup context</span>
+				  </li>
+				  <li className="flex items-center gap-3 bg-white/10 border border-white/15 rounded-xl px-3 py-2">
+					<Sparkles className="w-5 h-5 text-emerald-200" />
+					<span className="text-sm">Free to try • Pro for live</span>
+				  </li>
+				</ul>
+
+				{/* CTAs */}
+				<div className="mt-8 flex flex-wrap gap-3">
+				  <Link
+					href="/assistant"
+					className="inline-flex items-center gap-2 bg-white text-emerald-700 px-6 py-3 rounded-full font-semibold shadow hover:shadow-lg transition"
+				  >
+					<Sparkles className="w-5 h-5" /> Try the Assistant
+				  </Link>
+				  <Link
+					href="/subscribe"
+					className="inline-flex items-center gap-2 bg-emerald-500/20 border border-white/30 text-white px-6 py-3 rounded-full font-semibold hover:bg-emerald-500/30 transition"
+				  >
+					Join Free
+				  </Link>
+				  <Link
+					href={enterpriseUrl || '/subscribe'}
+					className="inline-flex items-center gap-2 bg-indigo-500/30 border border-white/30 text-white px-6 py-3 rounded-full font-semibold hover:bg-indigo-500/40 transition"
+				  >
+					View Plans
+				  </Link>
+				</div>
+
+				<p className="mt-3 text-xs text-white/80">
+				  Nothing here is financial advice. Bet responsibly.
+				</p>
+			  </div>
+
+			  {/* Visual: compact chat mock */}
+			  <div className="relative">
+				<div className="absolute -inset-6 bg-white/10 blur-2xl rounded-3xl" />
+				<div className="relative bg-white text-gray-800 rounded-3xl shadow-2xl ring-1 ring-black/5 overflow-hidden">
+				  {/* header */}
+				  <div className="flex items-center justify-between px-5 py-3 border-b">
+					<div className="flex items-center gap-2">
+					  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+					  <span className="text-sm font-semibold">SharpsSignal Assistant</span>
+					</div>
+					<span className="text-xs text-gray-400">Live</span>
+				  </div>
+
+				  {/* body */}
+				  <div className="p-5 space-y-4 bg-gray-50">
+					{/* user */}
+					<div className="flex justify-end">
+					  <div className="max-w-[75%] bg-emerald-600 text-white rounded-2xl rounded-br-none px-4 py-3 text-sm shadow">
+						best odds for yankees moneyline
+					  </div>
+					</div>
+
+					{/* odds card */}
+					<div className="flex">
+					  <div className="w-full bg-white rounded-2xl rounded-tl-none px-4 py-4 text-sm shadow border">
+						<div className="text-xs font-semibold text-gray-600 mb-1">Away @ Home — H2H</div>
+						<div className="flex items-center justify-between">
+						  <div className="text-gray-800 font-semibold">Best price for Selection</div>
+						  <span className="text-[11px] bg-gray-100 text-gray-600 px-2 py-1 rounded">Odds shopping</span>
+						</div>
+						<div className="mt-3 border rounded-lg overflow-hidden">
+						  <table className="w-full text-sm">
+							<thead className="bg-gray-100">
+							  <tr>
+								<th className="text-left px-3 py-2 font-medium">Book</th>
+								<th className="text-right px-3 py-2 font-medium">Price</th>
+							  </tr>
+							</thead>
+							<tbody>
+							  <tr className="border-t">
+								<td className="px-3 py-2">FanDuel</td>
+								<td className="px-3 py-2 text-right">-105</td>
+							  </tr>
+							  <tr className="border-t">
+								<td className="px-3 py-2">DraftKings</td>
+								<td className="px-3 py-2 text-right">-110</td>
+							  </tr>
+							</tbody>
+						  </table>
+						</div>
+						<div className="mt-2 text-[11px] text-gray-500">Demo data for preview.</div>
+					  </div>
+					</div>
+
+					{/* user */}
+					<div className="flex justify-end">
+					  <div className="max-w-[75%] bg-emerald-600 text-white rounded-2xl rounded-br-none px-4 py-3 text-sm shadow">
+						explain today’s pick
+					  </div>
+					</div>
+
+					{/* assistant */}
+					<div className="flex">
+					  <div className="max-w-[92%] bg-white rounded-2xl rounded-tl-none px-4 py-3 text-sm shadow border">
+						<div className="font-semibold mb-1">Pick: Under 8.5 @ -110</div>
+						<p className="text-gray-700">
+						  Model edge + late reversal; limits steady. Movement:
+						  <span className="font-mono"> -106 → +100 → -113</span>.
+						</p>
+					  </div>
+					</div>
+				  </div>
+				</div>
+			  </div>
+			</div>
+		  </div>
+		</section>
+
 
         {/* NEW: Machine Learning section */}
         <section className="container mx-auto px-6 py-16">
@@ -115,159 +243,209 @@ export default function Home() {
             </div>
           </div>
         </section>
+		
 
-        {/* How It Works */}
-        <section className="container mx-auto px-6 py-10">
-          <h2 className="text-3xl font-bold mb-8 text-center">How It Works</h2>
-          <div className="flex flex-col sm:flex-row flex-wrap justify-center sm:justify-around items-center gap-6 sm:gap-10">
-            {[
-              { icon: <Tag className="text-blue-600" />, text: 'Pick a plan' },
-              { icon: <Bell className="text-indigo-600" />, text: 'Get Telegram alerts' },
-              { icon: <BarChart2 className="text-purple-600" />, text: 'Track results' },
-              { icon: <Clock className="text-blue-600" />, text: 'Weekly recaps' }
-            ].map((step, i) => (
-              <div key={i} className="flex flex-col items-center text-center max-w-[140px] sm:max-w-xs">
-                <div className="bg-white p-4 rounded-full shadow-md mb-4">{step.icon}</div>
-                <p className="font-medium">{step.text}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+		{/* How It Works (Assistant-first) */}
+		<section className="container mx-auto px-6 py-16">
+		  <h2 className="text-3xl font-bold mb-8 text-center">How It Works</h2>
+		  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+			<div className="bg-white rounded-xl p-6 shadow-sm">
+			  <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center mb-3">
+				<Bot className="text-emerald-600" />
+			  </div>
+			  <h4 className="font-semibold mb-1">Ask the Assistant</h4>
+			  <p className="text-sm text-gray-700">“best odds…”, “explain today’s pick”, or “matchup summary”.</p>
+			</div>
+			<div className="bg-white rounded-xl p-6 shadow-sm">
+			  <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center mb-3">
+				<TableIcon className="text-blue-600" />
+			  </div>
+			  <h4 className="font-semibold mb-1">Compare & Decide</h4>
+			  <p className="text-sm text-gray-700">See a live odds table and the “why” behind the pick.</p>
+			</div>
+			<div className="bg-white rounded-xl p-6 shadow-sm">
+			  <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center mb-3">
+				<Bell className="text-indigo-600" />
+			  </div>
+			  <h4 className="font-semibold mb-1">Get Real-Time Alerts</h4>
+			  <p className="text-sm text-gray-700">Telegram + web. We ping you when edge appears.</p>
+			</div>
+			<div className="bg-white rounded-xl p-6 shadow-sm">
+			  <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center mb-3">
+				<BarChart2 className="text-purple-600" />
+			  </div>
+			  <h4 className="font-semibold mb-1">Track Results</h4>
+			  <p className="text-sm text-gray-700">Dashboard, ROI charts, weekly recap—fully transparent.</p>
+			</div>
+		  </div>
+		</section>
 
-        {/* UPDATED: What a Pick Looks Like (Sports & Trades) */}
-        <section className="bg-gray-100 py-16">
-          <h2 className="text-3xl font-bold mb-6 text-center">What a Pick Looks Like</h2>
-          <div className="container mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Sports Pick Card */}
-            <div className="bg-white rounded-xl shadow-lg p-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold bg-blue-50 text-blue-700 px-3 py-1 rounded-full">
-                  🏈 Sports Pick
-                </span>
-                <span className="text-indigo-600 font-bold">Total: 8.0</span>
-              </div>
-              <div className="text-sm">
-                <p className="font-semibold">San Francisco Giants vs San Diego Padres</p>
-                <p>🗓️ Game Time: Aug 19, 9:40 PM EDT</p>
-                <p>💲 Movement: -106 → +100 → -113 (Down)</p>
-                <p>🔧 Setup: Total Bet</p>
-                <p>🧠 AI: 1.8% | 🧿 Pick: <span className="font-semibold">Under</span></p>
-                <p className="text-xs text-gray-500">bet_id: T198C4DEC219–TOT–I9J4120</p>
-              </div>
-              <Link
-                href="/dashboard"
-                className="block text-center bg-indigo-600 text-white font-semibold py-2 rounded-full hover:bg-indigo-700 transition"
-              >
-                View in Dashboard
-              </Link>
-            </div>
 
-            {/* Trade Alert Card */}
-            <div className="bg-white rounded-xl shadow-lg p-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full">
-                  📈 Trade Alert
-                </span>
-                <span className="text-emerald-700 font-bold">Long</span>
-              </div>
-              <div className="text-sm">
-                <p className="font-semibold">Symbol: TSLA</p>
-                <p>💡 Entry: 329.46 | 🛡️ SL: 329.70 | 🎯 TP: 334.06</p>
-                <p>⏰ Time: 2025‑08‑15 11:59:12 AM EDT</p>
-                <p>📐 RR: 1.25</p>
-                <p>🏷️ Tag: <code className="bg-gray-100 px-1 rounded">setupPullback</code></p>
-              </div>
-              <Link
-                href="/dashboard"
-                className="block text-center bg-emerald-600 text-white font-semibold py-2 rounded-full hover:bg-emerald-700 transition"
-              >
-                View in Dashboard
-              </Link>
-            </div>
-          </div>
-        </section>
+		{/* What a Pick Looks Like (Assistant + Odds) */}
+		<section className="bg-gray-100 py-16">
+		  <h2 className="text-3xl font-bold mb-6 text-center">What a Pick Looks Like</h2>
+		  <div className="container mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+			{/* AI Pick + Explanation */}
+			<div className="bg-white rounded-xl shadow-lg p-6 space-y-3">
+			  <div className="flex items-center justify-between">
+				<span className="text-sm font-semibold bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full">
+				  🤖 AI Pick
+				</span>
+				<span className="text-emerald-700 font-bold">Confidence: 74%</span>
+			  </div>
+			  <div className="text-sm">
+				<p className="font-semibold">Chicago White Sox @ New York Yankees</p>
+				<p>🧿 Pick: <span className="font-semibold">Under 8.5</span> @ -110</p>
+				<p>💡 Why: Model edge + late reversal; limits steady.</p>
+				<p>💲 Movement: <span className="font-mono">+222 → +222 → +200 (Down)</span></p>
+				<p className="text-xs text-gray-500">bet_id: T199788F7A99-H2H-6FBC5D</p>
+			  </div>
+			  <Link
+				href="/assistant?q=explain%20today%E2%80%99s%20pick"
+				className="block text-center bg-emerald-600 text-white font-semibold py-2 rounded-full hover:bg-emerald-700 transition"
+			  >
+				Ask the Assistant
+			  </Link>
+			</div>
 
-        {/* PRICING: Free Picks + All Bets ($20/mo) */}
-        <section className="bg-white py-16">
-          <div className="container mx-auto px-6 text-center">
-            <h2 className="text-3xl font-bold mb-10">Pricing</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Free Picks */}
-              <div className="border rounded-xl p-8 hover:shadow-xl transition bg-gradient-to-br from-blue-50 to-white">
-                <Tag className="text-blue-600 mb-4 mx-auto" />
-                <h3 className="text-2xl font-semibold mb-2">Free Picks</h3>
-                <p className="text-xl font-bold mb-4">$0</p>
-                <ul className="mb-6 space-y-2 text-gray-700">
-                  <li>Weekly free picks</li>
-                  <li>Telegram access (read‑only)</li>
-                  <li>Weekly recap email</li>
-                </ul>
-                <Link
-                  href="/join"
-                  className="inline-block bg-blue-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-blue-700 transition"
-                >
-                  Join Free
-                </Link>
-              </div>
+			{/* Odds Shopping card */}
+			<div className="bg-white rounded-xl shadow-lg p-6">
+			  <div className="flex items-center justify-between">
+				<span className="text-sm font-semibold bg-blue-50 text-blue-700 px-3 py-1 rounded-full">
+				  📊 Odds Shopping
+				</span>
+				<span className="text-gray-700 font-semibold">H2H — Best Price</span>
+			  </div>
+			  <div className="mt-4 border rounded-lg overflow-hidden">
+				<table className="w-full text-sm">
+				  <thead className="bg-gray-100">
+					<tr>
+					  <th className="text-left px-3 py-2 font-medium">Book</th>
+					  <th className="text-right px-3 py-2 font-medium">Price</th>
+					</tr>
+				  </thead>
+				  <tbody>
+					<tr className="border-t">
+					  <td className="px-3 py-2">FanDuel</td>
+					  <td className="px-3 py-2 text-right">-105</td>
+					</tr>
+					<tr className="border-t">
+					  <td className="px-3 py-2">DraftKings</td>
+					  <td className="px-3 py-2 text-right">-110</td>
+					</tr>
+				  </tbody>
+				</table>
+			  </div>
+			  <p className="mt-2 text-xs text-gray-500">Demo data for preview. Try it live in the Assistant.</p>
+			  <Link
+				href="/assistant?q=best%20odds%20for%20yankees%20moneyline"
+				className="mt-3 block text-center bg-indigo-600 text-white font-semibold py-2 rounded-full hover:bg-indigo-700 transition"
+			  >
+				Find Best Odds
+			  </Link>
+			</div>
+		  </div>
+		</section>
 
-              {/* All Bets (Enterprise) */}
-              <div className="relative border-2 border-indigo-600 rounded-xl p-8 hover:shadow-2xl transition bg-gradient-to-br from-indigo-50 to-white">
-                <span className="absolute top-4 right-4 bg-indigo-600 text-white px-2 py-1 rounded-full text-sm">
-                  Best Value
-                </span>
-                <Globe className="text-indigo-600 mb-4 mx-auto" />
-                <h3 className="text-2xl font-semibold mb-2">All Bets (Enterprise)</h3>
-                <p className="text-xl font-bold mb-4">$20/mo</p>
-                <ul className="mb-6 space-y-2 text-gray-700">
-                  <li>All sports & trade alerts</li>
-                  <li>Live dashboard & analytics</li>
-                  <li>Priority support</li>
-                </ul>
-                <Link
-                  href={enterpriseUrl || '/join'}
-                  className="inline-block bg-indigo-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-indigo-700 transition"
-                >
-                  Subscribe
-                </Link>
-              </div>
-            </div>
-          </div>
-        </section>
 
-        {/* Features & Benefits */}
-        <section className="container mx-auto px-6 py-16">
-          <h2 className="text-3xl font-bold mb-8 text-center">Features & Benefits</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-            <div className="flex items-start space-x-4">
-              <Activity className="text-blue-600 mt-1" />
-              <div>
-                <h4 className="font-semibold mb-1">Multi‑Market Coverage</h4>
-                <p>Sports, equities, FX, commodities—all in one place.</p>
-              </div>
-            </div>
-            <div className="flex items-start space-x-4">
-              <BarChart2 className="text-indigo-600 mt-1" />
-              <div>
-                <h4 className="font-semibold mb-1">Transparent Performance</h4>
-                <p>Real‑time charts and historical data.</p>
-              </div>
-            </div>
-            <div className="flex items-start space-x-4">
-              <Bell className="text-purple-600 mt-1" />
-              <div>
-                <h4 className="font-semibold mb-1">Custom Alerts</h4>
-                <p>Push notifications timed to game start or market hours.</p>
-              </div>
-            </div>
-            <div className="flex items-start space-x-4">
-              <Clock className="text-blue-600 mt-1" />
-              <div>
-                <h4 className="font-semibold mb-1">Weekly Deep Dives</h4>
-                <p>Hand‑crafted summaries with key trends.</p>
-              </div>
-            </div>
-          </div>
-        </section>
+		{/* PRICING: Free vs Pro */}
+		<section className="bg-white py-16">
+		  <div className="container mx-auto px-6 text-center">
+			<h2 className="text-3xl font-bold mb-10">Pricing</h2>
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+			  {/* Free */}
+			  <div className="border rounded-xl p-8 hover:shadow-xl transition bg-gradient-to-br from-blue-50 to-white">
+				<Tag className="text-blue-600 mb-4 mx-auto" />
+				<h3 className="text-2xl font-semibold mb-2">Free</h3>
+				<p className="text-xl font-bold mb-4">$0</p>
+				<ul className="mb-6 space-y-2 text-gray-700">
+				  <li>Ask the Assistant (limited)</li>
+				  <li>Weekly free picks</li>
+				  <li>Email/Telegram recap</li>
+				</ul>
+				<Link
+				  href="/join"
+				  className="inline-block bg-blue-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-blue-700 transition"
+				>
+				  Join Free
+				</Link>
+			  </div>
+
+			  {/* Pro */}
+			  <div className="relative border-2 border-indigo-600 rounded-xl p-8 hover:shadow-2xl transition bg-gradient-to-br from-indigo-50 to-white">
+				<span className="absolute top-4 right-4 bg-indigo-600 text-white px-2 py-1 rounded-full text-sm">
+				  Most Popular
+				</span>
+				<Globe className="text-indigo-600 mb-4 mx-auto" />
+				<h3 className="text-2xl font-semibold mb-2">Pro (All Bets)</h3>
+				<p className="text-xl font-bold mb-4">$20/mo</p>
+				<ul className="mb-6 space-y-2 text-gray-700">
+				  <li>Unlimited Assistant + live odds shopping</li>
+				  <li>All sports & trade alerts (real-time)</li>
+				  <li>Dashboard, history & analytics</li>
+				  <li>Priority support</li>
+				</ul>
+				<Link
+				  href={enterpriseUrl || '/subscribe'}
+				  className="inline-block bg-indigo-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-indigo-700 transition"
+				>
+				  Upgrade to Pro
+				</Link>
+			  </div>
+			</div>
+			<p className="mt-4 text-xs text-gray-500">Cancel anytime. No contracts.</p>
+		  </div>
+		</section>
+
+		{/* Features & Benefits (LLM-centric) */}
+		<section className="container mx-auto px-6 py-16">
+		  <h2 className="text-3xl font-bold mb-8 text-center">Features & Benefits</h2>
+		  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+			<div className="flex items-start space-x-4">
+			  <TableIcon className="text-emerald-600 mt-1" />
+			  <div>
+				<h4 className="font-semibold mb-1">Best-Odds Engine</h4>
+				<p>Shop prices across books instantly—no tab hunting.</p>
+			  </div>
+			</div>
+			<div className="flex items-start space-x-4">
+			  <MessageSquareText className="text-indigo-600 mt-1" />
+			  <div>
+				<h4 className="font-semibold mb-1">Explainable Picks</h4>
+				<p>We show movement, context, and the model’s reasoning.</p>
+			  </div>
+			</div>
+			<div className="flex items-start space-x-4">
+			  <ShieldQuestion className="text-blue-600 mt-1" />
+			  <div>
+				<h4 className="font-semibold mb-1">Matchup Summaries</h4>
+				<p>Injuries, timing, weather (where available) at a glance.</p>
+			  </div>
+			</div>
+			<div className="flex items-start space-x-4">
+			  <BarChart2 className="text-purple-600 mt-1" />
+			  <div>
+				<h4 className="font-semibold mb-1">Transparent Results</h4>
+				<p>ROI & win-rate charts with weekly recaps—no cherry-picking.</p>
+			  </div>
+			</div>
+			<div className="flex items-start space-x-4">
+			  <Activity className="text-emerald-600 mt-1" />
+			  <div>
+				<h4 className="font-semibold mb-1">Multi-Market Coverage</h4>
+				<p>Sports, equities, FX, and more—one place to monitor.</p>
+			  </div>
+			</div>
+			<div className="flex items-start space-x-4">
+			  <Bell className="text-indigo-600 mt-1" />
+			  <div>
+				<h4 className="font-semibold mb-1">Real-Time Alerts</h4>
+				<p>Telegram + web; get pinged when the edge appears.</p>
+			  </div>
+			</div>
+		  </div>
+		</section>
+
 
         {/* NEW: Testimonial */}
         <section className="bg-indigo-50 py-16">
@@ -284,28 +462,132 @@ export default function Home() {
           </div>
         </section>
 
-        {/* FAQ (unchanged) */}
-        <section className="container mx-auto px-6 py-16">
-          <h2 className="text-3xl font-bold mb-6 text-center">Frequently Asked Questions</h2>
-          <div className="space-y-4 max-w-3xl mx-auto">
-            {[
-              { q: '📊 What markets do you cover?', a: 'Sports (NFL, NBA, MLB, etc.), stocks, forex, and select commodities. More markets coming soon.' },
-              { q: '⚡ How fast are alerts?', a: 'Within seconds of our AI models confirming a high-confidence setup. Alerts are pushed instantly via Telegram.' },
-              { q: '📲 How do I receive alerts?', a: 'All alerts are sent via our private Telegram channel. You’ll get betting picks, trade signals, and updates in real-time.' },
-              { q: '🎯 How do I know which bets or trades to take?', a: 'Each alert includes symbol/matchup, direction (e.g., LONG, UNDER), entry/odds, and a confidence cue.' },
-              { q: '📈 How accurate is the system?', a: 'We publicly track performance with ROI charts, win rates, and filters by sport, tag, and confidence.' },
-              { q: '📅 Where can I see past picks?', a: 'The dashboard shows all confirmed picks, results, and analytics with filters.' },
-              { q: '🤖 Can I automate?', a: 'Yes — we offer webhook-compatible alerts. Tutorials coming soon.' },
-              { q: '🚫 Can I cancel anytime?', a: 'Yes. No contracts. Cancel anytime.' },
-              { q: '🎁 Is there a free plan?', a: 'Yes — get weekly free picks and recaps on the Free plan.' }
-            ].map((item, i) => (
-              <details key={i} className="border rounded-lg p-4 hover:shadow" open={i === 0}>
-                <summary className="font-medium cursor-pointer">{item.q}</summary>
-                <p className="mt-2 text-gray-700">{item.a}</p>
-              </details>
-            ))}
-          </div>
-        </section>
+		{/* FAQ (revamped) */}
+		<section className="relative py-20">
+		  {/* subtle bg wash */}
+		  <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-emerald-50/50 via-indigo-50/40 to-transparent" />
+
+		  <div className="relative container mx-auto px-6">
+			<div className="text-center max-w-2xl mx-auto mb-10">
+			  <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full mb-4 border border-emerald-200/70">
+				<ShieldQuestion className="w-4 h-4" />
+				<span className="text-sm font-semibold">FAQ</span>
+			  </div>
+			  <h2 className="text-3xl md:text-4xl font-extrabold mb-3">Frequently Asked Questions</h2>
+			  <p className="text-gray-600">
+				Quick answers about the Assistant, pricing, and our signals.
+			  </p>
+			</div>
+
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-5xl mx-auto">
+			  {[
+				{
+				  q: 'What markets do you cover?',
+				  a: 'Sports (NFL, NBA, MLB, etc.), plus equities, FX and select commodities. Coverage expands as we add feeds.',
+				  icon: <Globe className="w-5 h-5 text-emerald-600" />,
+				},
+				{
+				  q: 'How fast are alerts?',
+				  a: 'Within seconds of our models confirming an edge. We post to Telegram and the web dashboard immediately.',
+				  icon: <Bell className="w-5 h-5 text-indigo-600" />,
+				},
+				{
+				  q: 'How do I receive alerts?',
+				  a: 'Join the private Telegram channel from your account. You’ll also see everything in the live dashboard.',
+				  icon: <MessageSquareText className="w-5 h-5 text-blue-600" />,
+				},
+				{
+				  q: 'How do I know which bets or trades to take?',
+				  a: 'Each alert includes matchup/symbol, side (e.g., UNDER, LONG), entry/odds, confidence cue, and brief reasoning.',
+				  icon: <TableIcon className="w-5 h-5 text-emerald-600" />,
+				},
+				{
+				  q: 'How accurate is the system?',
+				  a: 'We publish ROI, win rate, and weekly recaps. No cherry-picking—results are tracked transparently over time.',
+				  icon: <BarChart2 className="w-5 h-5 text-purple-600" />,
+				},
+				{
+				  q: 'Where can I see past picks?',
+				  a: 'The dashboard keeps full history with filters by sport, tag, confidence, and result.',
+				  icon: <Clock className="w-5 h-5 text-blue-600" />,
+				},
+				{
+				  q: 'Can I automate?',
+				  a: 'Yes. We offer webhook-compatible alerts so you can build your own automations. Guides are rolling out.',
+				  icon: <Activity className="w-5 h-5 text-emerald-600" />,
+				},
+				{
+				  q: 'Can I cancel anytime?',
+				  a: 'Absolutely. No contracts. Manage your plan from your account settings.',
+				  icon: <ShieldQuestion className="w-5 h-5 text-indigo-600" />,
+				},
+				{
+				  q: 'Is there a free plan?',
+				  a: 'Yes—use the Assistant with limits and get weekly free picks & recaps. Pro unlocks everything live.',
+				  icon: <BrainCircuit className="w-5 h-5 text-blue-600" />,
+				},
+			  ].map((item, i) => (
+				<details
+				  key={i}
+				  className="group bg-white/90 backdrop-blur border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition"
+				  {...(i === 0 ? { open: true } : {})}
+				>
+				  <summary className="list-none flex items-start gap-3 cursor-pointer select-none">
+					<div className="mt-0.5 shrink-0">{item.icon}</div>
+					<div className="flex-1">
+					  <div className="flex items-center justify-between">
+						<h3 className="font-semibold text-gray-900">{item.q}</h3>
+						{/* chevron */}
+						<svg
+						  className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180"
+						  viewBox="0 0 24 24"
+						  fill="none"
+						  stroke="currentColor"
+						  strokeWidth="2"
+						  strokeLinecap="round"
+						  strokeLinejoin="round"
+						>
+						  <polyline points="6 9 12 15 18 9" />
+						</svg>
+					  </div>
+					</div>
+				  </summary>
+				  <div className="pl-9 pr-1 mt-3 text-gray-700 leading-relaxed">
+					<p>{item.a}</p>
+				  </div>
+				</details>
+			  ))}
+			</div>
+
+			{/* helpful links */}
+			<div className="text-center mt-10">
+			  <div className="inline-flex flex-wrap gap-3">
+				<Link
+				  href="/assistant"
+				  className="inline-flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-full font-semibold hover:bg-emerald-700 transition shadow"
+				>
+				  <Bot className="w-4 h-4" /> Ask the Assistant
+				</Link>
+				<Link
+				  href="/subscribe"
+				  className="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-800 px-5 py-2.5 rounded-full font-semibold hover:bg-gray-50 transition"
+				>
+				  View Plans
+				</Link>
+				<Link
+				  href="/legal#privacy"
+				  className="inline-flex items-center gap-2 bg-white/70 border border-gray-200 text-gray-700 px-5 py-2.5 rounded-full font-semibold hover:bg-white transition"
+				>
+				  Privacy
+				</Link>
+			  </div>
+			  <p className="mt-3 text-xs text-gray-500">
+				Nothing here is financial advice. Bet responsibly.
+			  </p>
+			</div>
+		  </div>
+		</section>
+
 
         {/* Footer */}
         <footer className="bg-gray-100 py-8">

@@ -32,7 +32,7 @@ export default function Header() {
         {/* Left side */}
         <div className="flex flex-col items-start gap-2">
           <Link href="/" className="font-bold text-xl text-black">
-            SharpSignal
+            SharpsSignal
           </Link>
           <Link
             href="/subscribe"
