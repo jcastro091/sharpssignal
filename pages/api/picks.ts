@@ -136,17 +136,24 @@ function diceCoefficient(a: string, b: string) {
   if (!a || !b) return 0;
   if (a === b) return 1;
   if (a.length < 2 || b.length < 2) return 0;
+
   const grams = (x: string) => {
     const out: string[] = [];
     for (let i = 0; i < x.length - 1; i++) out.push(x.slice(i, i + 2));
     return out;
   };
-  const A = grams(a), B = grams(b);
+
+  const A = grams(a);
+  const B = grams(b);
   const setB = new Set(B);
+
   let hits = 0;
   for (const g of A) if (setB.has(g)) hits++;
-  return (2 * hits) / (A.length + B.size);
+
+  // fix: use setB.size, not B.size
+  return (2 * hits) / (A.length + setB.size);
 }
+
 
 function parseLocalTime(s = ""): DateTime | null {
   const tries = [
