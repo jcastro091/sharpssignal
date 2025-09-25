@@ -134,20 +134,30 @@ async function ensureTeamIndexFresh() {
     }
   }
 }
-function diceCoefficient(a: string, b: string): number {
-  if (a.length < 2 || b.length < 2) return a === b ? 1 : 0;
-  const grams = (s: string) => {
-    const arr: string[] = [];
-    for (let i = 0; i < s.length - 1; i++) arr.push(s.slice(i, i + 2));
-    return arr;
+function diceCoefficient(a: string, b: string) {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.length < 2 || b.length < 2) return 0;
+
+  const grams = (x: string) => {
+    const out: string[] = [];
+    for (let i = 0; i < x.length - 1; i++) out.push(x.slice(i, i + 2));
+    return out;
   };
+
   const A = grams(a);
   const B = grams(b);
   const setB = new Set(B);
+
   let hits = 0;
   for (const g of A) if (setB.has(g)) hits++;
-  return (2 * hits) / (A.length + B.size);
+
+  // 👇 this was `A.length + B.size` (B is an array)
+  return (2 * hits) / (A.length + setB.size);
 }
+
+
+
 async function extractTeams(q: string): Promise<string[]> {
   await ensureTeamIndexFresh();
   const idx = TEAM_INDEX!;
