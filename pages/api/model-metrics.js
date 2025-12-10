@@ -2,39 +2,48 @@
 import Papa from "papaparse";
 import { getObjectText, getDataObjectText } from "../../lib/s3Client";
 
-
 export default async function handler(req, res) {
   try {
-    const basePrefix =
-      process.env.MODEL_METRICS_PREFIX || "models/prod/";
+    const basePrefix = "alpha_signal_engine/models/";
 
-    const [modelCardRaw, tierConfigRaw, weeklyRaw] = await Promise.all([
-      getObjectText(basePrefix + "model_card.json"),
-      getObjectText(basePrefix + "tier_config.json"),
-      getObjectText(basePrefix + "weekly_metrics.csv"),
-    ]);
+    let modelCard = null;
+    let tierConfig = null;
+    let weeklyMetrics = [];
 
-    const modelCard = JSON.parse(modelCardRaw);
-    const tierConfig = JSON.parse(tierConfigRaw);
+    // ----- Model card + tier config + weekly metrics (model bucket) -----
+    try {
+      const [modelCardRaw, tierConfigRaw, weeklyRaw] = await Promise.all([
+        getObjectText(basePrefix + "model_card.json"),
+        getObjectText(basePrefix + "tier_config.json"),
+        getObjectText(basePrefix + "weekly_metrics.csv"),
+      ]);
 
-    const weekly = Papa.parse(weeklyRaw, {
-      header: true,
-      dynamicTyping: true,
-      skipEmptyLines: true,
-    }).data;
+      modelCard = JSON.parse(modelCardRaw);
+      tierConfig = JSON.parse(tierConfigRaw);
 
-    const weeklyMetrics = weekly.map((row) => ({
-      week: row.week_start,
-      accuracy: row.accuracy * 100,
-      auc: row.auc,
-      volume: row.n,
-    }));
-	
-	
-    // ----- Daily evaluation metrics (from sharpsignal-ml-data) -----
+      const weeklyParsed = Papa.parse(weeklyRaw, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true,
+      });
+
+      weeklyMetrics = (weeklyParsed.data || [])
+        .filter((row) => row.week != null)
+        .map((row) => ({
+          week: row.week,
+          accuracy: row.accuracy ?? row.win_rate ?? 0,
+          auc: row.auc ?? null,
+          volume: row.n ?? row.count ?? null,
+        }));
+    } catch (err) {
+      console.error("[api/model-metrics] failed to load model-card assets", err);
+    }
+
+    // ----- Daily evaluation metrics (data bucket: sharpsignal-ml-data) -----
+    // ----- Daily evaluation metrics (data bucket: sharpsignal-ml-data) -----
     let dailyEval = null;
     try {
-      // Use "yesterday" which matches your metrics/daily/date=YYYY-MM-DD path
+      // Yesterday, to match metrics/daily/date=YYYY-MM-DD/...
       const now = new Date();
       const evalDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       const dateStr = evalDate.toISOString().slice(0, 10); // "2025-12-09"
@@ -42,53 +51,35 @@ export default async function handler(req, res) {
 
       const evalKey = `metrics/daily/date=${dateStr}/evaluation_${ymd}.json`;
       const evalRaw = await getDataObjectText(evalKey);
-      const evalJson = JSON.parse(evalRaw);
+
+      // <<< THIS IS THE IMPORTANT FIX >>>
+      // Your evaluation JSON has NaN values (Python-style) which are invalid in JSON.
+      // Replace bare NaN tokens with null before parsing.
+      const evalSafe = evalRaw.replace(/\bNaN\b/g, "null");
+      const evalJson = JSON.parse(evalSafe);
 
       dailyEval = {
         date: evalJson.date || dateStr,
         nBets: evalJson.totals?.n_bets ?? null,
-        roi: evalJson.totals?.roi ?? null,           // e.g. 0.5266 = 52.66% ROI
-        winRate: evalJson.totals?.win_rate ?? null,  // e.g. 0.4435 = 44.35%
+        roi: evalJson.totals?.roi ?? null,          // 0.5266 = 52.66%
+        winRate: evalJson.totals?.win_rate ?? null, // 0.4435 = 44.35%
         totalProfit: evalJson.totals?.total_profit ?? null,
         totalStaked: evalJson.totals?.total_staked ?? null,
       };
-    } catch (e) {
-      console.error("[api/model-metrics] failed to load daily evaluation", e);
+    } catch (err) {
+      console.error("[api/model-metrics] failed to load daily evaluation", err);
     }
-	
-	
 
-    return res.status(200).json({
+
+    // Always return 200 with whatever we have
+    res.status(200).json({
       modelCard,
       tierConfig,
       weeklyMetrics,
-	  dailyEval, 
+      dailyEval,
     });
-	
-	
-	
   } catch (err) {
-    console.error("[api/model-metrics] error:", err);
-
-    // 🔥 Dev fallback so your picks page still works even if S3/creds are borked
-    if (process.env.NODE_ENV === "development") {
-      return res.status(200).json({
-        modelCard: {
-          version: "dev-mock",
-          trained_at: null,
-          auc: 0.68,
-        },
-        tierConfig: {
-          tiers: [
-            { code: "A", label: "Tier A", min_proba: 0.65, max_proba: 1.0 },
-            { code: "B", label: "Tier B", min_proba: 0.58, max_proba: 0.65 },
-            { code: "C", label: "Tier C", min_proba: 0.52, max_proba: 0.58 },
-          ],
-        },
-        weeklyMetrics: [],
-      });
-    }
-
-    return res.status(500).json({ error: "Failed to load model metrics" });
+    console.error("[api/model-metrics] outer error:", err);
+    res.status(500).json({ error: "Failed to load model metrics" });
   }
 }
