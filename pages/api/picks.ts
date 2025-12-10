@@ -9,6 +9,9 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { google } from "googleapis";
 import { DateTime } from "luxon";
 import fs from "node:fs";
+import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
+import { parse } from "csv-parse/sync";
+
 
 /* =========================
    Config / Constants
@@ -19,6 +22,12 @@ const TAB_NAME = process.env.GOOGLE_WORKSHEET_NAME || "AllObservations";
 const OBS_TAB = process.env.GOOGLE_OBS_WORKSHEET_NAME || "AllObservations";
 const TZ = process.env.TZ || "America/New_York";
 const CACHE_MS = Number(process.env.PICKS_CACHE_MS || 45_000);
+const s3 = new S3Client({
+  region: process.env.AWS_REGION || "us-east-2",
+});
+
+const ALL_OBS_PREFIX = process.env.ALL_OBS_PREFIX || "raw/all_observations/";
+
 
 if (!SHEET_ID) {
   throw new Error("Missing env GOOGLE_SHEET_ID. Use the ID between /d/ and /edit.");
@@ -96,93 +105,73 @@ function getSheetsClient() {
 
 
 // keep the SAME SHEET_ID you already defined above
+// Load latest all_observations_YYYYMMDD.csv from S3 instead of Google Sheets
+// Load latest all_observations_YYYYMMDD.csv from S3 and return rows as-is
 async function loadAllObservations(nocache = false) {
-  const { client_email, private_key } = loadServiceAccount();
-  const auth = new google.auth.JWT({ email: client_email, key: private_key, scopes: SCOPES });
-  const sheets = google.sheets({ version: "v4", auth });
+  const bucket = process.env.SHARPSIGNAL_DATA_BUCKET;
+  const prefix = ALL_OBS_PREFIX; // e.g. "raw/all_observations/"
 
-  const range = `${OBS_TAB}!A1:ZZ`;
-  console.log("[/api/picks] OBS range:", SHEET_ID, range);  // ✅ debug line
+  if (!bucket) {
+    throw new Error("SHARPSIGNAL_DATA_BUCKET is not set");
+  }
 
-  const { data } = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,  // ✅ same SHEET_ID
-    range,
+  console.log("[/api/picks] OBS S3 listing", { bucket, prefix });
+
+  const listResp = await s3.send(
+    new ListObjectsV2Command({
+      Bucket: bucket,
+      Prefix: prefix,
+    })
+  );
+
+  if (!listResp.Contents || listResp.Contents.length === 0) {
+    throw new Error(`No all_observations files found under prefix ${prefix}`);
+  }
+
+  // Only CSV objects
+  const csvObjects = listResp.Contents.filter(
+    (obj) => obj.Key && obj.Key.endsWith(".csv")
+  );
+
+  if (csvObjects.length === 0) {
+    throw new Error(`No CSV objects found under prefix ${prefix}`);
+  }
+
+  // Latest by LastModified
+  const latest = csvObjects.reduce((a, b) =>
+    !a || (b.LastModified && (!a.LastModified || b.LastModified > a.LastModified))
+      ? b
+      : a
+  );
+
+  console.log(
+    "[/api/picks] OBS latest key:",
+    latest.Key,
+    "LastModified:",
+    latest.LastModified
+  );
+
+  const obj = await s3.send(
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: latest.Key!,
+    })
+  );
+
+  const csvText = await obj.Body.transformToString();
+  console.log("[/api/picks] OBS csv length:", csvText.length);
+
+  // 👇 IMPORTANT: we keep the original headers as object keys
+  const records = parse(csvText, {
+    columns: true,          // <-- use header row as field names
+    skip_empty_lines: true,
   });
 
-  const [headers = [], ...rows] = (data.values || []) as any[][];
-  const R = makeColResolver(headers);
-
-  
-  const mapped = rows.map((r) => {
-    const dir =
-      R.take(r, ["Direction", "ML Direction", "Predicted"]).toLowerCase();
-
-    // 1) Time: use "Game Time" first, fall back to "Timestamp"
-    const ts_local =
-      R.take(r, ["Game Time"]) || R.take(r, ["Timestamp"]) || "";
-
-    // 2) American odds:
-    //    prefer "Odds (Am)" / "American Odds";
-    //    else pick LowVig *side* odds by Direction;
-    //    else convert from Decimal Odds (Current) (or Current/Peak/Opening Decimal)
-    let american_odds =
-      R.take(r, ["Odds (Am)", "American Odds"]) || "";
-
-    if (!american_odds) {
-      const lvHome = R.take(r, ["LowVig Home Odds (Am)"]);
-      const lvAway = R.take(r, ["LowVig Away Odds (Am)"]);
-      if (dir.includes("home") && lvHome) american_odds = lvHome;
-      else if (dir.includes("away") && lvAway) american_odds = lvAway;
-    }
-
-    if (!american_odds) {
-      const decRaw =
-        R.take(r, ["Decimal Odds (Current)", "Current Decimal", "Peak Decimal", "Opening Decimal"]);
-      const dec = Number(decRaw);
-      if (Number.isFinite(dec) && dec > 1) {
-        american_odds = dec >= 2
-          ? String(Math.round((dec - 1) * 100))
-          : String(Math.round(-100 / (dec - 1)));
-      }
-    }
-
-    // 3) Line: choose the side’s spread line, or total line, or empty
-    let line =
-      R.take(r, ["Total Line"]) ||
-      (dir.includes("home") ? R.take(r, ["Spread Line Home"]) : "") ||
-      (dir.includes("away") ? R.take(r, ["Spread Line Away"]) : "") ||
-      "";
-
-    // 4) Prediction text for the UI
-    const pick_side =
-      R.take(r, ["Direction", "ML Direction", "Predicted"]) || "";
-
-    return {
-      ts_local, // <= the UI will map this to "Game Time"
-      sport:    R.take(r, ["Sport", "sport"]),
-      league:   "",
-
-      home:     R.take(r, ["Home", "Home Team", "home"]),
-      away:     R.take(r, ["Away", "Away Team", "away"]),
-      market:   R.take(r, ["Market"]),
-      pick_side,
-      line,
-
-      american_odds,
-      decimal_odds: R.take(r, ["Decimal Odds (Current)", "Current Decimal"]),
-
-      reason:   R.take(r, ["Reason Text"]),
-      movement: R.take(r, ["Movement"]),
-      result:   R.take(r, ["Prediction Result"]),         // "1"/"0"/"Win"/"Lose"
-      risk:     R.take(r, ["Stake Amount"]),              // bankroll calc
-      bet_id:   R.take(r, ["Bet ID"]),
-    };
-  });
-
-
-  console.log("[/api/picks] OBS mapped rows:", mapped.length);
-  return mapped;
+  console.log("[/api/picks] OBS rows:", records.length);
+  return records;
 }
+
+
 
 
 type TeamIndex = { normToCanon: Map<string, string>; canonSet: Set<string> };

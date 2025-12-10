@@ -59,6 +59,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
 
   // helper: parse local-ish date, tolerate "ET/EDT"
   const ET_TOKENS = /\b(?:ET|EDT|EST|E[DS]T)\b/i;
+
   function toLocalDate(raw) {
     if (!raw) return null;
     if (raw instanceof Date) return isNaN(raw) ? null : raw;
@@ -68,10 +69,19 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
       return new Date(base.getTime() + raw * 86400000);
     }
 
-    const s = String(raw).replace(ET_TOKENS, "").trim().replace(/\s+/g, " ");
+    let s = String(raw).trim();
+    // strip ET/EST/EDT etc and normalize to UTC
+    s = s.replace(ET_TOKENS, "UTC").trim();
+
+    // Handle "2025-08-13 13:01:29+00:00" → "2025-08-13T13:01:29+00:00"
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\+\d{2}:\d{2}$/.test(s)) {
+      s = s.replace(" ", "T");
+    }
+
     const d = new Date(s);
     return isNaN(d) ? null : d;
   }
+
 
 
   // make endDate inclusive (end of day)
@@ -109,17 +119,17 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
   const normalized = useMemo(() => {
     return (Array.isArray(filtered) ? filtered : []).map(row => {
       // timestamp (prefer explicit ts fields)
-      const rawTime =
-        row.ts_iso ??
-        row.ts_local ??
-        row["Game Time"] ??
-        row["Commence Time"] ??
-        row.Timestamp ??
-        null;
+      let dt = null;
+      if (rawTime) {
+        let s = String(rawTime).trim();
+        s = s.replace(/\b(ET|EST|EDT)\b/i, "UTC").trim();
+        if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\+\d{2}:\d{2}$/.test(s)) {
+          s = s.replace(" ", "T");
+        }
+        const d = new Date(s);
+        dt = isNaN(d) ? null : d;
+      }
 
-      const dt = rawTime
-        ? new Date(String(rawTime).replace(/\b(ET|EST|EDT)\b/i, "").trim())
-        : null;
 
       // -------- Odds (American) --------
       // accept many header variants including API's american_odds
