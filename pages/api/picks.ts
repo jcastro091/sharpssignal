@@ -15,7 +15,8 @@ import fs from "node:fs";
    ========================= */
 const SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"];
 const SHEET_ID = (process.env.GOOGLE_SHEET_ID || "").trim();
-const TAB_NAME = process.env.GOOGLE_WORKSHEET_NAME || "AllBets";
+const TAB_NAME = process.env.GOOGLE_WORKSHEET_NAME || "AllObservations";
+const OBS_TAB = process.env.GOOGLE_OBS_WORKSHEET_NAME || "AllObservations";
 const TZ = process.env.TZ || "America/New_York";
 const CACHE_MS = Number(process.env.PICKS_CACHE_MS || 45_000);
 
@@ -91,6 +92,99 @@ function getSheetsClient() {
 /* =========================
    Utils
    ========================= */
+// at top of file (near your other consts)
+
+
+// keep the SAME SHEET_ID you already defined above
+async function loadAllObservations(nocache = false) {
+  const { client_email, private_key } = loadServiceAccount();
+  const auth = new google.auth.JWT({ email: client_email, key: private_key, scopes: SCOPES });
+  const sheets = google.sheets({ version: "v4", auth });
+
+  const range = `${OBS_TAB}!A1:ZZ`;
+  console.log("[/api/picks] OBS range:", SHEET_ID, range);  // ✅ debug line
+
+  const { data } = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,  // ✅ same SHEET_ID
+    range,
+  });
+
+  const [headers = [], ...rows] = (data.values || []) as any[][];
+  const R = makeColResolver(headers);
+
+  
+  const mapped = rows.map((r) => {
+    const dir =
+      R.take(r, ["Direction", "ML Direction", "Predicted"]).toLowerCase();
+
+    // 1) Time: use "Game Time" first, fall back to "Timestamp"
+    const ts_local =
+      R.take(r, ["Game Time"]) || R.take(r, ["Timestamp"]) || "";
+
+    // 2) American odds:
+    //    prefer "Odds (Am)" / "American Odds";
+    //    else pick LowVig *side* odds by Direction;
+    //    else convert from Decimal Odds (Current) (or Current/Peak/Opening Decimal)
+    let american_odds =
+      R.take(r, ["Odds (Am)", "American Odds"]) || "";
+
+    if (!american_odds) {
+      const lvHome = R.take(r, ["LowVig Home Odds (Am)"]);
+      const lvAway = R.take(r, ["LowVig Away Odds (Am)"]);
+      if (dir.includes("home") && lvHome) american_odds = lvHome;
+      else if (dir.includes("away") && lvAway) american_odds = lvAway;
+    }
+
+    if (!american_odds) {
+      const decRaw =
+        R.take(r, ["Decimal Odds (Current)", "Current Decimal", "Peak Decimal", "Opening Decimal"]);
+      const dec = Number(decRaw);
+      if (Number.isFinite(dec) && dec > 1) {
+        american_odds = dec >= 2
+          ? String(Math.round((dec - 1) * 100))
+          : String(Math.round(-100 / (dec - 1)));
+      }
+    }
+
+    // 3) Line: choose the side’s spread line, or total line, or empty
+    let line =
+      R.take(r, ["Total Line"]) ||
+      (dir.includes("home") ? R.take(r, ["Spread Line Home"]) : "") ||
+      (dir.includes("away") ? R.take(r, ["Spread Line Away"]) : "") ||
+      "";
+
+    // 4) Prediction text for the UI
+    const pick_side =
+      R.take(r, ["Direction", "ML Direction", "Predicted"]) || "";
+
+    return {
+      ts_local, // <= the UI will map this to "Game Time"
+      sport:    R.take(r, ["Sport", "sport"]),
+      league:   "",
+
+      home:     R.take(r, ["Home", "Home Team", "home"]),
+      away:     R.take(r, ["Away", "Away Team", "away"]),
+      market:   R.take(r, ["Market"]),
+      pick_side,
+      line,
+
+      american_odds,
+      decimal_odds: R.take(r, ["Decimal Odds (Current)", "Current Decimal"]),
+
+      reason:   R.take(r, ["Reason Text"]),
+      movement: R.take(r, ["Movement"]),
+      result:   R.take(r, ["Prediction Result"]),         // "1"/"0"/"Win"/"Lose"
+      risk:     R.take(r, ["Stake Amount"]),              // bankroll calc
+      bet_id:   R.take(r, ["Bet ID"]),
+    };
+  });
+
+
+  console.log("[/api/picks] OBS mapped rows:", mapped.length);
+  return mapped;
+}
+
+
 type TeamIndex = { normToCanon: Map<string, string>; canonSet: Set<string> };
 let _cache: {
   rows: any[] | null;
@@ -546,11 +640,35 @@ export async function findHistoricalPick({
 /* =========================
    API Handler
    ========================= */
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+   
+   
+   
+// pages/api/picks.ts
+export default async function handler(req, res) {
   try {
-    const path = (req.query.history ? "history" : "").toString();
-    const nocache = String(req.query.nocache || "") === "1";
+    // NEVER cache while debugging
+    res.setHeader("Cache-Control", "no-store");
+    const nocache = req.query.nocache === "1" || req.query.nocache === "true";
+    const source = String(req.query.source || "").toLowerCase();
+	console.log("[/api/picks] query.source =", source || "<none>");
 
+    // ✅ FIRST: observations branch (accept a few aliases)
+    if (["observations", "allobservations", "obs"].includes(source)) {
+      console.log("[/api/picks] OBS branch ENTER");
+	  const rows = await loadAllObservations(nocache);
+      console.log("[/api/picks] OBS rows:", rows.length);
+      return res.status(200).json({ ok: true, rows });
+    }
+
+    	// 2) historical lookup route you already support (keep as-is)
+	// if (req.url?.includes("/history")) { ... }
+
+	// 3) default single-pick lookup (keep as-is)
+	// const q = req.query.q ? String(req.query.q) : "";
+	// const result = await getPickForQuery(q, nocache);
+	// return res.status(200).json({ ok: true, result });
+
+/* 
     if (path === "history") {
       const teamsQ = req.query.teams;
       const teams = Array.isArray(teamsQ) ? teamsQ : teamsQ ? [String(teamsQ)] : [];
@@ -565,9 +683,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         nocache,
       });
       return res.status(200).json({ ok: true, result });
-    }
+    } */
 
-    // default: today/next pick with optional q=
+
+    // ✅ Default = single-pick from AllBets
     const q = req.query.q ? String(req.query.q) : "";
     const result = await getPickForQuery(q, nocache);
     return res.status(200).json({ ok: true, result });
@@ -576,3 +695,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ ok: false, error: err?.message || "Internal error" });
   }
 }
+   

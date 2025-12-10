@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.947.0",
     "@isaacs/fs-minipass": "^4.0.1",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/supabase-js": "^2.52.0",
@@ -21,6 +22,7 @@
     "next": "15.3.4",
     "next-auth": "^4.24.11",
     "openai": "^5.21.0",
+    "papaparse": "^5.5.3",
     "react": "^19.0.0",
     "react-datepicker": "^8.4.0",
     "react-dom": "^19.0.0",

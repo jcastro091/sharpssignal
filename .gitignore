@@ -5,6 +5,8 @@
 /.pnp
 .pnp.*
 .yarn/*
+.next/
+.turbo/
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
@@ -32,6 +34,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+.env.local
+.env.*.local
+serviceAccount.b64
+secrets/
 
 # vercel
 .vercel
