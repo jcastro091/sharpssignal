@@ -8,7 +8,97 @@ import {
 } from "recharts";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { computeRealizedRoi } from "../utils/realizedRoi";
+
+// Compute bankroll curve + ROI from your S3 predictions CSV
+function computeRoiFromPredictions(rows, startingBankroll, { kellyFraction = 1 } = {}) {
+  let bankroll = startingBankroll;
+  let peak = bankroll;
+  let worstDrawdown = 0;
+
+  let wins = 0;
+  let losses = 0;
+
+  const history = [];
+
+  // Make sure we run in time order
+  const sorted = [...rows].sort(
+    (a, b) => (a.ts?.getTime() ?? 0) - (b.ts?.getTime() ?? 0)
+  );
+
+  for (const r of sorted) {
+    const ts = r.ts;
+    const odds = Number(r["Odds (Am)"]);
+    let stake = Number(r.Risk);
+
+    if (!ts || !Number.isFinite(odds)) continue;
+    if (!Number.isFinite(stake) || stake <= 0) continue;
+
+    // Apply Kelly fraction slider
+    stake = stake * kellyFraction;
+    if (stake <= 0) continue;
+
+    // Use the S3 "Prediction Result" column for outcome
+    const rawResult = r["Prediction Result"];
+    if (rawResult === null || rawResult === undefined || rawResult === "") {
+      continue;
+    }
+
+    const s = String(rawResult).trim().toLowerCase();
+    let outcome = null; // 1 = win, 0 = loss, "push" = no PnL
+
+    if (s === "1" || s === "win" || s === "won" || s === "w") {
+      outcome = 1;
+    } else if (s === "0" || s === "lose" || s === "loss" || s === "l") {
+      outcome = 0;
+    } else if (s === "p" || s === "push" || s === "2") {
+      outcome = "push";
+    } else {
+      continue; // unknown code, skip
+    }
+
+    let pnl = 0;
+    if (outcome === 1) {
+      // American odds payout
+      if (odds > 0) {
+        // +150 → win 1.5 * stake
+        pnl = stake * (odds / 100);
+      } else {
+        // -110 → win ~0.91 * stake
+        pnl = stake * (100 / Math.abs(odds));
+      }
+      wins++;
+    } else if (outcome === 0) {
+      pnl = -stake;
+      losses++;
+    } else if (outcome === "push") {
+      pnl = 0; // stake returned, bankroll unchanged
+    }
+
+    bankroll += pnl;
+
+    if (bankroll > peak) peak = bankroll;
+    const dd = peak - bankroll;
+    if (dd > worstDrawdown) worstDrawdown = dd;
+
+    history.push({
+      date: ts.toISOString(),
+      bankroll,
+    });
+  }
+
+  const n = wins + losses;
+  const profit = bankroll - startingBankroll;
+  const roiPercent = n > 0 ? (profit / startingBankroll) * 100 : 0;
+  const winRate = n > 0 ? (wins / n) * 100 : 0;
+
+  return {
+    history,
+    roiPercent,
+    winRate,
+    profit,
+    drawdown: worstDrawdown,
+  };
+}
 
 
 export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
@@ -49,6 +139,39 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
   const [sportFilter, setSportFilter] = useState("All");
   const [viewMode, setViewMode] = useState("picks");
   const [mlRoi, setMlRoi] = useState({ history: [], roiPercent: 0, winRate: 0, profit: 0, drawdown: 0 });
+
+
+  // Drive the ROI cards + bankroll curve from daily evaluation JSON
+  useEffect(() => {
+    if (!modelMetrics?.dailyEval) return;
+
+    const evalDaily = modelMetrics.dailyEval;
+
+    const roiPercent = (evalDaily.roi ?? 0) * 100;
+    const winRate = (evalDaily.winRate ?? 0) * 100;
+
+    // Scale expected profit to the current bankroll input
+    // (evaluation.roi is profit / total_staked; here we treat it as edge on bankroll)
+    const profit = bankroll * (evalDaily.roi ?? 0);
+
+    // Simple 2-point bankroll curve: start → end
+    const start = bankroll;
+    const end = bankroll + profit;
+
+    const history = [
+      { date: 0, bankroll: start },
+      { date: 1, bankroll: end },
+    ];
+
+    setMlRoi({
+      history,
+      roiPercent,
+      winRate,
+      profit,
+      drawdown: 0,  // we don't have DD in evaluation yet
+    });
+  }, [modelMetrics, bankroll]);
+
 
   useEffect(() => setMounted(true), []);
 
@@ -99,40 +222,54 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
     const sod = startOfDay(startDate);
     const eod = endOfDay(endDate);
 
-    return arr.filter(pick => {
-      const rawTs = pick["Game Time"] ?? pick.Timestamp ?? pick["Commence Time"] ?? pick.ts_iso ?? pick.ts_local ?? null;
+    return arr.filter((pick) => {
+      const rawTs =
+        pick["Game Time"] ??
+        pick.Timestamp ??
+        pick["Commence Time"] ??
+        pick.ts_iso ??
+        pick.ts_local ??
+        null;
+
       const dt = toLocalDate(rawTs);
-      if (!dt) return false;                 // <- require a valid date
 
       const sport = pick.Sport ?? pick.sport ?? "Unknown";
       const passSport = sportFilter === "All" || sport === sportFilter;
 
+      // If NO date filter is set, don't drop rows just because we
+      // couldn't parse the timestamp – still show them.
+      if (!sod && !eod) {
+        return passSport;
+      }
+
+      // If there IS a date filter and dt is invalid, drop the row.
+      if (!dt) return false;
+
       const passStart = !sod || dt >= sod;
-      const passEnd   = !eod || dt <= eod;
+      const passEnd = !eod || dt <= eod;
 
       return passStart && passEnd && passSport;
     });
   }, [picks, startDate, endDate, sportFilter]);
 
 
+
+  // Normalize columns FROM THE FILTERED LIST
   // Normalize columns FROM THE FILTERED LIST
   const normalized = useMemo(() => {
-    return (Array.isArray(filtered) ? filtered : []).map(row => {
+    return (Array.isArray(filtered) ? filtered : []).map((row) => {
       // timestamp (prefer explicit ts fields)
-      let dt = null;
-      if (rawTime) {
-        let s = String(rawTime).trim();
-        s = s.replace(/\b(ET|EST|EDT)\b/i, "UTC").trim();
-        if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\+\d{2}:\d{2}$/.test(s)) {
-          s = s.replace(" ", "T");
-        }
-        const d = new Date(s);
-        dt = isNaN(d) ? null : d;
-      }
+      const rawTime =
+        row.ts_iso ??
+        row.ts_local ??
+        row["Game Time"] ??
+        row["Commence Time"] ??
+        row.Timestamp ??
+        null;
 
+      const dt = toLocalDate(rawTime);
 
       // -------- Odds (American) --------
-      // accept many header variants including API's american_odds
       const ODDS_KEYS = [
         "Odds (Am)",
         "American Odds",
@@ -140,44 +277,61 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
         "LowVig Home Odds (Am)",
         "LowVig Away Odds (Am)",
         "BetOnline Home Odds (Am)",
-        "BetOnline Away Odds (Am)"
+        "BetOnline Away Odds (Am)",
       ];
-      let oddsRaw = ODDS_KEYS.map(k => row[k]).find(v => v !== undefined && v !== null && v !== "");
+      let oddsRaw = ODDS_KEYS.map((k) => row[k]).find(
+        (v) => v !== undefined && v !== null && v !== ""
+      );
       let oddsAm = Number(String(oddsRaw).replace(/[^0-9.-]/g, ""));
       if (!Number.isFinite(oddsAm)) {
         const dec = Number(
           String(
             row["Decimal Odds (Current)"] ??
-            row.decimal_odds ??
-            row["Current Decimal"] ??
-            row["Peak Decimal"] ??
-            row["Opening Decimal"] ??
-            ""
+              row.decimal_odds ??
+              row["Current Decimal"] ??
+              row["Peak Decimal"] ??
+              row["Opening Decimal"] ??
+              ""
           ).replace(/[^0-9.]/g, "")
         );
         if (Number.isFinite(dec) && dec > 1) {
-          oddsAm = dec >= 2 ? Math.round((dec - 1) * 100) : Math.round(-100 / (dec - 1));
+          oddsAm =
+            dec >= 2
+              ? Math.round((dec - 1) * 100)
+              : Math.round(-100 / (dec - 1));
         } else {
           oddsAm = null;
         }
       }
 
       // -------- Stake / Risk --------
-      const STAKE_KEYS = ["Stake Amount", "Stake", "Risk", "Bet Size", "Kelly Stake", "stake_amount", "risk"];
-      let stakeRaw = STAKE_KEYS.map(k => row[k]).find(v => v !== undefined && v !== null && v !== "");
+      const STAKE_KEYS = [
+        "Stake Amount",
+        "Stake",
+        "Risk",
+        "Bet Size",
+        "Kelly Stake",
+        "stake_amount",
+        "risk",
+      ];
+      let stakeRaw = STAKE_KEYS.map((k) => row[k]).find(
+        (v) => v !== undefined && v !== null && v !== ""
+      );
       let stake = Number(String(stakeRaw).replace(/[^0-9.-]/g, ""));
-      if (!Number.isFinite(stake)) stake = 1; // default
+      if (!Number.isFinite(stake)) stake = 1; // default unit stake
 
       // -------- Predicted Result (0/1) --------
-      // accept sheet variants; coerce strings like "0", "1", "win", "lose"
       const PRED_KEYS = [
+        "Prediction Result", // if present
         "Predicted Result (0/1)",
         "Predicted Result",
         "Prediction",
         "predicted_result",
-        "pred"
+        "pred",
       ];
-      let predRaw = PRED_KEYS.map(k => row[k]).find(v => v !== undefined && v !== null && v !== "");
+      let predRaw = PRED_KEYS.map((k) => row[k]).find(
+        (v) => v !== undefined && v !== null && v !== ""
+      );
       let pred = null;
       if (predRaw !== undefined && predRaw !== null && predRaw !== "") {
         const n = Number(String(predRaw).trim());
@@ -190,16 +344,41 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
         }
       }
 
+      // Optional: map into table-friendly aliases
+      const awayTeam = row["Away Team"] ?? row["Away"] ?? row.away ?? "";
+      const homeTeam = row["Home Team"] ?? row["Home"] ?? row.home ?? "";
+      const predictedSide =
+        row["Predicted"] ?? row["Direction"] ?? row["ML Direction"] ?? "";
+      const oddsTaken =
+        row["Odds Taken"] ??
+        row["Odds (Am)"] ??
+        row["American Odds"] ??
+        "";
+      const kellyPct =
+        row["Kelly"] ?? row["Kelly %"] ?? row["Kelly Stake %"] ?? "";
+
       return {
         ...row,
-        ts: dt,                                       // Date object (internal)
-        ["Game Time"]: dt ? dt.toISOString() : "",    // string for UI/table
-        ["Odds (Am)"]: oddsAm,                        // canonical odds
-        Risk: stake,                                  // canonical stake
-        Prediction: pred,                             // 0/1 or null
+
+        // internal / ROI fields
+        ts: dt,
+        ["Game Time"]:
+          dt ? dt.toISOString() : row["Game Time"] ?? row.Timestamp ?? "",
+        ["Odds (Am)"]: oddsAm,
+        Risk: stake,
+        Prediction: pred,
+
+        // table aliases (so PicksTable sees real data instead of "-")
+        ["Away Team"]: awayTeam,
+        ["Home Team"]: homeTeam,
+        Predicted: predictedSide,
+        ["Odds Taken"]: oddsTaken,
+        Kelly: kellyPct,
       };
     });
   }, [filtered]);
+
+
 
   // sort by time (use ts we added)
   const normSorted = useMemo(
@@ -208,34 +387,50 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
   );
 
   // Build ROI input — require ts + odds + stake + prediction (0/1)
-  const roiInput = useMemo(() => {
-    return normSorted
-      .filter(r =>
-        r.ts &&
-        Number.isFinite(r["Odds (Am)"]) &&
-        Number.isFinite(r.Risk) &&
-        (r.Prediction === 0 || r.Prediction === 1)
-      )
-      .map(r => ({
-        ...r,
-        ts_iso: r.ts.toISOString(),
-        Timestamp: r.ts.toISOString(),
-      }));
+  // Bets we can actually use for realized ROI (must have result + stake + odds)
+/*   const betsForRoi = useMemo(() => {
+    return normSorted.filter((r) => {
+      const hasTs = !!r.ts;
+      const hasOdds = Number.isFinite(r["Odds (Am)"]);
+      const hasStake = Number.isFinite(r.Risk) && r.Risk > 0;
+      const hasResult = r["Prediction Result"] !== null &&
+        r["Prediction Result"] !== undefined &&
+        String(r["Prediction Result"]).trim() !== "";
+
+      return hasTs && hasOdds && hasStake && hasResult;
+    });
   }, [normSorted]);
+ */
+
+  useEffect(() => {
+    console.log("[picks] filtered length =", filtered.length);
+    if (filtered[0]) {
+      console.log("[picks] sample filtered row keys:", Object.keys(filtered[0]));
+      console.log("[picks] filtered[0] Timestamp:", filtered[0].Timestamp);
+    }
+  }, [filtered]);
+
+  useEffect(() => {
+    console.log("[picks] normalized length =", normalized.length);
+    if (normalized[0]) {
+      console.log("[picks] sample normalized row:", {
+        ts: normalized[0].ts,
+        odds: normalized[0]["Odds (Am)"],
+        risk: normalized[0].Risk,
+        pred: normalized[0].Prediction,
+      });
+    }
+  }, [normalized]);
+
 
   // Compute ROI from roiInput only
-  useEffect(() => {
-    const result = computeRealizedRoi(roiInput, bankroll, { kellyFraction });
+/*   useEffect(() => {
+    const result = computeRoiFromPredictions(betsForRoi, bankroll, { kellyFraction });
+    console.log("[picks] computeRoiFromPredictions result:", result);
     setMlRoi(result);
-  }, [roiInput, bankroll, kellyFraction]);
-  
-  
-  useEffect(() => {
-    const first = roiInput[0]?.ts_iso;
-    const last  = roiInput[roiInput.length - 1]?.ts_iso;
-    console.log("[picks] roiInput", roiInput.length, first, "→", last);
-  }, [roiInput]);
+  }, [betsForRoi, bankroll, kellyFraction]);
 
+  */
 
 
   const { history: _hist, roiPercent, winRate, profit, drawdown } = mlRoi;
