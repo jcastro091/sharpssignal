@@ -1,0 +1,14 @@
+[
+  {
+    "email": "you@yourdomain.com",
+    "passwordHash": "$2b$12$8l8Af5VUilI9lr6RYbPB9ejBZrJgmxXvpw2au7pJfoY.VPwg7LuzW"
+  },
+  {
+    "email": "jcastro091@gmail.com",
+    "passwordHash": "$2b$12$mRFJAfyWaHmn9o4yQwx/guaptIHOT7FfhfA/EuAiPmc1/U93EUOtq"
+  },
+  {
+    "email": "sharpssignal@gmail.com",
+    "passwordHash": "$2b$12$gJHL.60ATR4patb8vbMxQudSJ5hkwOb89R.gY8qln3/stiTcJzhXm"
+  }
+]

@@ -1,0 +1,72 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+.next/
+.turbo/
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+.env.*
+!.env.example
+.env.local
+.env.*.local
+serviceAccount.b64
+secrets/
+
+# vercel
+.vercel
+
+# next / node
+node_modules
+.next
+out
+dist
+.vercel
+
+
+
+# logs / local
+*.log
+.DS_Store
+Thumbs.db
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+"telegrambetlogger-9533fe12f488.json" 
+".env.local" 
+"telegrambetlogger-*.json" 
+
+# Google SA keys
+*service-account*.json
+*credentials*.json
+*sa*.json
+telegrambetlogger-*.json
