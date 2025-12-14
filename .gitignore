@@ -51,6 +51,10 @@ out
 dist
 .vercel
 
+# service accounts / secrets
+serviceAccount*
+*.b64
+secrets/
 
 
 # logs / local
