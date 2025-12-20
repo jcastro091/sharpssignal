@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Link from 'next/link';
+import { gaEvent } from "../lib/ga";
+
 
 export default function SignUp() {
   const [email, setEmail] = useState('')
@@ -14,6 +16,7 @@ export default function SignUp() {
   const [utm, setUtm] = useState({ source:'', medium:'', campaign:'', ref:'' })
 
   useEffect(() => {
+	gaEvent({ action: "signup_start", category: "signup", label: "page_load" });
     const url = new URL(window.location.href)
     setUtm({
       source:   url.searchParams.get('utm_source')   || '',
@@ -38,10 +41,13 @@ export default function SignUp() {
     })
 
     if (error) {
+	  gaEvent({ action: "signup_error", category: "signup", label: error.message || "unknown_error" });
       setError(error.message)
       setLoading(false)
       return
     }
+	
+	gaEvent({ action: "signup_success", category: "signup", label: "account_created" });
 
     // Create profile record if user object is returned immediately
     if (data?.user?.id) {
