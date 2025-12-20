@@ -3,9 +3,14 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
 import { parse } from "csv-parse/sync";
 import { Readable } from "stream";
-import { DateTime } from "luxon";
+import { DateTime, IANAZone } from "luxon";
 
-const TZ = process.env.TZ || "America/New_York";
+const DEFAULT_TZ = "America/New_York";
+const TZ =
+  process.env.TZ && IANAZone.isValidZone(process.env.TZ)
+    ? process.env.TZ
+    : DEFAULT_TZ;
+
 const s3 = new S3Client({ region: process.env.AWS_REGION });
 
 const BUCKET = process.env.SS_DATA_BUCKET || "sharpsignal-ml-data";
@@ -180,8 +185,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { rows, lastModifiedISO, key } = await loadLatestObs();
 
-    const now = DateTime.now().setZone(TZ);
-    const today = now.toISODate(); // YYYY-MM-DD
+	const nowRaw = DateTime.now().setZone(TZ);
+	const now = nowRaw.isValid ? nowRaw : DateTime.now().setZone(DEFAULT_TZ);
+	const today = now.toISODate()!; // now is guaranteed valid here
+
     const start7 = now.minus({ days: 7 }).startOf("day");
 
 	const pickRows = rows.filter(isPickRow);
@@ -251,7 +258,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const headers = rows[0] ? Object.keys(rows[0]) : [];
       const sample = rows.slice(0, 3);
       const validDT = rows.filter((r) => parseRowDateTime(r)?.isValid).length;
-      const todayDT = rows.filter((r) => parseRowDateTime(r)?.toISODate?.() === today).length;
+      const todayDT = rows.filter((r) => {
+	    const dt = parseRowDateTime(r);
+	    return dt?.isValid && dt.toISODate() === today;
+	  }).length;
+
 
 
 
