@@ -35,56 +35,11 @@ function parseRowDateTime(row: CsvRow): DateTime | null {
   const raw =
     ciGet(row, ["Timestamp", "Game Time", "Commence Time", "start_time", "ts_iso", "ts_local", "created_at"]) || "";
 
-  if (raw) {
-    // 1) Try ISO directly
-    let dt = DateTime.fromISO(raw, { setZone: true });
-    if (dt.isValid) return dt.setZone(TZ);
+  const iso = normalizeTimestampToISO(raw);
+  if (!iso) return null;
 
-    // 2) Normalize "YYYY-MM-DD HH:mm:ss+00:00" -> "YYYY-MM-DDTHH:mm:ss+00:00"
-    // Also supports "+0000" by inserting colon.
-    let normalized = raw.trim();
-
-    // If it starts with YYYY-MM-DD HH:mm:ss
-    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(normalized)) {
-      normalized = normalized.replace(" ", "T");
-    }
-
-    // Convert +0000 -> +00:00
-    normalized = normalized.replace(/([+-]\d{2})(\d{2})$/, "$1:$2");
-
-    dt = DateTime.fromISO(normalized, { setZone: true });
-    if (dt.isValid) return dt.setZone(TZ);
-
-    // 3) Explicit format parse including offset like +00:00
-    dt = DateTime.fromFormat(normalized, "yyyy-MM-dd'T'HH:mm:ssZZ", { setZone: true });
-    if (dt.isValid) return dt.setZone(TZ);
-
-    // 4) Other common formats (no zone)
-    const candidates = [
-      "yyyy-MM-dd HH:mm:ss",
-      "yyyy-MM-dd HH:mm",
-      "M/d/yyyy H:mm",
-      "M/d/yyyy h:mm a",
-      "MM/dd/yyyy HH:mm:ss",
-      "MM/dd/yyyy hh:mm a",
-    ];
-    for (const fmt of candidates) {
-      dt = DateTime.fromFormat(raw, fmt, { zone: TZ });
-      if (dt.isValid) return dt;
-    }
-  }
-
-  // 5) Fallback: ingest_date is reliable for "today" filtering when game time missing
-  const ingest = ciGet(row, ["ingest_date", "Date", "Game Date", "Event Date", "day", "date"]) || "";
-  if (ingest) {
-    let dt = DateTime.fromISO(ingest, { zone: TZ });
-    if (dt.isValid) return dt.startOf("day");
-
-    dt = DateTime.fromFormat(ingest, "M/d/yyyy", { zone: TZ });
-    if (dt.isValid) return dt.startOf("day");
-  }
-
-  return null;
+  const dt = DateTime.fromISO(iso, { setZone: true });
+  return dt.isValid ? dt.setZone(TZ) : null;
 }
 
 
@@ -100,12 +55,14 @@ function isPickRow(row: CsvRow): boolean {
 
   // fallback: if market exists and predicted side/team exists, treat it as pick-ish
   const market = (row["Market"] || "").trim();
-  const pickish =
-    (row["Predicted Side"] || row["Predicted Team"] || row["Pick"] || "").trim();
+  const pickish = (ciGet(row, ["Predicted", "Predicted Side", "Predicted Team", "Pick"]) || "").trim();
+
   if (market && pickish) return true;
 
   return false;
 }
+
+
 
 function outcomeFromRow(row: CsvRow): "win" | "loss" | "push" | null {
   const raw =
@@ -168,23 +125,24 @@ async function loadLatestObs(): Promise<{ rows: CsvRow[]; lastModifiedISO: strin
 
 function normalizeTimestampToISO(raw: string): string | null {
   if (!raw) return null;
+  const s = raw.trim();
 
-  // raw like: "2025-12-19 19:51:05" or "2025-08-13 13:01:29+00:00"
-  let s = raw.trim();
+  // SQL-style timestamp: "2025-08-13 13:01:29+00:00"
+  let dt = DateTime.fromSQL(s, { setZone: true });
+  if (dt.isValid) return dt.toUTC().toISO();
 
-  // if "YYYY-MM-DD HH:mm:ss..." -> insert T
-  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(s)) {
-    s = s.replace(" ", "T");
-  }
+  // Explicit fallback
+  dt = DateTime.fromFormat(s, "yyyy-MM-dd HH:mm:ssZZ", { setZone: true });
+  if (dt.isValid) return dt.toUTC().toISO();
 
-  // convert +0000 -> +00:00
-  s = s.replace(/([+-]\d{2})(\d{2})$/, "$1:$2");
+  // Final ISO attempt
+  let normalized = s.replace(" ", "T").replace(/([+-]\d{2})(\d{2})$/, "$1:$2");
+  dt = DateTime.fromISO(normalized, { setZone: true });
+  if (dt.isValid) return dt.toUTC().toISO();
 
-  // Luxon can parse this as ISO once normalized
-  const dt = DateTime.fromISO(s, { setZone: true });
-  if (!dt.isValid) return null;
-  return dt.toUTC().toISO(); // store as ISO UTC for sorting
+  return null;
 }
+
 
 function rowToPreviewPick(row: CsvRow) {
   const sport = row["Sport"] || "";
@@ -229,15 +187,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 	const pickRows = rows.filter(isPickRow);
 
 	const MAX_SHOW = 50;
+ 
 
+	  
 	const todayPicks = pickRows
-	  .filter((r) => (ciGet(r, ["ingest_date"]) || "") === today) // ✅ reuse existing "today"
-	  .map(rowToPreviewPick)
-	  .filter((p) => !!p.timestampISO)
+	  .map((row) => {
+		const dt = parseRowDateTime(row);
+		return {
+		  row,
+		  dt,
+		  ingest: ciGet(row, ["ingest_date"]) || "",
+		};
+	  })
+	  .filter(({ dt, ingest }) => {
+		// Prefer ingest_date (this is what your system actually means by "today")
+		if (ingest === today) return true;
+
+		// Fallback: real event date
+		if (dt && dt.isValid) return dt.toISODate() === today;
+
+		return false;
+	  })
+	  .map(({ row }) => rowToPreviewPick(row))
 	  .sort((a, b) => {
 		const ta = a.timestampISO ? Date.parse(a.timestampISO) : 0;
 		const tb = b.timestampISO ? Date.parse(b.timestampISO) : 0;
-		return tb - ta; // ✅ DESC most recent first
+		return tb - ta;
 	  })
 	  .slice(0, MAX_SHOW);
 
@@ -277,6 +252,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const sample = rows.slice(0, 3);
       const validDT = rows.filter((r) => parseRowDateTime(r)?.isValid).length;
       const todayDT = rows.filter((r) => parseRowDateTime(r)?.toISODate?.() === today).length;
+
+
+
 
       return res.status(200).json({
         ok: true,
