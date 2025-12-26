@@ -1,12 +1,13 @@
 // pages/signin.js
-import { useState } from 'react';
 import { useRouter } from 'next/router';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createPagesBrowserClient } from "@supabase/auth-helpers-nextjs";
 import Link from 'next/link';
+import { useMemo, useState, useEffect } from "react";
+
 
 export default function SignInPage() {
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = useMemo(() => createPagesBrowserClient(), []);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

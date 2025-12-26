@@ -2,27 +2,15 @@
 import { useState, useEffect, useMemo } from "react";
 import PicksTable from "../components/PicksTable.jsx";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-
-import { gaEvent } from "../lib/ga";
 
 // --- Tonight window helpers (ET) ---
 const ET_TZ = "America/New_York";
 const TONIGHT_START_HOUR = 17; // 5pm ET
 const TONIGHT_END_HOUR = 2; // 2am ET (next day)
-
-function track(action, label, value) {
-  gaEvent({ action, category: "picks", label, value });
-}
 
 function getEtParts(date) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -37,6 +25,8 @@ function getEtParts(date) {
   return Object.fromEntries(parts.map((p) => [p.type, p.value]));
 }
 
+// Decide if a datetime is "tonight" in ET.
+// (Same-day >= 5pm OR next-day <= 2am)
 function isTonightET(date) {
   if (!date) return false;
   const p = getEtParts(date);
@@ -45,6 +35,7 @@ function isTonightET(date) {
 
   if (hour >= TONIGHT_START_HOUR) return true;
   if (hour <= TONIGHT_END_HOUR) return true;
+
   return false;
 }
 
@@ -55,77 +46,6 @@ function formatEtTime(date) {
     hour: "numeric",
     minute: "2-digit",
   }).format(date);
-}
-
-function TelegramUpsellCTA() {
-  const checkoutUrl =
-    process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER ||
-    process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER ||
-    null;
-
-  const telegramUrl = process.env.NEXT_PUBLIC_TELEGRAM_PRO_URL || null;
-
-  // track "view" once (when component mounts)
-  useEffect(() => {
-    track("telegram_cta_viewed", "top_banner");
-  }, []);
-
-  return (
-    <div className="bg-white border rounded-2xl shadow p-5 mb-6">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-2 text-xs font-semibold bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full border">
-            Realtime Plays
-          </div>
-          <h2 className="text-xl font-bold mt-2">
-            Want picks the moment they trigger?
-          </h2>
-          <p className="text-sm text-gray-600 mt-1 max-w-2xl">
-            Get realtime Telegram alerts when the edge appears (movement + limits).{" "}
-            <span className="font-semibold">$20/mo</span>. Cancel anytime.
-          </p>
-
-          <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-600">
-            <span className="px-2 py-1 bg-gray-100 rounded-full">✅ Instant alerts</span>
-            <span className="px-2 py-1 bg-gray-100 rounded-full">✅ No spam</span>
-            <span className="px-2 py-1 bg-gray-100 rounded-full">✅ Full dashboard</span>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-3">
-          <a
-            href={checkoutUrl || "/signup"}
-            onClick={() => track("telegram_cta_checkout_click", "top_banner")}
-            className={`inline-flex items-center justify-center px-5 py-3 rounded-xl font-semibold ${
-              checkoutUrl
-                ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                : "bg-gray-200 text-gray-500"
-            }`}
-          >
-            Upgrade ($20/mo)
-          </a>
-
-          <a
-            href={telegramUrl || "#"}
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => track("telegram_cta_join_click", "top_banner")}
-            className={`inline-flex items-center justify-center px-5 py-3 rounded-xl font-semibold border ${
-              telegramUrl
-                ? "bg-white hover:bg-gray-50 text-gray-900"
-                : "bg-gray-50 text-gray-400 cursor-not-allowed"
-            }`}
-          >
-            Join Telegram
-          </a>
-        </div>
-      </div>
-
-      <div className="mt-3 text-xs text-gray-500">
-        Tip: Keep a consistent unit size. Don’t chase.
-      </div>
-    </div>
-  );
 }
 
 export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
@@ -141,7 +61,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
   const [endDate, setEndDate] = useState(null);
   const [sportFilter, setSportFilter] = useState("All");
 
-  // Table filters
+  // Table filters (requested)
   const [q, setQ] = useState("");
   const [marketFilter, setMarketFilter] = useState("All");
   const [sideFilter, setSideFilter] = useState("All");
@@ -163,11 +83,6 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
 
   useEffect(() => setMounted(true), []);
 
-  // GA: page view event
-  useEffect(() => {
-    track("picks_viewed", "page_load");
-  }, []);
-
   useEffect(() => {
     async function loadModelMetrics() {
       try {
@@ -183,6 +98,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
     loadModelMetrics();
   }, []);
 
+  // Drive the ROI cards + bankroll curve from daily evaluation JSON
   useEffect(() => {
     if (!modelMetrics?.dailyEval) return;
 
@@ -228,6 +144,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
     let s = String(raw).trim();
     s = s.replace(ET_TOKENS, "UTC").trim();
 
+    // "2025-08-13 13:01:29+00:00" -> "2025-08-13T13:01:29+00:00"
     if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\+\d{2}:\d{2}$/.test(s)) {
       s = s.replace(" ", "T");
     }
@@ -250,6 +167,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
     return s;
   }
 
+  // Apply date + sport filters first
   const filtered = useMemo(() => {
     const arr = Array.isArray(picks) ? picks : [];
     const sod = startOfDay(startDate);
@@ -279,6 +197,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
     });
   }, [picks, startDate, endDate, sportFilter]);
 
+  // Normalize the filtered list
   const normalized = useMemo(() => {
     return (Array.isArray(filtered) ? filtered : []).map((row) => {
       const rawTime =
@@ -291,6 +210,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
 
       const dt = toLocalDate(rawTime);
 
+      // Odds
       const ODDS_KEYS = [
         "Odds (Am)",
         "American Odds",
@@ -320,11 +240,13 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
         }
       }
 
+      // Stake / Risk
       const STAKE_KEYS = ["Stake Amount", "Stake", "Risk", "Bet Size", "Kelly Stake", "stake_amount", "risk"];
       let stakeRaw = STAKE_KEYS.map((k) => row[k]).find((v) => v !== undefined && v !== null && v !== "");
       let stake = Number(String(stakeRaw).replace(/[^0-9.-]/g, ""));
       if (!Number.isFinite(stake)) stake = 1;
 
+      // Predicted result if present
       const PRED_KEYS = ["Prediction Result", "Predicted Result (0/1)", "Predicted Result", "Prediction", "predicted_result", "pred"];
       let predRaw = PRED_KEYS.map((k) => row[k]).find((v) => v !== undefined && v !== null && v !== "");
       let pred = null;
@@ -342,42 +264,51 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
       const homeTeam = row["Home Team"] ?? row["Home"] ?? row.home ?? "";
       const predictedSide = row["Predicted"] ?? row["Direction"] ?? row["ML Direction"] ?? "";
 
-      const tierRaw =
-        row.Tier ??
-        row["Tier"] ??
-        row["Tier Code"] ??
-        row["TierCode"] ??
-        row["tier"] ??
-        row["tier_code"] ??
-        row["Pick Tier"] ??
-        row["PickTier"] ??
-        row["Pro Tier"] ??
-        row["ProTier"] ??
-        null;
+	  // --- Tier (match picks-preview behavior) ---
+	  const tierRaw =
+	    row.Tier ??
+	    row["Tier"] ??
+	    row["Tier Code"] ??
+	    row["TierCode"] ??
+	    row["tier"] ??
+	    row["tier_code"] ??
+	    row["Pick Tier"] ??
+	    row["PickTier"] ??
+	    row["Pro Tier"] ??
+	    row["ProTier"] ??
+	    null;
 
-      const tierCode = tierRaw ? String(tierRaw).trim().split(" ")[0].replace(/[()]/g, "") : "";
+	  // normalize like "A (Pro)" -> "A"
+	  const tierCode = tierRaw ? String(tierRaw).trim().split(" ")[0].replace(/[()]/g, "") : "";
 
-      return {
-        ...row,
-        ts: dt,
-        ["Game Time"]: dt ? dt.toISOString() : row["Game Time"] ?? row.Timestamp ?? "",
-        ["Odds (Am)"]: oddsAm,
-        Risk: stake,
-        Prediction: pred,
-        ["Away Team"]: awayTeam,
-        ["Home Team"]: homeTeam,
-        Predicted: predictedSide,
-        Tier: tierCode || "-",
-        ["Tier Label"]: tierRaw || "-",
-      };
+	  return {
+	    ...row,
+	    ts: dt,
+	    ["Game Time"]: dt ? dt.toISOString() : row["Game Time"] ?? row.Timestamp ?? "",
+	    ["Odds (Am)"]: oddsAm,
+	    Risk: stake,
+	    Prediction: pred,
+
+	    // table-friendly aliases
+	    ["Away Team"]: awayTeam,
+	    ["Home Team"]: homeTeam,
+	    Predicted: predictedSide,
+
+	    // ✅ Tier fields for table
+	    Tier: tierCode || "-",           // e.g. A/B/C
+	    ["Tier Label"]: tierRaw || "-",  // e.g. "A (Pro)" if present
+	  };
+
     });
   }, [filtered]);
 
+  // Options for table filters (AFTER normalized exists)
   const uniqueMarkets = useMemo(() => {
     const set = new Set((normalized || []).map((r) => r.Market).filter(Boolean));
     return ["All", ...Array.from(set)];
   }, [normalized]);
 
+  // Tonight’s picks (sorted ASC by time so the night reads in order)
   const tonightPicks = useMemo(() => {
     const arr = Array.isArray(normalized) ? normalized : [];
     const t = arr.filter((row) => isTonightET(row.ts));
@@ -385,6 +316,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
     return t;
   }, [normalized]);
 
+  // Apply table filters + sort DESC (newest first)
   const tableRows = useMemo(() => {
     const needle = q.trim().toLowerCase();
 
@@ -398,6 +330,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
       const dir = String(r.Direction || r.Predicted || "").trim().toLowerCase();
       const passSide = sideFilter === "All" || dir === sideFilter.toLowerCase();
 
+      // Try common result fields (this won’t break if empty)
       const rawRes = String(r.Winner ?? r["Prediction Result"] ?? r.Result ?? "").trim().toLowerCase();
       const passRes =
         resultFilter === "All" ||
@@ -408,9 +341,11 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
       return passQ && passMarket && passSide && passRes;
     });
 
+    // DESC by timestamp (today first)
     return filteredRows.sort((a, b) => (b.ts?.getTime() ?? 0) - (a.ts?.getTime() ?? 0));
   }, [normalized, q, marketFilter, sideFilter, resultFilter]);
 
+  // Tier summaries (if present)
   let tierSummaries = [];
   if (modelMetrics?.tierConfig?.tiers && Array.isArray(modelMetrics.tierConfig.tiers)) {
     const byCode = {};
@@ -433,10 +368,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
 
   return (
     <div className="bg-gray-50 text-gray-900 min-h-screen p-4 sm:p-8">
-      <h1 className="text-3xl font-bold mb-3">All Observations & Trades</h1>
-
-      {/* NEW: CTA */}
-      <TelegramUpsellCTA />
+      <h1 className="text-3xl font-bold mb-6">All Observations & Trades</h1>
 
       {/* Global Filters */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -538,6 +470,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
               const market = p.Market || p.market || "-";
               const dir = p.Direction || p.Predicted || "";
               const timeLabel = p.ts ? formatEtTime(p.ts) : "";
+
               const movement = p.Movement ?? "";
               const odds = p["Odds (Am)"];
               const reason = p["Reason Text"];
@@ -671,65 +604,65 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
         </ResponsiveContainer>
       </div>
 
-      {/* Table Filters */}
-      <div className="bg-white p-4 rounded-xl shadow border mb-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Search team</label>
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="w-full px-3 py-2 border rounded bg-white"
-              placeholder="e.g. Yankees"
-            />
-          </div>
+      {/* Table Filters (only for picks view) */}
+		<div className="bg-white p-4 rounded-xl shadow border mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Search team</label>
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="w-full px-3 py-2 border rounded bg-white"
+                placeholder="e.g. Yankees"
+              />
+            </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Market</label>
-            <select
-              value={marketFilter}
-              onChange={(e) => setMarketFilter(e.target.value)}
-              className="w-full px-3 py-2 border rounded bg-white"
-            >
-              {uniqueMarkets.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Market</label>
+              <select
+                value={marketFilter}
+                onChange={(e) => setMarketFilter(e.target.value)}
+                className="w-full px-3 py-2 border rounded bg-white"
+              >
+                {uniqueMarkets.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Side</label>
-            <select
-              value={sideFilter}
-              onChange={(e) => setSideFilter(e.target.value)}
-              className="w-full px-3 py-2 border rounded bg-white"
-            >
-              <option value="All">All</option>
-              <option value="Down">Down</option>
-              <option value="Up">Up</option>
-            </select>
-          </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Side</label>
+              <select
+                value={sideFilter}
+                onChange={(e) => setSideFilter(e.target.value)}
+                className="w-full px-3 py-2 border rounded bg-white"
+              >
+                <option value="All">All</option>
+                <option value="Down">Down</option>
+                <option value="Up">Up</option>
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Result</label>
-            <select
-              value={resultFilter}
-              onChange={(e) => setResultFilter(e.target.value)}
-              className="w-full px-3 py-2 border rounded bg-white"
-            >
-              <option value="All">All</option>
-              <option value="Win">Win</option>
-              <option value="Lose">Lose</option>
-              <option value="Push">Push</option>
-            </select>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Result</label>
+              <select
+                value={resultFilter}
+                onChange={(e) => setResultFilter(e.target.value)}
+                className="w-full px-3 py-2 border rounded bg-white"
+              >
+                <option value="All">All</option>
+                <option value="Win">Win</option>
+                <option value="Lose">Lose</option>
+                <option value="Push">Push</option>
+              </select>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Table */}
-      {mounted && <PicksTable picks={tableRows} />}
+      {/* Tables */}
+	  {mounted && <PicksTable picks={tableRows} />}
     </div>
   );
 }

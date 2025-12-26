@@ -1,131 +1,169 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabaseClient'
-import Link from 'next/link';
-import { gaEvent } from "../lib/ga";
-
+// pages/signup.js
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
+import { createPagesBrowserClient } from "@supabase/auth-helpers-nextjs";
 
 export default function SignUp() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [sport, setSport] = useState('all')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [message, setMessage] = useState(null)
+  const router = useRouter();
+  const supabase = useMemo(() => createPagesBrowserClient(), []);
 
-  // UTM state
-  const [utm, setUtm] = useState({ source:'', medium:'', campaign:'', ref:'' })
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState("");
 
+  // If they are already logged in, go to picks
   useEffect(() => {
-	gaEvent({ action: "signup_start", category: "signup", label: "page_load" });
-    const url = new URL(window.location.href)
-    setUtm({
-      source:   url.searchParams.get('utm_source')   || '',
-      medium:   url.searchParams.get('utm_medium')   || '',
-      campaign: url.searchParams.get('utm_campaign') || '',
-      ref:      url.searchParams.get('ref')          || ''
-    })
-  }, [])
+    let mounted = true;
 
-  const handleSignUp = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-    setMessage(null)
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: 'https://sharps-signal.com/welcome',
+      if (data?.session) {
+        router.replace("/picks");
       }
-    })
+    })();
 
-    if (error) {
-	  gaEvent({ action: "signup_error", category: "signup", label: error.message || "unknown_error" });
-      setError(error.message)
-      setLoading(false)
-      return
-    }
-	
-	gaEvent({ action: "signup_success", category: "signup", label: "account_created" });
+    return () => {
+      mounted = false;
+    };
+  }, [router, supabase]);
 
-    // Create profile record if user object is returned immediately
-    if (data?.user?.id) {
-      const { error: profileError } = await supabase.from('profiles').upsert([{
-        id: data.user.id,
-        email,
-        role: 'user',
-      }])
-      if (profileError) {
-        setError(`Signup succeeded but profile creation failed: ${profileError.message}`)
-      }
-    }
+  const handleMagicLink = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setStatus("");
 
-    // Log the lead + UTMs + sport pref and trigger welcome/alerts
     try {
-      await fetch('/api/join', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({
-          email,
-          sport_interest: sport,
-          utm_source: utm.source,
-          utm_medium: utm.medium,
-          utm_campaign: utm.campaign,
-          referrer: utm.ref
-        })
-      })
-    } catch (_) {}
+      if (typeof window === "undefined") {
+        setStatus("This page must run in the browser.");
+        return;
+      }
 
-    setMessage('✅ Check your inbox for a confirmation email before signing in.')
-    setLoading(false)
-  }
+      // Build a safe redirect URL
+      const emailRedirectTo = new URL("/auth/callback", window.location.origin);
+      // Use "picks" (no leading slash) to avoid double-encoding issues in query params
+      emailRedirectTo.searchParams.set("next", "/picks");
+
+
+      console.log("[signup] origin =", window.location.origin);
+      console.log("[signup] emailRedirectTo =", emailRedirectTo.toString());
+
+      const { data, error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: emailRedirectTo.toString(),
+        },
+      });
+
+      if (error) {
+        console.error("[signup] supabase error full:", JSON.stringify(error, null, 2));
+        setStatus(error.message || "Error sending confirmation email");
+        return;
+      }
+
+      console.log("[signup] signInWithOtp ok:", data);
+      setStatus("✅ Check your email for a login link…");
+    } catch (err) {
+      console.error("[signup] unexpected error:", err);
+      setStatus("Something went wrong. Check console/network logs.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
-      <div className="bg-white shadow-xl rounded-xl p-8 w-full max-w-md">
-        <h1 className="text-2xl font-bold text-center mb-6">Create Account</h1>
-        <form onSubmit={handleSignUp} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
-            <input type="email" value={email} onChange={(e)=>setEmail(e.target.value)} required
-              className="w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+    <>
+      <div style={{ minHeight: "80vh", display: "grid", placeItems: "center" }}>
+        <div
+          style={{
+            width: 420,
+            background: "#fff",
+            padding: 28,
+            borderRadius: 12,
+            boxShadow: "0 10px 30px rgba(0,0,0,.08)",
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: 22 }}>Create Account</h2>
+          <p style={{ marginTop: 8, color: "#666", fontSize: 14 }}>
+            We’ll send you a one-time magic link.
+          </p>
+
+          <form onSubmit={handleMagicLink}>
+            <label style={{ fontSize: 13, fontWeight: 600 }}>Email</label>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              type="email"
+              required
+              style={{
+                width: "100%",
+                marginTop: 6,
+                padding: 10,
+                border: "1px solid #ddd",
+                borderRadius: 8,
+              }}
+              disabled={loading}
+            />
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: "100%",
+                marginTop: 14,
+                padding: 12,
+                borderRadius: 10,
+                border: "none",
+                background: "#4f46e5",
+                color: "white",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              {loading ? "Sending link…" : "Send Magic Link"}
+            </button>
+			<div
+			  style={{
+				marginTop: 12,
+				fontSize: 12,
+				color: "#6b7280",
+				textAlign: "center",
+				lineHeight: 1.5,
+			  }}
+			>
+			  No credit card required • Free to try • Cancel anytime
+			  <br />
+			  We never spam or sell your email.
+			</div>
+			
+			
+			
+			
+			
+          </form>
+
+          {status && (
+            <div
+              style={{
+                marginTop: 14,
+                fontSize: 13,
+                color: status.startsWith("✅") ? "#16a34a" : "#b91c1c",
+              }}
+            >
+              {status}
+            </div>
+          )}
+
+          <div style={{ marginTop: 16, fontSize: 13 }}>
+            Already have an account?{" "}
+            <a href="/signin" style={{ color: "#4f46e5", fontWeight: 700 }}>
+              Sign In
+            </a>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Password</label>
-            <input type="password" value={password} onChange={(e)=>setPassword(e.target.value)} required
-              className="w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">What sports do you want?</label>
-            <select value={sport} onChange={(e)=>setSport(e.target.value)}
-              className="w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="all">All sports</option>
-              <option value="nba">NBA</option>
-              <option value="mlb">MLB</option>
-              <option value="nfl">NFL</option>
-              <option value="nhl">NHL</option>
-              <option value="soccer">Soccer</option>
-              <option value="mma">MMA</option>
-            </select>
-          </div>
-
-          <button type="submit" disabled={loading}
-            className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md font-semibold hover:bg-indigo-700 transition">
-            {loading ? 'Signing up…' : 'Sign Up'}
-          </button>
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          {message && <p className="text-sm text-green-600">{message}</p>}
-        </form>
-
-        <p className="mt-6 text-center text-sm text-gray-600">
-          Already have an account?{' '}
-          <Link href="/signin" className="text-indigo-600 hover:underline">Sign In</Link>
-        </p>
+        </div>
       </div>
-    </div>
-  )
+    </>
+  );
 }
