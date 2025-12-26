@@ -4,6 +4,9 @@ import { getObjectText, getDataObjectText, listDataObjects } from "../../lib/s3C
 
 
 export default async function handler(req, res) {
+	
+  console.log("[api/model-metrics] BUILD = fallback-v1");
+  console.log("[api/model-metrics] typeof listDataObjects =", typeof listDataObjects);
   try {
     const basePrefix = "alpha_signal_engine/models/";
 
@@ -109,7 +112,9 @@ export default async function handler(req, res) {
 	  // Fallback: load the latest evaluation_*.json in S3 if today/yesterday not found
 	  if (!dailyEval) {
 		console.log("[api/model-metrics] falling back to latest evaluation_*.json under metrics/daily/");
+		
 		const objs = await listDataObjects("metrics/daily/");
+		console.log("[api/model-metrics] fallback objs count =", objs?.length);
 
 		const evalObjs = objs
 		  .filter((o) => o?.Key && o.Key.includes("/evaluation_") && o.Key.endsWith(".json"))
@@ -139,6 +144,7 @@ export default async function handler(req, res) {
 
     // Always return 200 with whatever we have
     res.status(200).json({
+	  _build: "fallback-v1",
       modelCard,
       tierConfig,
       weeklyMetrics,
