@@ -47,7 +47,11 @@ export default async function handler(req, res) {
 	let dailyEval = null;
 
 	try {
-	  const TZ = process.env.TZ || "America/New_York";
+	  const TZ =
+	    process.env.APP_TIMEZONE ||
+	    process.env.SS_TIMEZONE ||
+	    "America/New_York";
+
 
 	  const etTodayStr = () => {
 		const parts = new Intl.DateTimeFormat("en-CA", {
