@@ -58,71 +58,145 @@ function formatEtTime(date) {
 }
 
 function TelegramUpsellCTA() {
-  const checkoutUrl =
-    process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER ||
-    process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER ||
-    null;
+  const checkoutUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER || "/signup";
 
-  const telegramUrl = process.env.NEXT_PUBLIC_TELEGRAM_PRO_URL || null;
+  const [telegramUrl, setTelegramUrl] = useState(null);
+  const [unlockError, setUnlockError] = useState(null);
+  const [verifying, setVerifying] = useState(false);
 
-  // track "view" once (when component mounts)
   useEffect(() => {
-    track("telegram_cta_viewed", "top_banner");
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get("checkout");
+    const session_id = params.get("session_id");
+
+    if (checkout === "success" && session_id) {
+      setVerifying(true);
+
+      (async () => {
+        try {
+          const r = await fetch(
+            `/api/stripe/verify-success?session_id=${encodeURIComponent(session_id)}`
+          );
+          const j = await r.json();
+
+          if (j.ok && j.telegramUrl) {
+            setTelegramUrl(j.telegramUrl);
+
+            // Optional: clean up the URL so the success params don't stick around
+            // (prevents re-verifying on refresh + makes the URL pretty)
+            try {
+              const url = new URL(window.location.href);
+              url.searchParams.delete("checkout");
+              url.searchParams.delete("session_id");
+              window.history.replaceState({}, "", url.toString());
+            } catch {}
+          } else {
+            setUnlockError(j?.error || "Payment not verified yet.");
+          }
+        } catch {
+          setUnlockError("Could not verify payment.");
+        } finally {
+          setVerifying(false);
+        }
+      })();
+    }
   }, []);
 
-  return (
-    <div className="bg-white border rounded-2xl shadow p-5 mb-6">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+  // ✅ PAID state: show ONLY the Join Telegram CTA (no upgrade pitch)
+  if (telegramUrl) {
+    return (
+      <div className="bg-white rounded-2xl shadow border p-5 sm:p-6 mb-6 flex items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 text-xs font-semibold bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full border">
+          <div className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50">
             Realtime Plays
           </div>
-          <h2 className="text-xl font-bold mt-2">
-            Want picks the moment they trigger?
+          <h2 className="text-lg sm:text-xl font-bold mt-3">
+            You’re in. Join the Telegram to get realtime alerts.
           </h2>
-          <p className="text-sm text-gray-600 mt-1 max-w-2xl">
-            Get realtime Telegram alerts when the edge appears (movement + limits).{" "}
-            <span className="font-semibold">$20/mo</span>. Cancel anytime.
+          <p className="text-sm text-gray-600 mt-1">
+            Instant alerts when the edge appears (movement + limits).
           </p>
-
-          <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-600">
-            <span className="px-2 py-1 bg-gray-100 rounded-full">✅ Instant alerts</span>
-            <span className="px-2 py-1 bg-gray-100 rounded-full">✅ No spam</span>
-            <span className="px-2 py-1 bg-gray-100 rounded-full">✅ Full dashboard</span>
-          </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <a
-            href={checkoutUrl || "/signup"}
-            onClick={() => track("telegram_cta_checkout_click", "top_banner")}
-            className={`inline-flex items-center justify-center px-5 py-3 rounded-xl font-semibold ${
-              checkoutUrl
-                ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                : "bg-gray-200 text-gray-500"
-            }`}
-          >
-            Upgrade ($20/mo)
-          </a>
-
-          <a
-            href={telegramUrl || "#"}
+            href={telegramUrl}
             target="_blank"
             rel="noreferrer"
-            onClick={() => track("telegram_cta_join_click", "top_banner")}
-            className={`inline-flex items-center justify-center px-5 py-3 rounded-xl font-semibold border ${
-              telegramUrl
-                ? "bg-white hover:bg-gray-50 text-gray-900"
-                : "bg-gray-50 text-gray-400 cursor-not-allowed"
-            }`}
+            className="px-5 py-3 rounded-xl font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition"
+            onClick={() => track("join_telegram_clicked", "paid_state")}
           >
             Join Telegram
           </a>
         </div>
       </div>
+    );
+  }
 
-      <div className="mt-3 text-xs text-gray-500">
-        Tip: Keep a consistent unit size. Don’t chase.
+  // ⛔ Default/unpaid state: show original upsell card + greyed Join
+  return (
+    <div className="bg-white rounded-2xl shadow border p-5 sm:p-6 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <div className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50">
+            Realtime Plays
+          </div>
+
+          <h2 className="text-lg sm:text-xl font-bold mt-3">
+            Want picks the moment they trigger?
+          </h2>
+
+          <p className="text-sm text-gray-600 mt-1">
+            Get realtime Telegram alerts when the edge appears (movement + limits).
+            <span className="font-semibold"> $20/mo.</span> Cancel anytime.
+          </p>
+
+          <div className="flex flex-wrap gap-2 mt-3">
+            <span className="inline-flex items-center gap-2 text-xs text-gray-700 bg-gray-50 border rounded-full px-3 py-1">
+              ✅ Instant alerts
+            </span>
+            <span className="inline-flex items-center gap-2 text-xs text-gray-700 bg-gray-50 border rounded-full px-3 py-1">
+              ✅ No spam
+            </span>
+            <span className="inline-flex items-center gap-2 text-xs text-gray-700 bg-gray-50 border rounded-full px-3 py-1">
+              ✅ Full dashboard
+            </span>
+          </div>
+
+          <div className="text-xs text-gray-500 mt-3">
+            Tip: Keep a consistent unit size. Don’t chase.
+          </div>
+
+          {verifying && (
+            <div className="text-xs text-indigo-600 mt-2">
+              Verifying payment…
+            </div>
+          )}
+
+          {unlockError && !verifying && (
+            <div className="text-xs text-red-600 mt-2">
+              {unlockError}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 sm:justify-end">
+          <a
+            href={checkoutUrl}
+            className="px-5 py-3 rounded-xl font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition"
+            onClick={() => track("upgrade_clicked", "cta")}
+          >
+            Upgrade ($20/mo)
+          </a>
+
+          <button
+            disabled
+            title={verifying ? "Verifying payment…" : "Upgrade to unlock"}
+            className="px-5 py-3 rounded-xl font-semibold border bg-white text-gray-400 cursor-not-allowed"
+          >
+            Join Telegram
+          </button>
+        </div>
       </div>
     </div>
   );
