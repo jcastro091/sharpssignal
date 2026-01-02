@@ -1,0 +1,35 @@
+{
+  "issuer": {
+    "name": "TruAI Guard",
+    "version": "0.1"
+  },
+  "subject": {
+    "type": "website",
+    "domain": "sharps-signal.com",
+    "product": "SharpSignal"
+  },
+  "certification": {
+    "badge": "AI-Data Safe Certified",
+    "risk_score": 12,
+    "scale": "0-100",
+    "issued_at_utc": "2026-01-02T03:05:01Z",
+    "checks_run": ["secrets", "logging", "retention", "third_party"]
+  },
+  "policies": {
+    "privacy_policy": "/privacy",
+    "retention_policy": "/retention"
+  },
+  "report": {
+    "type": "static_repo_scan",
+    "notes": [
+      "Certification based on static analysis and heuristic checks.",
+      "Third-party domains referenced are expected for normal operation; minimize data shared and document processors."
+    ]
+  },
+  "verification": {
+    "method": "issuer_registry",
+    "verify_url": "https://sharps-signal.com/api/truai/verify?domain=sharps-signal.com",
+    "algorithm": "sha256",
+    "report_hash_placeholder": "1946948f5bd42e4c558f499428a11d1e16f9449b8dff8b1f1897b320d6c87851"
+  }
+}
