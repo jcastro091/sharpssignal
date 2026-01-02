@@ -35,7 +35,7 @@ export const REGISTRY: TruAIRegistryRecord[] = [
     issued_at_utc: "2026-01-02T03:05:01Z",
     checks_run: ["secrets", "logging", "retention", "third_party"],
     // Paste your PowerShell SHA256 here (lowercase)
-    report_hash_sha256: "REPLACE_WITH_YOUR_SHA256",
+    report_hash_sha256: "1946948f5bd42e4c558f499428a11d1e16f9449b8dff8b1f1897b320d6c87851",
     artifact_url: "https://sharps-signal.com/.well-known/truai.json",
     badge_svg_url: "https://sharps-signal.com/badges/truai-certified.svg",
     notes: [
