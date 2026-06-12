@@ -22,7 +22,15 @@ import { DateTime } from "luxon";
    Config
    ========================= */
 
-const TZ = process.env.TZ || "America/New_York";
+function resolveTimeZone(value?: string) {
+  const candidate = String(value || "").trim();
+  if (candidate && !candidate.startsWith(":") && DateTime.now().setZone(candidate).isValid) {
+    return candidate;
+  }
+  return "America/New_York";
+}
+
+const TZ = resolveTimeZone(process.env.PICKS_TIMEZONE || process.env.TZ);
 const FRESHNESS_MAX_AGE_HOURS_RAW = Number(process.env.PICKS_FRESHNESS_MAX_AGE_HOURS || 24);
 const FRESHNESS_MAX_AGE_HOURS =
   Number.isFinite(FRESHNESS_MAX_AGE_HOURS_RAW) && FRESHNESS_MAX_AGE_HOURS_RAW > 0
