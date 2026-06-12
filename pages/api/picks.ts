@@ -110,6 +110,20 @@ function newestDateTime(values: Array<DateTime | null>) {
   }, null);
 }
 
+function cleanColumnName(name: string) {
+  return String(name || "").replace(/^\uFEFF/, "").trim();
+}
+
+function normalizeCsvRows(rows: CsvRow[]) {
+  return rows.map((row) => {
+    const normalized: CsvRow = {};
+    for (const [key, value] of Object.entries(row)) {
+      normalized[cleanColumnName(key)] = value;
+    }
+    return normalized;
+  });
+}
+
 function buildObservationFreshnessMeta(rows: CsvRow[]) {
   const now = DateTime.now().setZone(TZ);
   const todayStartMs = now.startOf("day").toMillis();
@@ -245,10 +259,10 @@ async function loadObservationsForDateKey(
 
   const csvText = await streamToString(obj.Body as any);
 
-  const records = parse(csvText, {
+  const records = normalizeCsvRows(parse(csvText, {
     columns: true,
     skip_empty_lines: true,
-  }) as CsvRow[];
+  }) as CsvRow[]);
 
   pickCache.set(cacheKey, records);
   return records;
@@ -300,10 +314,10 @@ async function loadLatestObservationsFromS3(): Promise<CsvRow[]> {
   const csvText = await streamToString(obj.Body as any);
   console.log("[/api/picks] OBS csv length:", csvText.length);
 
-  const records = parse(csvText, {
+  const records = normalizeCsvRows(parse(csvText, {
     columns: true,
     skip_empty_lines: true,
-  }) as CsvRow[];
+  }) as CsvRow[]);
 
   console.log("[/api/picks] OBS rows:", records.length);
   return records;
