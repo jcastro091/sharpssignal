@@ -66,10 +66,8 @@ function parseSheetDateTime(s = ""): DateTime | null {
     /^(\d{4}-\d{2}-\d{2}) (\d{1,2}:\d{2}(?::\d{2})?)([+-]\d{2}:\d{2})$/
   );
   if (spaceOffset) {
-    const dt = DateTime.fromISO(`${spaceOffset[1]}T${spaceOffset[2]}${spaceOffset[3]}`, {
-      setZone: true,
-    });
-    if (dt.isValid) return dt.setZone(TZ);
+    const native = new Date(`${spaceOffset[1]}T${spaceOffset[2]}${spaceOffset[3]}`);
+    if (!Number.isNaN(native.getTime())) return DateTime.fromJSDate(native).setZone(TZ);
   }
 
   const formats = [
@@ -117,10 +115,15 @@ function buildObservationFreshnessMeta(rows: CsvRow[]) {
   const todayStartMs = now.startOf("day").toMillis();
   const todayEndMs = now.endOf("day").toMillis();
 
-  const pickDates = rows.map((row) =>
-    parseSheetDateTime(row["Timestamp"] || row.timestamp || row.observed_at || "")
-  );
+  const pickEntries = rows.map((row) => {
+    const raw = row["Timestamp"] || row.timestamp || row.observed_at || "";
+    return { raw, dt: parseSheetDateTime(raw) };
+  });
+  const pickDates = pickEntries.map((entry) => entry.dt);
   const latestPick = newestDateTime(pickDates);
+  const latestPickEntry = pickEntries.find(
+    (entry) => entry.dt?.isValid && latestPick && entry.dt.toMillis() === latestPick.toMillis()
+  );
   const todayPickCount = pickDates.filter((dt) => {
     if (!dt?.isValid) return false;
     const ms = dt.toMillis();
@@ -160,6 +163,8 @@ function buildObservationFreshnessMeta(rows: CsvRow[]) {
     freshnessMaxAgeHours: FRESHNESS_MAX_AGE_HOURS,
     latestPickAtISO: latestPick ? latestPick.toUTC().toISO() : null,
     latestPickAgeHours,
+    latestRawTimestamp: latestPickEntry?.raw || null,
+    parseablePickTimestamps: pickDates.filter((dt) => dt?.isValid).length,
     latestGradedAtISO: latestGraded ? latestGraded.toUTC().toISO() : null,
     latestGradedAgeHours,
     todayPickCount,
