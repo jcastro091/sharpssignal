@@ -63,6 +63,8 @@ function parseSheetDateTime(s = ""): DateTime | null {
 
   const cleaned = raw.replace(/\b(?:ET|EDT|EST|E[DS]T)\b/gi, "").trim().replace(/\s+/g, " ");
   const formats = [
+    "yyyy-MM-dd HH:mm:ssZZ",
+    "yyyy-MM-dd H:mm:ssZZ",
     "yyyy-MM-dd HH:mm:ss",
     "yyyy-MM-dd H:mm:ss",
     "yyyy-MM-dd HH:mm",
