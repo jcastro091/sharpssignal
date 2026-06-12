@@ -19,9 +19,41 @@ import { gaEvent } from "../lib/ga";
 const ET_TZ = "America/New_York";
 const TONIGHT_START_HOUR = 17; // 5pm ET
 const TONIGHT_END_HOUR = 2; // 2am ET (next day)
+const ET_DAY_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+  timeZone: ET_TZ,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const ET_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  timeZone: ET_TZ,
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  timeZoneName: "short",
+});
 
 function track(action, label, value) {
   gaEvent({ action, category: "picks", label, value });
+}
+
+function dateKeyInEastern(date) {
+  return date ? ET_DAY_FORMATTER.format(date) : "";
+}
+
+function formatMetaTime(value) {
+  if (!value) return "Not available";
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return "Not available";
+  return ET_TIME_FORMATTER.format(dt);
+}
+
+function formatAge(hours) {
+  if (!Number.isFinite(hours)) return "";
+  if (hours < 1) return "<1h ago";
+  if (hours < 48) return `${hours.toFixed(1)}h ago`;
+  return `${(hours / 24).toFixed(1)}d ago`;
 }
 
 function getEtParts(date) {
@@ -202,9 +234,11 @@ function TelegramUpsellCTA() {
   );
 }
 
-export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
+export default function PicksPage({ initialPicks = [], initialTrades = [], initialFreshness = null }) {
   const picks = initialPicks;
   const trades = initialTrades;
+  const freshness = initialFreshness || {};
+  const rawCount = Array.isArray(picks) ? picks.length : 0;
 
   // Model metrics
   const [modelMetrics, setModelMetrics] = useState(null);
@@ -324,8 +358,31 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
     return s;
   }
 
-  const filtered = useMemo(() => {
+  function generatedDateKey(row) {
+    const raw = row?.Timestamp ?? row?.timestamp ?? row?.observed_at ?? row?.created_at ?? null;
+    if (!raw) return "";
+
+    const s = String(raw).trim();
+    if (/^\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2}(?::\d{2})?)?$/.test(s)) {
+      return s.slice(0, 10);
+    }
+
+    const dt = toLocalDate(raw);
+    return dt ? dateKeyInEastern(dt) : "";
+  }
+
+  const hasDateFilter = Boolean(startDate || endDate);
+  const hasFreshToday = Boolean(freshness?.isFresh && Number(freshness?.todayPickCount || 0) > 0);
+  const todayKey = dateKeyInEastern(new Date());
+
+  const generatedTodayPicks = useMemo(() => {
     const arr = Array.isArray(picks) ? picks : [];
+    if (hasDateFilter) return arr;
+    return arr.filter((pick) => generatedDateKey(pick) === todayKey);
+  }, [picks, hasDateFilter, todayKey]);
+
+  const filtered = useMemo(() => {
+    const arr = Array.isArray(generatedTodayPicks) ? generatedTodayPicks : [];
     const sod = startOfDay(startDate);
     const eod = endOfDay(endDate);
 
@@ -351,10 +408,15 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
 
       return passStart && passEnd && passSport;
     });
-  }, [picks, startDate, endDate, sportFilter]);
+  }, [generatedTodayPicks, startDate, endDate, sportFilter]);
+
+  const displayRows = useMemo(() => {
+    if (!hasDateFilter && !hasFreshToday) return [];
+    return filtered;
+  }, [filtered, hasDateFilter, hasFreshToday]);
 
   const normalized = useMemo(() => {
-    return (Array.isArray(filtered) ? filtered : []).map((row) => {
+    return (Array.isArray(displayRows) ? displayRows : []).map((row) => {
       const rawTime =
         row.ts_iso ??
         row.ts_local ??
@@ -399,7 +461,16 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
       let stake = Number(String(stakeRaw).replace(/[^0-9.-]/g, ""));
       if (!Number.isFinite(stake)) stake = 1;
 
-      const PRED_KEYS = ["Prediction Result", "Predicted Result (0/1)", "Predicted Result", "Prediction", "predicted_result", "pred"];
+      const PRED_KEYS = [
+        "Prediction Result",
+        "prediction_result",
+        "Predicted Result (0/1)",
+        "Predicted Result",
+        "Prediction",
+        "result",
+        "predicted_result",
+        "pred",
+      ];
       let predRaw = PRED_KEYS.map((k) => row[k]).find((v) => v !== undefined && v !== null && v !== "");
       let pred = null;
       if (predRaw !== undefined && predRaw !== null && predRaw !== "") {
@@ -445,7 +516,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
         ["Tier Label"]: tierRaw || "-",
       };
     });
-  }, [filtered]);
+  }, [displayRows]);
 
   const uniqueMarkets = useMemo(() => {
     const set = new Set((normalized || []).map((r) => r.Market).filter(Boolean));
@@ -508,6 +579,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [] }) {
   return (
     <div className="bg-gray-50 text-gray-900 min-h-screen p-4 sm:p-8">
       <h1 className="text-3xl font-bold mb-3">All Observations & Trades</h1>
+      <FreshnessBanner freshness={freshness} rowCount={rawCount} isHistoricalView={hasDateFilter} />
 
       {/* NEW: CTA */}
       <TelegramUpsellCTA />
@@ -817,6 +889,53 @@ function StatCard({ label, value, color }) {
   );
 }
 
+function FreshnessBanner({ freshness, rowCount, isHistoricalView }) {
+  const isFresh = Boolean(freshness?.isFresh && Number(freshness?.todayPickCount || 0) > 0);
+  const latestPickAge = formatAge(
+    typeof freshness?.latestPickAgeHours === "number" ? freshness.latestPickAgeHours : NaN
+  );
+  const latestGradedAge = formatAge(
+    typeof freshness?.latestGradedAgeHours === "number" ? freshness.latestGradedAgeHours : NaN
+  );
+  const title = isHistoricalView
+    ? "Historical observations"
+    : isFresh
+      ? "Fresh picks are live"
+      : "No fresh picks yet today";
+  const tone = isFresh || isHistoricalView
+    ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+    : "border-amber-200 bg-amber-50 text-amber-950";
+
+  return (
+    <div className={`mb-6 rounded-lg border p-4 ${tone}`}>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="text-sm font-semibold">{title}</div>
+        <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+          <StatusMetric label="Today" value={`${Number(freshness?.todayPickCount || 0)} picks`} />
+          <StatusMetric
+            label="Latest pick"
+            value={`${formatMetaTime(freshness?.latestPickAtISO)}${latestPickAge ? ` (${latestPickAge})` : ""}`}
+          />
+          <StatusMetric
+            label="Latest grade"
+            value={`${formatMetaTime(freshness?.latestGradedAtISO)}${latestGradedAge ? ` (${latestGradedAge})` : ""}`}
+          />
+          <StatusMetric label="Sheet rows" value={String(rowCount || freshness?.totalRows || 0)} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatusMetric({ label, value }) {
+  return (
+    <div className="min-w-0">
+      <div className="font-medium opacity-70">{label}</div>
+      <div className="truncate font-semibold">{value}</div>
+    </div>
+  );
+}
+
 export async function getServerSideProps({ req }) {
   const proto = req.headers["x-forwarded-proto"] || (req.headers.host?.startsWith("localhost") ? "http" : "https");
   const host = req.headers["x-forwarded-host"] || req.headers.host;
@@ -824,6 +943,7 @@ export async function getServerSideProps({ req }) {
 
   let picks = [];
   let trades = [];
+  let freshness = null;
 
   try {
     const url = `${base}/api/picks?source=observations`;
@@ -842,9 +962,10 @@ export async function getServerSideProps({ req }) {
     else if (Array.isArray(data?.rows)) picks = data.rows;
     else if (Array.isArray(data?.data)) picks = data.data;
     else if (Array.isArray(data?.picks)) picks = data.picks;
+    freshness = data?.meta || null;
   } catch (e) {
     console.error("[picks/ssr] fetch error:", e);
   }
 
-  return { props: { initialPicks: picks, initialTrades: trades } };
+  return { props: { initialPicks: picks, initialTrades: trades, initialFreshness: freshness } };
 }

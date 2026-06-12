@@ -23,6 +23,11 @@ import { DateTime } from "luxon";
    ========================= */
 
 const TZ = process.env.TZ || "America/New_York";
+const FRESHNESS_MAX_AGE_HOURS_RAW = Number(process.env.PICKS_FRESHNESS_MAX_AGE_HOURS || 24);
+const FRESHNESS_MAX_AGE_HOURS =
+  Number.isFinite(FRESHNESS_MAX_AGE_HOURS_RAW) && FRESHNESS_MAX_AGE_HOURS_RAW > 0
+    ? FRESHNESS_MAX_AGE_HOURS_RAW
+    : 24;
 
 const s3 = new S3Client({
   region: process.env.AWS_REGION,
@@ -50,6 +55,106 @@ async function streamToString(stream: any): Promise<string> {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
   return Buffer.concat(chunks).toString("utf-8");
+}
+
+function parseSheetDateTime(s = ""): DateTime | null {
+  const raw = String(s || "").trim();
+  if (!raw) return null;
+
+  const cleaned = raw.replace(/\b(?:ET|EDT|EST|E[DS]T)\b/gi, "").trim().replace(/\s+/g, " ");
+  const formats = [
+    "yyyy-MM-dd HH:mm:ss",
+    "yyyy-MM-dd H:mm:ss",
+    "yyyy-MM-dd HH:mm",
+    "M/d/yyyy H:mm:ss",
+    "M/d/yyyy h:mm:ss a",
+    "M/d/yyyy h:mm a",
+    "LLL d, h:mm a",
+    "LLL d, yyyy, h:mm a",
+  ];
+
+  for (const fmt of formats) {
+    const dt = DateTime.fromFormat(cleaned, fmt, { zone: TZ });
+    if (dt.isValid) return dt;
+  }
+
+  const isoWithZone = DateTime.fromISO(cleaned, { setZone: true });
+  if (isoWithZone.isValid) return isoWithZone.setZone(TZ);
+
+  const isoLocal = DateTime.fromISO(cleaned, { zone: TZ });
+  if (isoLocal.isValid) return isoLocal.setZone(TZ);
+
+  const jsDate = new Date(cleaned);
+  if (!Number.isNaN(jsDate.getTime())) {
+    return DateTime.fromJSDate(jsDate).setZone(TZ);
+  }
+
+  return null;
+}
+
+function newestDateTime(values: Array<DateTime | null>) {
+  return values.reduce<DateTime | null>((latest, dt) => {
+    if (!dt?.isValid) return latest;
+    if (!latest || dt.toMillis() > latest.toMillis()) return dt;
+    return latest;
+  }, null);
+}
+
+function buildObservationFreshnessMeta(rows: CsvRow[]) {
+  const now = DateTime.now().setZone(TZ);
+  const todayStartMs = now.startOf("day").toMillis();
+  const todayEndMs = now.endOf("day").toMillis();
+
+  const pickDates = rows.map((row) =>
+    parseSheetDateTime(row["Timestamp"] || row.timestamp || row.observed_at || "")
+  );
+  const latestPick = newestDateTime(pickDates);
+  const todayPickCount = pickDates.filter((dt) => {
+    if (!dt?.isValid) return false;
+    const ms = dt.toMillis();
+    return ms >= todayStartMs && ms <= todayEndMs;
+  }).length;
+
+  const gradedDates = rows
+    .filter((row) =>
+      String(
+        row["Graded At"] ||
+          row["Scored At"] ||
+          row["Prediction Result"] ||
+          row["Actual Winner"] ||
+          row.Result ||
+          ""
+      ).trim()
+    )
+    .map((row) =>
+      parseSheetDateTime(row["Graded At"] || row["Scored At"] || row["Timestamp"] || row.timestamp || "")
+    );
+  const latestGraded = newestDateTime(gradedDates);
+
+  const latestPickAgeHours = latestPick
+    ? (now.toMillis() - latestPick.toMillis()) / 3600000
+    : null;
+  const latestGradedAgeHours = latestGraded
+    ? (now.toMillis() - latestGraded.toMillis()) / 3600000
+    : null;
+  const isFresh =
+    latestPickAgeHours != null &&
+    latestPickAgeHours <= FRESHNESS_MAX_AGE_HOURS &&
+    todayPickCount > 0;
+
+  return {
+    timezone: TZ,
+    generatedAtISO: now.toUTC().toISO(),
+    freshnessMaxAgeHours: FRESHNESS_MAX_AGE_HOURS,
+    latestPickAtISO: latestPick ? latestPick.toUTC().toISO() : null,
+    latestPickAgeHours,
+    latestGradedAtISO: latestGraded ? latestGraded.toUTC().toISO() : null,
+    latestGradedAgeHours,
+    todayPickCount,
+    totalRows: rows.length,
+    isFresh,
+    message: isFresh ? "fresh" : "no_fresh_picks_today",
+  };
 }
 
 /**
@@ -339,7 +444,7 @@ export async function getPickForQuery(q: string): Promise<HistoricalPick | null>
    ========================= */
 
 type ApiResponse =
-  | { ok: true; rows: CsvRow[] }
+  | { ok: true; rows: CsvRow[]; meta?: ReturnType<typeof buildObservationFreshnessMeta> }
   | { ok: true; result: HistoricalPick | null }
   | { ok: false; error: string };
 
@@ -358,7 +463,7 @@ export default async function handler(
     if (["observations", "allobservations", "obs"].includes(source)) {
       console.log("[/api/picks] OBS branch ENTER");
       const rows = await loadLatestObservationsFromS3();
-      return res.status(200).json({ ok: true, rows });
+      return res.status(200).json({ ok: true, rows, meta: buildObservationFreshnessMeta(rows) });
     }
 
     // 2) Default = single-pick lookup backed by S3
