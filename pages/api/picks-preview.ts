@@ -38,7 +38,7 @@ function ciGet(row: CsvRow, keys: string[]): string | undefined {
 
 function parseRowDateTime(row: CsvRow): DateTime | null {
   const raw =
-    ciGet(row, ["Timestamp", "Game Time", "Commence Time", "start_time", "ts_iso", "ts_local", "created_at"]) || "";
+    ciGet(row, ["Game Time", "Commence Time", "start_time", "commence_time", "Timestamp", "ts_iso", "ts_local", "created_at"]) || "";
 
   const iso = normalizeTimestampToISO(raw);
   if (!iso) return null;
@@ -159,7 +159,7 @@ function rowToPreviewPick(row: CsvRow) {
   // ✅ you have Predicted in headers — use it
   const pick = row["Predicted"] || row["Pick"] || row["Predicted Side"] || row["Predicted Team"] || "";
 
-  const tsRaw = ciGet(row, ["Timestamp"]) || "";
+  const tsRaw = ciGet(row, ["Game Time", "Commence Time", "start_time", "commence_time", "Timestamp"]) || "";
   const timestampISO = normalizeTimestampToISO(tsRaw);
 
   const minutesToStartRaw = ciGet(row, ["MinutesToStart"]);
@@ -207,13 +207,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 		};
 	  })
 	  .filter(({ dt, ingest }) => {
-		// Prefer ingest_date (this is what your system actually means by "today")
-		if (ingest === today) return true;
-
-		// Fallback: real event date
+		// If a row has a parseable event/game timestamp, "today" must mean the
+		// event date, not merely the S3 ingest date. Ingest-only fallback is only
+		// for legacy rows without any parseable event time.
 		if (dt && dt.isValid) return dt.toISODate() === today;
 
-		return false;
+		return ingest === today;
 	  })
 	  .map(({ row }) => rowToPreviewPick(row))
 	  .sort((a, b) => {
