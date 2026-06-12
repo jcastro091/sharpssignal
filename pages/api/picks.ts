@@ -62,6 +62,16 @@ function parseSheetDateTime(s = ""): DateTime | null {
   if (!raw) return null;
 
   const cleaned = raw.replace(/\b(?:ET|EDT|EST|E[DS]T)\b/gi, "").trim().replace(/\s+/g, " ");
+  const spaceOffset = cleaned.match(
+    /^(\d{4}-\d{2}-\d{2}) (\d{1,2}:\d{2}(?::\d{2})?)([+-]\d{2}:\d{2})$/
+  );
+  if (spaceOffset) {
+    const dt = DateTime.fromISO(`${spaceOffset[1]}T${spaceOffset[2]}${spaceOffset[3]}`, {
+      setZone: true,
+    });
+    if (dt.isValid) return dt.setZone(TZ);
+  }
+
   const formats = [
     "yyyy-MM-dd HH:mm:ssZZ",
     "yyyy-MM-dd H:mm:ssZZ",
