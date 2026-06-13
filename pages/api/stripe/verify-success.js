@@ -9,7 +9,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 function getTelegramInviteUrl() {
   return (
-    process.env.NEXT_PUBLIC_TELEGRAM_PRO_URL ||
     process.env.TELEGRAM_PRO_URL ||
     process.env.FREE_CHANNEL_INVITE ||
     null

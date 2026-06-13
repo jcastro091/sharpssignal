@@ -27,12 +27,7 @@ function track(action, category, label, value) {
 }
 
 function RealtimeUpsellStrip() {
-  const proCheckoutUrl =
-    process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER ||
-    process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER ||
-    null;
-
-  const telegramUrl = process.env.NEXT_PUBLIC_TELEGRAM_PRO_URL || null;
+  const proCheckoutUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER || null;
 
   return (
     <div className="mt-6 bg-white/10 border border-white/20 backdrop-blur rounded-2xl p-4">
@@ -60,17 +55,11 @@ function RealtimeUpsellStrip() {
           </a>
 
           <a
-            href={telegramUrl || "#"}
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => track("click_join_telegram", "homepage", "realtime_strip_join")}
-            className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold border ${
-              telegramUrl
-                ? "bg-white/10 border-white/30 hover:bg-white/15 text-white"
-                : "bg-white/5 border-white/10 text-white/60 cursor-not-allowed"
-            } transition`}
+            href={proCheckoutUrl || "/subscribe"}
+            onClick={() => track("click_join_telegram_after_checkout", "homepage", "realtime_strip_join")}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold border bg-white/10 border-white/30 hover:bg-white/15 text-white transition"
           >
-            Join Telegram
+            Join After Checkout
           </a>
         </div>
       </div>
@@ -136,7 +125,7 @@ function HowItWorks() {
             </p>
             <div className="mt-4">
               <a
-                href={process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER || process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER || "/signup"}
+                href={process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER || "/signup"}
                 onClick={() => track("click_upgrade_realtime", "homepage", "how_it_works_step3")}
                 className="inline-flex items-center gap-2 text-indigo-700 font-semibold hover:underline"
               >
