@@ -7,6 +7,15 @@ import {
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
+function getTelegramInviteUrl() {
+  return (
+    process.env.NEXT_PUBLIC_TELEGRAM_PRO_URL ||
+    process.env.TELEGRAM_PRO_URL ||
+    process.env.FREE_CHANNEL_INVITE ||
+    null
+  );
+}
+
 async function persistVerifiedCheckout(session) {
   if (!hasSupabaseServiceConfig()) return;
 
@@ -46,7 +55,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ok: true,
-      telegramUrl: process.env.NEXT_PUBLIC_TELEGRAM_PRO_URL,
+      telegramUrl: getTelegramInviteUrl(),
     });
   } catch (e) {
     console.error("[verify-success]", e);
