@@ -1,169 +1,155 @@
-// pages/signup.js
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { createPagesBrowserClient } from "@supabase/auth-helpers-nextjs";
+import { buildAuthCallbackUrl, getSafeNext } from "../lib/authRedirect";
 
 export default function SignUp() {
   const router = useRouter();
   const supabase = useMemo(() => createPagesBrowserClient(), []);
 
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
-  // If they are already logged in, go to picks
+  const next = getSafeNext(router.query.next);
+
   useEffect(() => {
     let mounted = true;
 
-    (async () => {
+    async function redirectIfSignedIn() {
       const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
-
-      if (data?.session) {
-        router.replace("/picks");
+      if (mounted && data?.session) {
+        router.replace(next);
       }
-    })();
+    }
+
+    redirectIfSignedIn();
 
     return () => {
       mounted = false;
     };
-  }, [router, supabase]);
+  }, [next, router, supabase]);
 
-  const handleMagicLink = async (e) => {
-    e.preventDefault();
+  const handleSignup = async (event) => {
+    event.preventDefault();
     setLoading(true);
     setStatus("");
+    setErrorMsg("");
+
+    if (password.length < 8) {
+      setErrorMsg("Use at least 8 characters for your password.");
+      setLoading(false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMsg("Passwords do not match.");
+      setLoading(false);
+      return;
+    }
 
     try {
-      if (typeof window === "undefined") {
-        setStatus("This page must run in the browser.");
-        return;
-      }
-
-      // Build a safe redirect URL
-      const emailRedirectTo = new URL("/auth/callback", window.location.origin);
-      // Use "picks" (no leading slash) to avoid double-encoding issues in query params
-      emailRedirectTo.searchParams.set("next", "/picks");
-
-
-      console.log("[signup] origin =", window.location.origin);
-      console.log("[signup] emailRedirectTo =", emailRedirectTo.toString());
-
-      const { data, error } = await supabase.auth.signInWithOtp({
+      const emailRedirectTo = buildAuthCallbackUrl(window.location.origin, next);
+      const { data, error } = await supabase.auth.signUp({
         email,
+        password,
         options: {
-          emailRedirectTo: emailRedirectTo.toString(),
+          emailRedirectTo,
         },
       });
 
       if (error) {
-        console.error("[signup] supabase error full:", JSON.stringify(error, null, 2));
-        setStatus(error.message || "Error sending confirmation email");
+        setErrorMsg(error.message || "Could not create your account.");
         return;
       }
 
-      console.log("[signup] signInWithOtp ok:", data);
-      setStatus("✅ Check your email for a login link…");
+      if (data?.session) {
+        await router.replace(next);
+        return;
+      }
+
+      setStatus("Check your email to confirm your account.");
     } catch (err) {
-      console.error("[signup] unexpected error:", err);
-      setStatus("Something went wrong. Check console/network logs.");
+      setErrorMsg(err?.message || "Something went wrong. Try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <>
-      <div style={{ minHeight: "80vh", display: "grid", placeItems: "center" }}>
-        <div
-          style={{
-            width: 420,
-            background: "#fff",
-            padding: 28,
-            borderRadius: 12,
-            boxShadow: "0 10px 30px rgba(0,0,0,.08)",
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 22 }}>Create Account</h2>
-          <p style={{ marginTop: 8, color: "#666", fontSize: 14 }}>
-            We’ll send you a one-time magic link.
-          </p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+        <h2 className="text-2xl font-bold mb-2 text-center">Create Account</h2>
+        <p className="text-sm text-gray-600 text-center mb-6">
+          Create a password so you can sign in again later.
+        </p>
 
-          <form onSubmit={handleMagicLink}>
-            <label style={{ fontSize: 13, fontWeight: 600 }}>Email</label>
+        <form onSubmit={handleSignup} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Email</label>
             <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
               type="email"
+              className="w-full border border-gray-300 px-4 py-2 rounded focus:outline-none focus:ring focus:border-blue-500"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
               required
-              style={{
-                width: "100%",
-                marginTop: 6,
-                padding: 10,
-                border: "1px solid #ddd",
-                borderRadius: 8,
-              }}
               disabled={loading}
             />
-
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                width: "100%",
-                marginTop: 14,
-                padding: 12,
-                borderRadius: 10,
-                border: "none",
-                background: "#4f46e5",
-                color: "white",
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              {loading ? "Sending link…" : "Send Magic Link"}
-            </button>
-			<div
-			  style={{
-				marginTop: 12,
-				fontSize: 12,
-				color: "#6b7280",
-				textAlign: "center",
-				lineHeight: 1.5,
-			  }}
-			>
-			  No credit card required • Free to try • Cancel anytime
-			  <br />
-			  We never spam or sell your email.
-			</div>
-			
-			
-			
-			
-			
-          </form>
-
-          {status && (
-            <div
-              style={{
-                marginTop: 14,
-                fontSize: 13,
-                color: status.startsWith("✅") ? "#16a34a" : "#b91c1c",
-              }}
-            >
-              {status}
-            </div>
-          )}
-
-          <div style={{ marginTop: 16, fontSize: 13 }}>
-            Already have an account?{" "}
-            <a href="/signin" style={{ color: "#4f46e5", fontWeight: 700 }}>
-              Sign In
-            </a>
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Password</label>
+            <input
+              type="password"
+              className="w-full border border-gray-300 px-4 py-2 rounded focus:outline-none focus:ring focus:border-blue-500"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              minLength={8}
+              required
+              disabled={loading}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Confirm password</label>
+            <input
+              type="password"
+              className="w-full border border-gray-300 px-4 py-2 rounded focus:outline-none focus:ring focus:border-blue-500"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              minLength={8}
+              required
+              disabled={loading}
+            />
+          </div>
+
+          {errorMsg && <div className="text-red-600 text-sm text-center">{errorMsg}</div>}
+          {status && <div className="text-green-700 text-sm text-center">{status}</div>}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-indigo-600 text-white py-2 rounded font-semibold hover:bg-indigo-700 transition disabled:opacity-60"
+          >
+            {loading ? "Creating account..." : "Create Account"}
+          </button>
+        </form>
+
+        <div className="mt-4 text-xs text-gray-500 text-center leading-5">
+          No credit card required. Free to try. We never sell your email.
         </div>
+
+        <p className="mt-4 text-sm text-center">
+          Already have an account?{" "}
+          <Link href={`/signin?next=${encodeURIComponent(next)}`} className="text-indigo-600 hover:underline">
+            Sign In
+          </Link>
+        </p>
       </div>
-    </>
+    </div>
   );
 }
