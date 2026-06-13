@@ -36,15 +36,19 @@ function ciGet(row: CsvRow, keys: string[]): string | undefined {
   return undefined;
 }
 
-function parseRowDateTime(row: CsvRow): DateTime | null {
+function parsePickDateTime(row: CsvRow): DateTime | null {
   const raw =
-    ciGet(row, ["Game Time", "Commence Time", "start_time", "commence_time", "Timestamp", "ts_iso", "ts_local", "created_at"]) || "";
+    ciGet(row, ["Timestamp", "ts_iso", "ts_local", "created_at"]) || "";
 
   const iso = normalizeTimestampToISO(raw);
   if (!iso) return null;
 
   const dt = DateTime.fromISO(iso, { setZone: true });
   return dt.isValid ? dt.setZone(TZ) : null;
+}
+
+function parseRowDateTime(row: CsvRow): DateTime | null {
+  return parsePickDateTime(row);
 }
 
 
@@ -159,7 +163,7 @@ function rowToPreviewPick(row: CsvRow) {
   // ✅ you have Predicted in headers — use it
   const pick = row["Predicted"] || row["Pick"] || row["Predicted Side"] || row["Predicted Team"] || "";
 
-  const tsRaw = ciGet(row, ["Game Time", "Commence Time", "start_time", "commence_time", "Timestamp"]) || "";
+  const tsRaw = ciGet(row, ["Timestamp", "ts_iso", "ts_local", "created_at"]) || "";
   const timestampISO = normalizeTimestampToISO(tsRaw);
 
   const minutesToStartRaw = ciGet(row, ["MinutesToStart"]);
@@ -199,21 +203,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 	  
 	const todayPicks = pickRows
 	  .map((row) => {
-		const dt = parseRowDateTime(row);
+		const dt = parsePickDateTime(row);
 		return {
 		  row,
 		  dt,
-		  ingest: ciGet(row, ["ingest_date"]) || "",
 		};
 	  })
-	  .filter(({ dt, ingest }) => {
-		// If a row has a parseable event/game timestamp, "today" must mean the
-		// event date, not merely the S3 ingest date. Ingest-only fallback is only
-		// for legacy rows without any parseable event time.
-		if (dt && dt.isValid) return dt.toISODate() === today;
-
-		return ingest === today;
-	  })
+	  .filter(({ dt }) => dt?.isValid && dt.toISODate() === today)
 	  .map(({ row }) => rowToPreviewPick(row))
 	  .sort((a, b) => {
 		const ta = a.timestampISO ? Date.parse(a.timestampISO) : 0;
@@ -261,6 +257,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 	    const dt = parseRowDateTime(r);
 	    return dt?.isValid && dt.toISODate() === today;
 	  }).length;
+      const ingestToday = rows.filter((r) => ciGet(r, ["ingest_date"]) === today).length;
 
 
 
@@ -277,6 +274,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           pickRows: pickRows.length,
           validDateTimeRows: validDT,
           todayDateTimeRows: todayDT,
+          ingestTodayRows: ingestToday,
           todayPicks: todayPicks.length,
           gradedLast7: graded,
         },
