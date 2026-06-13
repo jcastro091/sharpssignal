@@ -5,6 +5,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
   const { email } = req.body || {};
   if (!email) return res.status(400).json({ error: 'Email is required' });
+  const freeTelegramInvite = process.env.FREE_CHANNEL_INVITE || 'https://www.sharps-signal.com/signup';
 
   const html = `
   <!DOCTYPE html>
@@ -29,7 +30,7 @@ export default async function handler(req, res) {
           <li>✅ Real-time performance dashboards</li>
         </ul>
         <p>We combine real data with AI to deliver smarter, sharper picks — not just hype.</p>
-        <a href="https://t.me/+I-yXomYH5oNmN2Rh" class="button">👉 Join Free Telegram</a>
+        <a href="${freeTelegramInvite}" class="button">👉 Join Free Telegram</a>
         <a href="https://www.sharps-signal.com/signup" class="button" style="background:#10b981;margin-left:8px;">🔐 Create Dashboard Login</a>
         <div class="footer">
           You can unsubscribe at any time — but we hope you stick around.<br>

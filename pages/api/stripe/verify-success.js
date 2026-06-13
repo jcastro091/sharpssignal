@@ -8,11 +8,7 @@ import {
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 function getTelegramInviteUrl() {
-  return (
-    process.env.TELEGRAM_PRO_URL ||
-    process.env.FREE_CHANNEL_INVITE ||
-    null
-  );
+  return process.env.TELEGRAM_PRO_URL || null;
 }
 
 async function persistVerifiedCheckout(session) {
