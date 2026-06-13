@@ -4,6 +4,7 @@ import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/clien
 import { parse } from "csv-parse/sync";
 import { Readable } from "stream";
 import { DateTime, IANAZone } from "luxon";
+import { loadPicksPreviewFromSupabase } from "../../lib/supabasePicks";
 
 const DEFAULT_TZ = "America/New_York";
 const TZ =
@@ -187,6 +188,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     res.setHeader("Cache-Control", "no-store");
 
+    const forceS3 = req.query.source === "s3";
+    let supabaseError: string | null = null;
+    if (!forceS3) {
+      try {
+        const fromSupabase = await loadPicksPreviewFromSupabase({ timezone: TZ });
+        if (fromSupabase) {
+          return res.status(200).json(fromSupabase);
+        }
+      } catch (err: any) {
+        supabaseError = err?.message || String(err);
+        console.warn("[/api/picks-preview] Supabase unavailable; falling back to S3:", supabaseError);
+      }
+    }
+
     const { rows, lastModifiedISO, key } = await loadLatestObs();
 
 	const nowRaw = DateTime.now().setZone(TZ);
@@ -266,6 +281,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({
         ok: true,
         debug: true,
+        source: "s3",
+        supabaseError,
         bucket: BUCKET,
         key,
         headers,
@@ -284,6 +301,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json({
       ok: true,
+      source: "s3",
+      supabaseError,
       today,
       modelRunTimeISO: lastModifiedISO,
       statsLast7: {

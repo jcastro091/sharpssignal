@@ -25,7 +25,8 @@ export default async function handler(req, res) {
     utm_medium: utm_medium || null,
     utm_campaign: utm_campaign || null,
     referrer: referrer || null,
-    ref_code
+    ref_code,
+    updated_at: new Date().toISOString()
   }, { onConflict: 'email' });
 
   if (upsertErr) {

@@ -9,6 +9,10 @@ const supabase = createClient(
 )
 
 export default async function handler(req, res) {
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEBUG_SUPA !== 'true') {
+    return res.status(404).json({ error: 'Not found' })
+  }
+
   const { error } = await supabase
     .from('email_signups')
     .insert([{ email: 'debug@example.com' }])
