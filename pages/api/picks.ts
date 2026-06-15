@@ -450,25 +450,35 @@ export async function findHistoricalPick(args: {
 
   try {
     const rows = await loadObservationsForDateKey(dash, ymd, !!nocache);
-
-    const pickRows = rows.filter(isPickRow);
-    if (!pickRows.length) {
-      console.log("[picks/s3] no pick rows for", { dash, ymd });
-      return null;
-    }
-
-    pickRows.sort((a, b) => {
-      const ta = new Date(a["Timestamp"] || a["Game Time"] || "").getTime();
-      const tb = new Date(b["Timestamp"] || b["Game Time"] || "").getTime();
-      return ta - tb;
-    });
-
-    const latest = pickRows[pickRows.length - 1];
-    return rowToHistoricalPick(latest);
+    const pick = latestPickFromRows(rows);
+    if (!pick) console.log("[picks/s3] no pick rows for", { dash, ymd });
+    return pick;
   } catch (err) {
+    if (dateHint.toLowerCase().includes("today")) {
+      console.warn("[picks/s3] exact today key missing, falling back to latest observations", {
+        dash,
+        ymd,
+        err: (err as any)?.message || err,
+      });
+      const rows = await loadLatestObservationsFromS3();
+      return latestPickFromRows(rows);
+    }
     console.error("[picks/s3] error loading historical pick", { dateHint, dash, ymd, err });
     throw err;
   }
+}
+
+function latestPickFromRows(rows: CsvRow[]): HistoricalPick | null {
+  const pickRows = rows.filter(isPickRow);
+  if (!pickRows.length) return null;
+
+  pickRows.sort((a, b) => {
+    const ta = new Date(a["Timestamp"] || a["Game Time"] || "").getTime();
+    const tb = new Date(b["Timestamp"] || b["Game Time"] || "").getTime();
+    return ta - tb;
+  });
+
+  return rowToHistoricalPick(pickRows[pickRows.length - 1]);
 }
 
 export async function getPickForQuery(q: string): Promise<HistoricalPick | null> {
