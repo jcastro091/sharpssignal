@@ -30,6 +30,7 @@ export type PublicApiPayload = {
 };
 
 export type AuditedBetRow = {
+  bet_id: string;
   observed_at: string;
   sport: string;
   market: string;
@@ -185,19 +186,33 @@ async function loadAuditedBetRows(): Promise<AuditedBetRow[]> {
   if (!hasSupabaseServiceConfig()) return [];
   const supabase = createSupabaseServiceClient();
 
-  const { data, error } = await supabase
+  const baseSelect =
+    "bet_id,observed_at,sport,market,setup,tier_code,result,pnl,stake,odds_decimal,clv_pct,closing_decimal,closing_odds_american,status";
+  const officialSelect = `${baseSelect},official`;
+
+  let response: any = await supabase
     .from("bets")
-    .select("observed_at,sport,market,setup,tier_code,result,pnl,stake,clv_pct,closing_decimal,official,status")
+    .select(officialSelect)
     .eq("official", true)
     .eq("status", "closed")
-    .not("closing_decimal", "is", null)
-    .not("clv_pct", "is", null)
     .order("observed_at", { ascending: false })
     .limit(5000);
 
-  if (error || !data?.length) return [];
+  if (response.error && /official/.test(response.error.message || "")) {
+    response = await supabase
+      .from("bets")
+      .select(baseSelect)
+      .eq("status", "closed")
+      .order("observed_at", { ascending: false })
+      .limit(5000);
+  }
 
-  return (data as any[]).map((row) => ({
+  if (response.error || !response.data?.length) return [];
+
+  const rows = await mergeLatestClosingLines(response.data as any[]);
+
+  return rows.filter((row) => row.clv_pct != null && row.closing_decimal != null).map((row) => ({
+    bet_id: text(row.bet_id),
     observed_at: text(row.observed_at),
     sport: text(row.sport),
     market: text(row.market),
@@ -208,6 +223,43 @@ async function loadAuditedBetRows(): Promise<AuditedBetRow[]> {
     stake: number(row.stake) || 0,
     clv_pct: number(row.clv_pct),
   }));
+}
+
+async function mergeLatestClosingLines(rows: any[]): Promise<any[]> {
+  const missing = rows
+    .filter((row) => text(row.bet_id) && (number(row.closing_decimal) == null || number(row.clv_pct) == null))
+    .map((row) => text(row.bet_id));
+  if (!missing.length || !hasSupabaseServiceConfig()) return rows;
+
+  const supabase = createSupabaseServiceClient();
+  const { data, error } = await supabase
+    .from("closing_lines")
+    .select("bet_id,captured_at,closing_odds_american,closing_decimal")
+    .in("bet_id", Array.from(new Set(missing)))
+    .order("captured_at", { ascending: false })
+    .limit(10000);
+
+  if (error || !data?.length) return rows;
+
+  const latest = new Map<string, any>();
+  for (const close of data as any[]) {
+    const id = text(close.bet_id);
+    if (id && !latest.has(id)) latest.set(id, close);
+  }
+
+  return rows.map((row) => {
+    const close = latest.get(text(row.bet_id));
+    if (!close) return row;
+    const closingDecimal = number(row.closing_decimal) ?? number(close.closing_decimal);
+    const oddsDecimal = number(row.odds_decimal);
+    const clv = number(row.clv_pct) ?? (oddsDecimal && closingDecimal ? oddsDecimal / closingDecimal - 1 : null);
+    return {
+      ...row,
+      closing_decimal: closingDecimal,
+      closing_odds_american: number(row.closing_odds_american) ?? number(close.closing_odds_american),
+      clv_pct: clv,
+    };
+  });
 }
 
 function summarizeAuditedRows(rows: AuditedBetRow[]) {
