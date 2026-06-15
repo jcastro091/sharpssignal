@@ -5,6 +5,8 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 const publicLinks = [
   { href: "/picks-preview", label: "Preview" },
+  { href: "/record", label: "Record" },
+  { href: "/reports/weekly", label: "Reports" },
   { href: "/about", label: "Proof" },
   { href: "/subscribe", label: "Pricing" },
 ];
