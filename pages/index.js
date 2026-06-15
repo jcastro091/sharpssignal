@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { gaEvent } from "../lib/ga";
+import { trackFunnelEvent } from "../lib/funnelClient";
 
 function track(action, category, label, value) {
   gaEvent({ action, category, label, value });
@@ -47,7 +48,10 @@ function RealtimeUpsellStrip() {
         <div className="flex flex-col sm:flex-row gap-2">
           <a
             href={proCheckoutUrl || "/signup"}
-            onClick={() => track("click_upgrade_realtime", "homepage", "realtime_strip_upgrade")}
+            onClick={() => {
+              track("click_upgrade_realtime", "homepage", "realtime_strip_upgrade");
+              trackFunnelEvent("checkout_click", { location: "homepage_realtime_strip", plan: "pro_telegram" });
+            }}
             className="inline-flex items-center justify-center gap-2 bg-white text-indigo-700 px-5 py-2.5 rounded-xl font-bold hover:bg-white/95 transition"
           >
             Upgrade
@@ -56,7 +60,10 @@ function RealtimeUpsellStrip() {
 
           <a
             href={proCheckoutUrl || "/subscribe"}
-            onClick={() => track("click_join_telegram_after_checkout", "homepage", "realtime_strip_join")}
+            onClick={() => {
+              track("click_join_telegram_after_checkout", "homepage", "realtime_strip_join");
+              trackFunnelEvent("checkout_click", { location: "homepage_join_after_checkout", plan: "pro_telegram" });
+            }}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold border bg-white/10 border-white/30 hover:bg-white/15 text-white transition"
           >
             Join After Checkout
@@ -73,7 +80,7 @@ function HowItWorks() {
       <div className="text-center max-w-4xl mx-auto">
         <h2 className="text-3xl sm:text-4xl font-extrabold mb-4">How it works</h2>
         <p className="text-lg text-gray-600">
-          Simple funnel. Transparency first. Upgrade only when you want realtime speed.
+          Inspect the record first. Upgrade only when realtime alerts are worth it.
         </p>
 
         <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
@@ -121,12 +128,15 @@ function HowItWorks() {
             </div>
             <h3 className="font-bold text-lg mt-3">Upgrade for realtime</h3>
             <p className="text-sm text-gray-600 mt-2">
-              Pro gets you instant Telegram alerts when the model triggers (no delay).
+              Pro gets you instant Telegram alerts when the model triggers, with the record audited afterward.
             </p>
             <div className="mt-4">
               <a
                 href={process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER || "/signup"}
-                onClick={() => track("click_upgrade_realtime", "homepage", "how_it_works_step3")}
+                onClick={() => {
+                  track("click_upgrade_realtime", "homepage", "how_it_works_step3");
+                  trackFunnelEvent("checkout_click", { location: "how_it_works_step3", plan: "pro_telegram" });
+                }}
                 className="inline-flex items-center gap-2 text-indigo-700 font-semibold hover:underline"
               >
                 Upgrade for realtime <ArrowRight className="w-4 h-4" />
@@ -181,16 +191,16 @@ export default function Home() {
                 </div>
 
                 <h1 className="text-4xl sm:text-5xl font-extrabold leading-tight drop-shadow-md">
-                  +52% ROI across 1,800+ tracked bets
+                  Timestamped picks. Public record. Weekly proof.
                 </h1>
 
                 <p className="mt-3 text-2xl font-semibold text-emerald-200">
-                  Real odds. Real timestamps. No hype.
+                  CLV tracked. Results graded. No hidden record.
                 </p>
 
                 <p className="mt-4 text-lg text-white/90 max-w-xl">
-                  SharpsSignal tracks sharp market movement across books and alerts when real edge appears.
-                  Every pick is logged, timestamped, and graded publicly.
+                  SharpsSignal tracks market movement and publishes the trail: taken odds, closing odds,
+                  results, P/L, and sample-size context.
                 </p>
 
                 <div className="mt-8 flex flex-col sm:flex-row gap-4">
@@ -223,7 +233,7 @@ export default function Home() {
                     <Clock className="w-4 h-4" /> Timestamped picks
                   </span>
                   <span className="inline-flex items-center gap-2">
-                    <BarChart2 className="w-4 h-4" /> ROI shown publicly
+                    <BarChart2 className="w-4 h-4" /> Weekly audited reports
                   </span>
                 </div>
               </div>

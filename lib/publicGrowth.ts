@@ -70,6 +70,19 @@ export type AuditedRecord = {
   recent: AuditedBetRow[];
 };
 
+export type TrustHealth = {
+  generated_at: string;
+  window_days: number;
+  totals: Record<string, number>;
+  clv_coverage: number | null;
+  grading_lag_hours: number | null;
+  stale_open_bets: number;
+  closed_missing_clv: number;
+  tier_counts: Record<string, number>;
+  status: "ok" | "watch" | "blocked";
+  findings: Array<{ severity: "info" | "warning" | "high"; message: string }>;
+};
+
 export const B2B_PACKAGES = [
   {
     package: "Creator Feed",
@@ -126,6 +139,85 @@ export async function loadAuditedRecord(): Promise<AuditedRecord> {
     leaderboard: publicAudited.leaderboard,
     weekly_reports: buildWeeklyReports(rows),
     recent: rows.slice(0, 50),
+  };
+}
+
+export async function loadTrustHealth(windowDays = 14): Promise<TrustHealth> {
+  const generatedAt = new Date().toISOString();
+  const empty: TrustHealth = {
+    generated_at: generatedAt,
+    window_days: windowDays,
+    totals: { bets: 0, closed: 0, open: 0, with_clv: 0, wins: 0, losses: 0, pushes: 0 },
+    clv_coverage: null,
+    grading_lag_hours: null,
+    stale_open_bets: 0,
+    closed_missing_clv: 0,
+    tier_counts: {},
+    status: "blocked",
+    findings: [{ severity: "high", message: "Supabase service config is missing or no recent bets were found." }],
+  };
+  if (!hasSupabaseServiceConfig()) return empty;
+
+  const since = new Date(Date.now() - windowDays * 86400000).toISOString();
+  const staleBefore = Date.now() - 36 * 3600000;
+  const supabase = createSupabaseServiceClient();
+  const { data, error } = await supabase
+    .from("bets")
+    .select("bet_id,observed_at,status,result,stake,pnl,closing_decimal,clv_pct,tier_code,updated_at")
+    .gte("observed_at", since)
+    .order("observed_at", { ascending: false })
+    .limit(5000);
+
+  if (error || !data?.length) return empty;
+
+  const rows = data as any[];
+  const totals = { bets: rows.length, closed: 0, open: 0, with_clv: 0, wins: 0, losses: 0, pushes: 0 };
+  const tierCounts: Record<string, number> = {};
+  let closedMissingClv = 0;
+  let staleOpenBets = 0;
+  let latestClosedAt = 0;
+
+  for (const row of rows) {
+    const status = text(row.status).toLowerCase();
+    const result = normalizeResult(row.result);
+    const tier = text(row.tier_code).toUpperCase() || "UNTIERED";
+    tierCounts[tier] = (tierCounts[tier] || 0) + 1;
+    if (number(row.clv_pct) != null && number(row.closing_decimal) != null) totals.with_clv += 1;
+    if (status === "closed") {
+      totals.closed += 1;
+      if (result === "win") totals.wins += 1;
+      else if (result === "loss") totals.losses += 1;
+      else if (result === "push") totals.pushes += 1;
+      if (number(row.clv_pct) == null || number(row.closing_decimal) == null) closedMissingClv += 1;
+      const closedAt = new Date(row.updated_at || row.observed_at).getTime();
+      if (Number.isFinite(closedAt)) latestClosedAt = Math.max(latestClosedAt, closedAt);
+    } else {
+      totals.open += 1;
+      const observedAt = new Date(row.observed_at).getTime();
+      if (Number.isFinite(observedAt) && observedAt < staleBefore) staleOpenBets += 1;
+    }
+  }
+
+  const clvCoverage = totals.closed ? (totals.closed - closedMissingClv) / totals.closed : null;
+  const gradingLagHours = latestClosedAt ? (Date.now() - latestClosedAt) / 3600000 : null;
+  const findings: TrustHealth["findings"] = [];
+  if (closedMissingClv > 0) findings.push({ severity: "warning", message: `${closedMissingClv} closed bets are missing CLV data.` });
+  if (staleOpenBets > 0) findings.push({ severity: "warning", message: `${staleOpenBets} open bets are older than 36 hours.` });
+  if (tierCounts.PASS) findings.push({ severity: "warning", message: `${tierCounts.PASS} recent rows are PASS and must not be marketed as paid picks.` });
+  if (!findings.length) findings.push({ severity: "info", message: "Recent trust data is complete enough for public reporting." });
+
+  const status = closedMissingClv > 0 || staleOpenBets > 0 ? "watch" : "ok";
+  return {
+    generated_at: generatedAt,
+    window_days: windowDays,
+    totals,
+    clv_coverage: clvCoverage,
+    grading_lag_hours: gradingLagHours,
+    stale_open_bets: staleOpenBets,
+    closed_missing_clv: closedMissingClv,
+    tier_counts: tierCounts,
+    status,
+    findings,
   };
 }
 

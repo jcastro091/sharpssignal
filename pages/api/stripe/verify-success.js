@@ -15,9 +15,10 @@ async function persistVerifiedCheckout(session) {
   if (!hasSupabaseServiceConfig()) return;
 
   const supabase = createSupabaseServiceClient();
+  const email = session.customer_details?.email || session.customer_email || null;
   const { error } = await supabase.from("subscriptions").upsert(
     {
-      email: session.customer_details?.email || session.customer_email || null,
+      email,
       stripe_customer_id: typeof session.customer === "string" ? session.customer : null,
       stripe_subscription_id:
         typeof session.subscription === "string" ? session.subscription : null,
@@ -31,6 +32,21 @@ async function persistVerifiedCheckout(session) {
     { onConflict: "stripe_checkout_session_id" }
   );
   if (error) throw error;
+
+  const eventWrite = await supabase.from("funnel_events").insert({
+    event_name: "checkout_success",
+    email,
+    source: "stripe_verify_success",
+    metadata: {
+      stripe_checkout_session_id: session.id,
+      stripe_customer_id: typeof session.customer === "string" ? session.customer : null,
+      stripe_subscription_id: typeof session.subscription === "string" ? session.subscription : null,
+      payment_status: session.payment_status,
+      status: session.status,
+      plan: session.metadata?.plan || null,
+    },
+  });
+  if (eventWrite.error) console.warn("[verify-success] funnel event write failed:", eventWrite.error.message);
 }
 
 export default async function handler(req, res) {

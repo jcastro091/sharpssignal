@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { createPagesBrowserClient } from "@supabase/auth-helpers-nextjs";
 import { buildAuthCallbackUrl, getSafeNext } from "../lib/authRedirect";
+import { getFirstTouch, trackFunnelEvent } from "../lib/funnelClient";
 
 export default function SignUp() {
   const router = useRouter();
@@ -53,12 +54,19 @@ export default function SignUp() {
     }
 
     try {
+      const firstTouch = getFirstTouch();
       const emailRedirectTo = buildAuthCallbackUrl(window.location.origin, next);
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo,
+          data: {
+            utm_source: firstTouch.utm_source || null,
+            utm_medium: firstTouch.utm_medium || null,
+            utm_campaign: firstTouch.utm_campaign || null,
+            referrer: firstTouch.referrer || null,
+          },
         },
       });
 
@@ -68,10 +76,12 @@ export default function SignUp() {
       }
 
       if (data?.session) {
+        await trackFunnelEvent("signup_success", { email, immediate_session: true });
         await router.replace(next);
         return;
       }
 
+      await trackFunnelEvent("signup_success", { email, email_confirmation_required: true });
       setStatus("Check your email to confirm your account.");
     } catch (err) {
       setErrorMsg(err?.message || "Something went wrong. Try again.");
@@ -133,6 +143,7 @@ export default function SignUp() {
           <button
             type="submit"
             disabled={loading}
+            onClick={() => trackFunnelEvent("signup_click", { location: "signup_form" })}
             className="w-full bg-indigo-600 text-white py-2 rounded font-semibold hover:bg-indigo-700 transition disabled:opacity-60"
           >
             {loading ? "Creating account..." : "Create Account"}

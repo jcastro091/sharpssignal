@@ -351,9 +351,10 @@ export type HistoricalPick = {
 
 function isPickRow(row: CsvRow): boolean {
   const tierCode = (row["Tier Code"] || "").trim().toUpperCase();
+  const tierLabel = (row["Tier Label"] || "").toLowerCase();
+  if (tierCode === "PASS" || tierLabel.includes("pass")) return false;
   if (["A", "B", "C"].includes(tierCode)) return true;
 
-  const tierLabel = (row["Tier Label"] || "").toLowerCase();
   if (tierLabel && tierLabel.includes("tier") && !tierLabel.includes("pass")) {
     return true;
   }

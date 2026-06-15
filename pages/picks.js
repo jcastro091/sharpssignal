@@ -14,6 +14,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
 import { gaEvent } from "../lib/ga";
+import { trackFunnelEvent } from "../lib/funnelClient";
 
 // --- Tonight window helpers (ET) ---
 const ET_TZ = "America/New_York";
@@ -156,7 +157,10 @@ function TelegramUpsellCTA() {
             target="_blank"
             rel="noreferrer"
             className="px-5 py-3 rounded-xl font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition"
-            onClick={() => track("join_telegram_clicked", "paid_state")}
+            onClick={() => {
+              track("join_telegram_clicked", "paid_state");
+              trackFunnelEvent("telegram_join_click", { location: "paid_state" });
+            }}
           >
             Join Telegram
           </a>
@@ -216,7 +220,10 @@ function TelegramUpsellCTA() {
           <a
             href={checkoutUrl}
             className="px-5 py-3 rounded-xl font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition"
-            onClick={() => track("upgrade_clicked", "cta")}
+            onClick={() => {
+              track("upgrade_clicked", "cta");
+              trackFunnelEvent("checkout_click", { location: "picks_upsell", plan: "pro_telegram" });
+            }}
           >
             Upgrade ($20/mo)
           </a>

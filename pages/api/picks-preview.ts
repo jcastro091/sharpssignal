@@ -55,9 +55,10 @@ function parseRowDateTime(row: CsvRow): DateTime | null {
 
 function isPickRow(row: CsvRow): boolean {
   const tierCode = (row["Tier Code"] || "").trim().toUpperCase();
+  const tierLabel = (row["Tier Label"] || "").toLowerCase();
+  if (tierCode === "PASS" || tierLabel.includes("pass")) return false;
   if (["A", "B", "C"].includes(tierCode)) return true;
 
-  const tierLabel = (row["Tier Label"] || "").toLowerCase();
   if (tierLabel && tierLabel.includes("tier") && !tierLabel.includes("pass")) return true;
 
   const stake = Number(row["Stake Amount"] || 0);
@@ -159,7 +160,8 @@ function rowToPreviewPick(row: CsvRow) {
   const away = row["Away"] || "";
   const home = row["Home"] || "";
   const market = row["Market"] || "";
-  const tier = (row["Tier Code"] || "").trim().toUpperCase() || (row["Tier Label"] || "");
+  const rawTier = (row["Tier Code"] || "").trim().toUpperCase() || (row["Tier Label"] || "");
+  const tier = rawTier === "PASS" ? "" : rawTier;
 
   // ✅ you have Predicted in headers — use it
   const pick = row["Predicted"] || row["Pick"] || row["Predicted Side"] || row["Predicted Team"] || "";

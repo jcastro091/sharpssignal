@@ -60,6 +60,21 @@ async function persistCheckoutSession(session) {
     { onConflict: "stripe_checkout_session_id" }
   );
   if (error) throw error;
+
+  const eventWrite = await supabase.from("funnel_events").insert({
+    event_name: "checkout_success",
+    email,
+    source: "stripe_webhook",
+    metadata: {
+      stripe_checkout_session_id: session.id,
+      stripe_customer_id: typeof session.customer === "string" ? session.customer : null,
+      stripe_subscription_id: typeof session.subscription === "string" ? session.subscription : null,
+      payment_status: session.payment_status,
+      status,
+      plan: session.metadata?.plan || subscription?.metadata?.plan || null,
+    },
+  });
+  if (eventWrite.error) console.warn("[stripe webhook] funnel event write failed:", eventWrite.error.message);
 }
 
 async function persistSubscription(subscription) {
@@ -94,6 +109,20 @@ async function persistSubscription(subscription) {
     { onConflict: "stripe_subscription_id" }
   );
   if (error) throw error;
+
+  if (subscription.cancel_at_period_end || subscription.status === "canceled" || subscription.status === "unpaid") {
+    const eventWrite = await supabase.from("funnel_events").insert({
+      event_name: "subscription_cancelled",
+      email,
+      source: "stripe_webhook",
+      metadata: {
+        stripe_subscription_id: subscription.id,
+        status: subscription.status,
+        cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
+      },
+    });
+    if (eventWrite.error) console.warn("[stripe webhook] cancellation funnel event write failed:", eventWrite.error.message);
+  }
 }
 
 export default async function handler(req, res) {
