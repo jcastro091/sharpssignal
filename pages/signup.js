@@ -55,6 +55,7 @@ export default function SignUp() {
 
     try {
       const firstTouch = getFirstTouch();
+      await trackFunnelEvent("signup_submit", { email, location: "signup_form" });
       const emailRedirectTo = buildAuthCallbackUrl(window.location.origin, next);
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -74,6 +75,28 @@ export default function SignUp() {
         setErrorMsg(error.message || "Could not create your account.");
         return;
       }
+
+      try {
+        const leadResponse = await fetch("/api/join", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            sport_interest: "all",
+            utm_source: firstTouch.utm_source || "",
+            utm_medium: firstTouch.utm_medium || "",
+            utm_campaign: firstTouch.utm_campaign || "",
+            utm_content: firstTouch.utm_content || "",
+            referral_code: firstTouch.referral_code || "",
+            page_path: window.location.pathname,
+            landing_page: window.location.href,
+            referrer: firstTouch.referrer || document.referrer || "",
+          }),
+        });
+        if (leadResponse.ok) {
+          await trackFunnelEvent("lead_created", { email, location: "signup_form" });
+        }
+      } catch {}
 
       if (data?.session) {
         await trackFunnelEvent("signup_success", { email, immediate_session: true });
@@ -143,7 +166,6 @@ export default function SignUp() {
           <button
             type="submit"
             disabled={loading}
-            onClick={() => trackFunnelEvent("signup_click", { location: "signup_form" })}
             className="w-full bg-indigo-600 text-white py-2 rounded font-semibold hover:bg-indigo-700 transition disabled:opacity-60"
           >
             {loading ? "Creating account..." : "Create Account"}

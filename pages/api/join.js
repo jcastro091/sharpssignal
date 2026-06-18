@@ -10,24 +10,38 @@ const supabase = createClient(
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
 
-  const { email, sport_interest, utm_source, utm_medium, utm_campaign, referrer } = req.body || {};
+  const {
+    email,
+    sport_interest,
+    utm_source,
+    utm_medium,
+    utm_campaign,
+    utm_content,
+    referral_code,
+    page_path,
+    landing_page,
+    referrer,
+  } = req.body || {};
   if (!email) return res.status(400).json({ error: "Email is required" });
 
   const ref_code = Math.random().toString(36).slice(2, 8).toUpperCase();
 
-  const { error: upsertErr } = await supabase.from("leads").upsert(
-    {
-      email,
-      sport_interest: sport_interest || "all",
-      utm_source: utm_source || null,
-      utm_medium: utm_medium || null,
-      utm_campaign: utm_campaign || null,
-      referrer: referrer || null,
-      ref_code,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "email" }
-  );
+  const leadPayload = {
+    email,
+    sport_interest: sport_interest || "all",
+    utm_source: utm_source || null,
+    utm_medium: utm_medium || null,
+    utm_campaign: utm_campaign || null,
+    utm_content: utm_content || null,
+    referral_code: referral_code || null,
+    page_path: page_path || null,
+    landing_page: landing_page || null,
+    referrer: referrer || null,
+    ref_code,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error: upsertErr } = await upsertLead(leadPayload);
 
   if (upsertErr) {
     console.error(upsertErr);
@@ -70,6 +84,7 @@ export default async function handler(req, res) {
       email,
       `Sport: ${sport_interest || "all"}`,
       `UTM: ${utm_source || "-"}/${utm_medium || "-"}/${utm_campaign || "-"}`,
+      page_path ? `Page: ${page_path}` : null,
       referrer ? `Referrer: ${referrer}` : null,
     ]
       .filter(Boolean)
@@ -81,4 +96,21 @@ export default async function handler(req, res) {
   }
 
   return res.status(200).json({ success: true });
+}
+
+async function upsertLead(payload) {
+  let current = { ...payload };
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const result = await supabase.from("leads").upsert(current, { onConflict: "email" });
+    if (!result.error) return result;
+    const missing = missingColumn(result.error.message);
+    if (!missing || !(missing in current)) return result;
+    delete current[missing];
+  }
+  return supabase.from("leads").upsert(current, { onConflict: "email" });
+}
+
+function missingColumn(message = "") {
+  const quoted = String(message).match(/'([^']+)' column|column '([^']+)'|Could not find the '([^']+)'/i);
+  return quoted?.[1] || quoted?.[2] || quoted?.[3] || "";
 }

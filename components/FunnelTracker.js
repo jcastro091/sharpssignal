@@ -20,6 +20,9 @@ export default function FunnelTracker() {
     function track(url) {
       const path = String(url || window.location.pathname).split("?")[0];
       trackFunnelEvent(eventNameForPath(path), { path });
+      if (path.startsWith("/picks-preview")) {
+        trackFunnelEvent("signup_view", { path, location: "picks_preview" });
+      }
     }
 
     track(router.asPath);

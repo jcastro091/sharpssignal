@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { gaEvent } from "../lib/ga";
+import { trackFunnelEvent } from "../lib/funnelClient";
 
 type PreviewPick = {
   matchup: string;
@@ -161,6 +162,30 @@ export default function PicksPreviewPage(props: Props) {
             <div className="text-xs text-gray-500">Last 7 days</div>
             <div className="text-2xl font-bold mt-1">{statsLast7.totalBets}</div>
             <div className="text-sm text-gray-600">Graded picks</div>
+          </div>
+        </div>
+
+        <div className="mb-6 rounded-xl border border-slate-950 bg-slate-950 p-5 text-white shadow">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="text-sm font-semibold text-emerald-300">Most visitors start here</div>
+              <h2 className="mt-1 text-2xl font-bold">Unlock the full picks table and track the record for free.</h2>
+              <p className="mt-2 text-sm text-slate-300">
+                No card required. We use your signup to connect preview interest to lead conversion before any ad spend.
+              </p>
+            </div>
+            <Link
+              href={signupHref}
+              onClick={() =>
+                trackFunnelEvent("signup_submit", {
+                  location: "picks_preview_primary_panel",
+                  label: "primary_panel_cta",
+                })
+              }
+              className="inline-flex shrink-0 items-center justify-center rounded bg-emerald-400 px-5 py-3 font-semibold text-slate-950 hover:bg-emerald-300"
+            >
+              Sign up free
+            </Link>
           </div>
         </div>
 

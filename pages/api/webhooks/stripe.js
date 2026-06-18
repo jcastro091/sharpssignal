@@ -62,7 +62,7 @@ async function persistCheckoutSession(session) {
   if (error) throw error;
 
   const eventWrite = await supabase.from("funnel_events").insert({
-    event_name: "checkout_success",
+    event_name: "subscribe_success",
     email,
     source: "stripe_webhook",
     metadata: {

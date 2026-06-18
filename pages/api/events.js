@@ -10,9 +10,12 @@ const ALLOWED_EVENTS = new Set([
   "subscribe_view",
   "dashboard_view",
   "signup_click",
+  "signup_submit",
   "signup_success",
+  "lead_created",
   "checkout_click",
   "checkout_success",
+  "subscribe_success",
   "telegram_join_click",
   "telegram_join_verified",
   "support_contact",
@@ -49,7 +52,11 @@ export default async function handler(req, res) {
     utm_campaign: cleanText(body.utm_campaign, 200) || null,
     utm_term: cleanText(body.utm_term, 200) || null,
     utm_content: cleanText(body.utm_content, 200) || null,
-    metadata: body.metadata && typeof body.metadata === "object" ? body.metadata : {},
+    metadata: {
+      ...(body.metadata && typeof body.metadata === "object" ? body.metadata : {}),
+      referral_code: cleanText(body.referral_code, 200) || null,
+      landing_page: cleanText(body.landing_page, 1000) || null,
+    },
   };
 
   try {

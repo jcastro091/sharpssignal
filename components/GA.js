@@ -2,7 +2,8 @@ import Script from "next/script";
 
 const GA_ID =
   process.env.NEXT_PUBLIC_GA4_ID ||
-  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ||
+  "G-1YRZ2NHRZ0";
 
 export default function GA() {
   if (!GA_ID) return null;
