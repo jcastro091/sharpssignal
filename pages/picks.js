@@ -70,14 +70,30 @@ function getEtParts(date) {
   return Object.fromEntries(parts.map((p) => [p.type, p.value]));
 }
 
-function isTonightET(date) {
-  if (!date) return false;
-  const p = getEtParts(date);
-  const hour = Number(p.hour);
-  if (!Number.isFinite(hour)) return false;
+function etDateKeyOffset(parts, offsetDays) {
+  const shifted = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day) + offsetDays));
+  return shifted.toISOString().slice(0, 10);
+}
 
-  if (hour >= TONIGHT_START_HOUR) return true;
-  if (hour <= TONIGHT_END_HOUR) return true;
+function isCurrentTonightET(date, now = new Date()) {
+  if (!date) return false;
+  const rowParts = getEtParts(date);
+  const nowParts = getEtParts(now);
+  const rowHour = Number(rowParts.hour);
+  const nowHour = Number(nowParts.hour);
+  if (!Number.isFinite(rowHour) || !Number.isFinite(nowHour)) return false;
+
+  const rowDay = `${rowParts.year}-${rowParts.month}-${rowParts.day}`;
+  const today = `${nowParts.year}-${nowParts.month}-${nowParts.day}`;
+  const yesterday = etDateKeyOffset(nowParts, -1);
+  const tomorrow = etDateKeyOffset(nowParts, 1);
+
+  if (nowHour >= TONIGHT_START_HOUR) {
+    return (rowDay === today && rowHour >= TONIGHT_START_HOUR) || (rowDay === tomorrow && rowHour <= TONIGHT_END_HOUR);
+  }
+  if (nowHour <= TONIGHT_END_HOUR) {
+    return (rowDay === yesterday && rowHour >= TONIGHT_START_HOUR) || (rowDay === today && rowHour <= TONIGHT_END_HOUR);
+  }
   return false;
 }
 
@@ -114,6 +130,18 @@ function formatPct(value) {
   const n = numericValue(value);
   if (n == null) return "n/a";
   return `${(n * 100).toFixed(1)}%`;
+}
+
+function clvValue(row) {
+  return numericValue(row?.clv_pct ?? row?.["CLV %"] ?? row?.CLV ?? row?.clv);
+}
+
+function resultValue(row) {
+  return classifyResult(row?.["Prediction Result"] ?? row?.Result ?? row?.Winner ?? row?.result);
+}
+
+function isClvGraded(row) {
+  return Boolean(resultValue(row)) && clvValue(row) != null;
 }
 
 function TelegramUpsellCTA() {
@@ -405,8 +433,6 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
   }
 
   const hasDateFilter = Boolean(startDate || endDate);
-  const hasFreshToday = Boolean(freshness?.isFresh && Number(freshness?.todayPickCount || 0) > 0);
-  const todayKey = dateKeyInEastern(new Date());
 
   const generatedTodayPicks = useMemo(() => {
     const arr = Array.isArray(picks) ? picks : [];
@@ -547,14 +573,19 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
     });
   }, [displayRows]);
 
-  const uniqueMarkets = useMemo(() => {
-    const set = new Set((normalized || []).map((r) => r.Market).filter(Boolean));
-    return ["All", ...Array.from(set)];
+  const clvGradedRows = useMemo(() => {
+    const arr = Array.isArray(normalized) ? normalized : [];
+    return arr.filter(isClvGraded);
   }, [normalized]);
+
+  const uniqueMarkets = useMemo(() => {
+    const set = new Set((clvGradedRows || []).map((r) => r.Market).filter(Boolean));
+    return ["All", ...Array.from(set)];
+  }, [clvGradedRows]);
 
   const tonightPicks = useMemo(() => {
     const arr = Array.isArray(normalized) ? normalized : [];
-    const t = arr.filter((row) => isTonightET(row.ts));
+    const t = arr.filter((row) => isCurrentTonightET(row.ts));
     t.sort((a, b) => (a.ts?.getTime() ?? 0) - (b.ts?.getTime() ?? 0));
     return t;
   }, [normalized]);
@@ -562,17 +593,18 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
   const tableRows = useMemo(() => {
     const needle = q.trim().toLowerCase();
 
-    const filteredRows = (normalized || []).filter((r) => {
+    const filteredRows = (clvGradedRows || []).filter((r) => {
       const away = String(r["Away Team"] || r.Away || "").toLowerCase();
       const home = String(r["Home Team"] || r.Home || "").toLowerCase();
+      const pick = String(r.Direction || r.Predicted || r.Selection || "").toLowerCase();
 
-      const passQ = !needle || away.includes(needle) || home.includes(needle);
+      const passQ = !needle || away.includes(needle) || home.includes(needle) || pick.includes(needle);
       const passMarket = marketFilter === "All" || (r.Market || "") === marketFilter;
 
       const dir = String(r.Direction || r.Predicted || "").trim().toLowerCase();
       const passSide = sideFilter === "All" || dir === sideFilter.toLowerCase();
 
-      const rawRes = String(r.Winner ?? r["Prediction Result"] ?? r.Result ?? "").trim().toLowerCase();
+      const rawRes = String(r.Winner ?? r["Prediction Result"] ?? r.Result ?? r.result ?? "").trim().toLowerCase();
       const passRes =
         resultFilter === "All" ||
         (resultFilter === "Win" && (rawRes === "win" || rawRes === "w" || rawRes === "1")) ||
@@ -583,21 +615,17 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
     });
 
     return filteredRows.sort((a, b) => (b.ts?.getTime() ?? 0) - (a.ts?.getTime() ?? 0));
-  }, [normalized, q, marketFilter, sideFilter, resultFilter]);
+  }, [clvGradedRows, q, marketFilter, sideFilter, resultFilter]);
 
   const proofStats = useMemo(() => {
-    const rows = Array.isArray(normalized) ? normalized : [];
-    const graded = rows.filter((row) => {
-      const result = classifyResult(row["Prediction Result"] ?? row.Result ?? row.Winner ?? row.result);
-      return Boolean(result);
-    });
-    const wins = graded.filter((row) => classifyResult(row["Prediction Result"] ?? row.Result ?? row.Winner ?? row.result) === "Win").length;
-    const losses = graded.filter((row) => classifyResult(row["Prediction Result"] ?? row.Result ?? row.Winner ?? row.result) === "Loss").length;
-    const pushes = graded.filter((row) => classifyResult(row["Prediction Result"] ?? row.Result ?? row.Winner ?? row.result) === "Push").length;
+    const graded = Array.isArray(clvGradedRows) ? clvGradedRows : [];
+    const wins = graded.filter((row) => resultValue(row) === "Win").length;
+    const losses = graded.filter((row) => resultValue(row) === "Loss").length;
+    const pushes = graded.filter((row) => resultValue(row) === "Push").length;
     const pnl = graded.reduce((sum, row) => {
       const direct = numericValue(row.PnL ?? row["P&L"] ?? row.pnl ?? row.Profit);
       if (direct != null) return sum + direct;
-      const result = classifyResult(row["Prediction Result"] ?? row.Result ?? row.Winner ?? row.result);
+      const result = resultValue(row);
       const risk = numericValue(row.Risk ?? row.Stake ?? row["Stake Amount"]) ?? 1;
       const odds = numericValue(row["Odds (Am)"]);
       if (result === "Loss") return sum - risk;
@@ -606,7 +634,6 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
       return sum + profit;
     }, 0);
     const staked = graded.reduce((sum, row) => sum + (numericValue(row.Risk ?? row.Stake ?? row["Stake Amount"]) ?? 1), 0);
-    const withClv = graded.filter((row) => numericValue(row.clv_pct ?? row["CLV %"] ?? row["CLV"]) != null).length;
     return {
       graded: graded.length,
       wins,
@@ -614,9 +641,9 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
       pushes,
       pnl,
       roi: staked > 0 ? pnl / staked : null,
-      withClv,
+      withClv: graded.length,
     };
-  }, [normalized]);
+  }, [clvGradedRows]);
 
   let tierSummaries = [];
   if (modelMetrics?.tierConfig?.tiers && Array.isArray(modelMetrics.tierConfig.tiers)) {
@@ -646,7 +673,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
             <div className="text-xs font-bold uppercase tracking-wide text-slate-500">SharpSignal dashboard</div>
             <h1 className="mt-2 text-3xl font-black tracking-normal sm:text-4xl">Picks history and live board</h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-              Review historical picks by default, then narrow into today, a date range, sport, market, or result. Open picks are shown when available, but the record is built from graded outcomes.
+              Review CLV-graded historical picks by default, then narrow into a date range, sport, market, or result. Open picks are only shown in the current tonight window when they exist.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4 lg:min-w-[520px]">
@@ -667,9 +694,9 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
       <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-lg font-bold">Find historical confidence fast</h2>
-          <p className="text-sm text-slate-500">Leave dates blank to see the full available history.</p>
+          <p className="text-sm text-slate-500">Leave dates blank to see every available CLV-graded historical pick.</p>
         </div>
-        <div className="text-xs font-semibold text-slate-500">{tableRows.length.toLocaleString()} rows shown</div>
+        <div className="text-xs font-semibold text-slate-500">{tableRows.length.toLocaleString()} CLV-graded rows shown</div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
@@ -755,7 +782,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-semibold">Tonight’s Picks</h3>
-            <p className="text-xs text-gray-500 mt-1">Picks scheduled for tonight (5pm–2am ET).</p>
+            <p className="text-xs text-gray-500 mt-1">Current ET tonight window only (5pm-2am). Historical night games are excluded.</p>
           </div>
           <div className="text-xs text-gray-500">{tonightPicks.length ? `${tonightPicks.length} picks` : "No picks yet"}</div>
         </div>
@@ -962,7 +989,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
       </div>
 
       <div className="mb-3 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-        <strong className="text-slate-900">Audit note:</strong> historical rows are shown from logged observations. Rows with a settled result count toward the proof metrics; CLV coverage is currently {proofStats.withClv} graded rows.
+        <strong className="text-slate-900">Audit note:</strong> this table only shows rows with a settled result and CLV value. Open picks, ungraded picks, and historical rows missing closing-line data are excluded from the proof table.
       </div>
 
       {/* Table */}

@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export default function PicksTable({ picks = [] }) {
+  const pageSize = 25;
   // Visible columns (keep it tight)
   const columns = [
     { key: "Timestamp", label: "Date", hide: "" }, // always show
@@ -15,6 +16,7 @@ export default function PicksTable({ picks = [] }) {
 
   // Default: newest first by Timestamp
   const [sortConfig, setSortConfig] = useState({ key: "Timestamp", direction: "desc" });
+  const [page, setPage] = useState(1);
 
   const requestSort = (key) => {
     let direction = "asc";
@@ -71,6 +73,17 @@ export default function PicksTable({ picks = [] }) {
       return 0;
     });
   }, [picks, sortConfig]);
+
+  const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const visibleRows = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sorted.slice(start, start + pageSize);
+  }, [sorted, currentPage]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [picks]);
 
   const formatDate = (v) => {
     const d = parseDate(v);
@@ -189,7 +202,7 @@ export default function PicksTable({ picks = [] }) {
           </thead>
 
           <tbody>
-            {sorted.map((pick, i) => (
+            {visibleRows.map((pick, i) => (
               <tr key={i} className="border-b hover:bg-gray-50">
                 {columns.map((col) => (
                   <td
@@ -208,7 +221,7 @@ export default function PicksTable({ picks = [] }) {
             {sorted.length === 0 && (
               <tr>
                 <td colSpan={columns.length} className="px-3 py-10 text-center text-gray-500">
-                  No picks match your filters.
+                  No CLV-graded picks match your filters.
                 </td>
               </tr>
             )}
@@ -216,8 +229,29 @@ export default function PicksTable({ picks = [] }) {
         </table>
       </div>
 
-      <div className="text-xs text-gray-500 mt-2">
-        Tip: click a column header to sort.
+      <div className="mt-3 flex flex-col gap-3 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          Showing {sorted.length ? (currentPage - 1) * pageSize + 1 : 0}-{Math.min(currentPage * pageSize, sorted.length)} of {sorted.length} CLV-graded picks. Click a column header to sort.
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={currentPage <= 1}
+            onClick={() => setPage((value) => Math.max(1, value - 1))}
+            className="rounded border bg-white px-3 py-1 font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Previous
+          </button>
+          <span className="font-semibold text-slate-600">Page {currentPage} of {pageCount}</span>
+          <button
+            type="button"
+            disabled={currentPage >= pageCount}
+            onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
+            className="rounded border bg-white px-3 py-1 font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
   );
