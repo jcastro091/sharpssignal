@@ -90,6 +90,32 @@ function formatEtTime(date) {
   }).format(date);
 }
 
+function classifyResult(value) {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (["win", "won", "w", "1", "true"].includes(raw)) return "Win";
+  if (["loss", "lose", "lost", "l", "0", "false"].includes(raw)) return "Loss";
+  if (["push", "p", "void", "refund"].includes(raw)) return "Push";
+  return "";
+}
+
+function numericValue(value) {
+  const n = Number(String(value ?? "").replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatMoney(value) {
+  const n = numericValue(value);
+  if (n == null) return "n/a";
+  const sign = n < 0 ? "-" : "";
+  return `${sign}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+}
+
+function formatPct(value) {
+  const n = numericValue(value);
+  if (n == null) return "n/a";
+  return `${(n * 100).toFixed(1)}%`;
+}
+
 function TelegramUpsellCTA() {
   const checkoutUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER || "/signup";
 
@@ -384,9 +410,8 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
 
   const generatedTodayPicks = useMemo(() => {
     const arr = Array.isArray(picks) ? picks : [];
-    if (hasDateFilter) return arr;
-    return arr.filter((pick) => generatedDateKey(pick) === todayKey);
-  }, [picks, hasDateFilter, todayKey]);
+    return arr;
+  }, [picks]);
 
   const filtered = useMemo(() => {
     const arr = Array.isArray(generatedTodayPicks) ? generatedTodayPicks : [];
@@ -417,10 +442,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
     });
   }, [generatedTodayPicks, startDate, endDate, sportFilter]);
 
-  const displayRows = useMemo(() => {
-    if (!hasDateFilter && !hasFreshToday) return [];
-    return filtered;
-  }, [filtered, hasDateFilter, hasFreshToday]);
+  const displayRows = useMemo(() => filtered, [filtered]);
 
   const normalized = useMemo(() => {
     return (Array.isArray(displayRows) ? displayRows : []).map((row) => {
@@ -563,6 +585,39 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
     return filteredRows.sort((a, b) => (b.ts?.getTime() ?? 0) - (a.ts?.getTime() ?? 0));
   }, [normalized, q, marketFilter, sideFilter, resultFilter]);
 
+  const proofStats = useMemo(() => {
+    const rows = Array.isArray(normalized) ? normalized : [];
+    const graded = rows.filter((row) => {
+      const result = classifyResult(row["Prediction Result"] ?? row.Result ?? row.Winner ?? row.result);
+      return Boolean(result);
+    });
+    const wins = graded.filter((row) => classifyResult(row["Prediction Result"] ?? row.Result ?? row.Winner ?? row.result) === "Win").length;
+    const losses = graded.filter((row) => classifyResult(row["Prediction Result"] ?? row.Result ?? row.Winner ?? row.result) === "Loss").length;
+    const pushes = graded.filter((row) => classifyResult(row["Prediction Result"] ?? row.Result ?? row.Winner ?? row.result) === "Push").length;
+    const pnl = graded.reduce((sum, row) => {
+      const direct = numericValue(row.PnL ?? row["P&L"] ?? row.pnl ?? row.Profit);
+      if (direct != null) return sum + direct;
+      const result = classifyResult(row["Prediction Result"] ?? row.Result ?? row.Winner ?? row.result);
+      const risk = numericValue(row.Risk ?? row.Stake ?? row["Stake Amount"]) ?? 1;
+      const odds = numericValue(row["Odds (Am)"]);
+      if (result === "Loss") return sum - risk;
+      if (result === "Push" || odds == null) return sum;
+      const profit = odds > 0 ? risk * (odds / 100) : risk * (100 / Math.abs(odds));
+      return sum + profit;
+    }, 0);
+    const staked = graded.reduce((sum, row) => sum + (numericValue(row.Risk ?? row.Stake ?? row["Stake Amount"]) ?? 1), 0);
+    const withClv = graded.filter((row) => numericValue(row.clv_pct ?? row["CLV %"] ?? row["CLV"]) != null).length;
+    return {
+      graded: graded.length,
+      wins,
+      losses,
+      pushes,
+      pnl,
+      roi: staked > 0 ? pnl / staked : null,
+      withClv,
+    };
+  }, [normalized]);
+
   let tierSummaries = [];
   if (modelMetrics?.tierConfig?.tiers && Array.isArray(modelMetrics.tierConfig.tiers)) {
     const byCode = {};
@@ -584,15 +639,39 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
   const history = _hist && _hist.length > 0 ? _hist : [{ date: 0, bankroll }];
 
   return (
-    <div className="bg-gray-50 text-gray-900 min-h-screen p-4 sm:p-8">
-      <h1 className="text-3xl font-bold mb-3">All Observations & Trades</h1>
+    <div className="bg-slate-50 text-slate-950 min-h-screen p-4 sm:p-8">
+      <div className="mb-6 rounded-2xl border bg-white p-5 shadow-sm sm:p-7">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-wide text-slate-500">SharpSignal dashboard</div>
+            <h1 className="mt-2 text-3xl font-black tracking-normal sm:text-4xl">Picks history and live board</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+              Review historical picks by default, then narrow into today, a date range, sport, market, or result. Open picks are shown when available, but the record is built from graded outcomes.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4 lg:min-w-[520px]">
+            <ProofMetric label="Graded" value={proofStats.graded.toLocaleString()} />
+            <ProofMetric label="Record" value={`${proofStats.wins}-${proofStats.losses}${proofStats.pushes ? `-${proofStats.pushes}` : ""}`} />
+            <ProofMetric label="P&L" value={formatMoney(proofStats.pnl)} tone={proofStats.pnl >= 0 ? "good" : "bad"} />
+            <ProofMetric label="ROI" value={formatPct(proofStats.roi)} tone={proofStats.roi >= 0 ? "good" : "bad"} />
+          </div>
+        </div>
+      </div>
       <FreshnessBanner freshness={freshness} rowCount={rawCount} isHistoricalView={hasDateFilter} />
 
       {/* NEW: CTA */}
       <TelegramUpsellCTA />
 
       {/* Global Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="mb-6 rounded-2xl border bg-white p-4 shadow-sm">
+      <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-lg font-bold">Find historical confidence fast</h2>
+          <p className="text-sm text-slate-500">Leave dates blank to see the full available history.</p>
+        </div>
+        <div className="text-xs font-semibold text-slate-500">{tableRows.length.toLocaleString()} rows shown</div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium mb-1">Start Date</label>
           <DatePicker
@@ -625,6 +704,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
             ))}
           </select>
         </div>
+      </div>
       </div>
 
       {/* Kelly / Bankroll */}
@@ -828,12 +908,12 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
       <div className="bg-white p-4 rounded-xl shadow border mb-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Search team</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Search team or pick</label>
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               className="w-full px-3 py-2 border rounded bg-white"
-              placeholder="e.g. Yankees"
+              placeholder="e.g. Yankees, Dodgers, under"
             />
           </div>
 
@@ -881,8 +961,23 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
         </div>
       </div>
 
+      <div className="mb-3 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+        <strong className="text-slate-900">Audit note:</strong> historical rows are shown from logged observations. Rows with a settled result count toward the proof metrics; CLV coverage is currently {proofStats.withClv} graded rows.
+      </div>
+
       {/* Table */}
       {mounted && <PicksTable picks={tableRows} />}
+    </div>
+  );
+}
+
+function ProofMetric({ label, value, tone }) {
+  const toneClass =
+    tone === "good" ? "text-emerald-700" : tone === "bad" ? "text-rose-700" : "text-slate-950";
+  return (
+    <div className="rounded-xl border bg-slate-50 p-3">
+      <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</div>
+      <div className={`mt-1 text-xl font-black ${toneClass}`}>{value}</div>
     </div>
   );
 }
@@ -955,7 +1050,14 @@ export async function getServerSideProps({ req }) {
   try {
     const url = `${base}/api/picks?source=observations`;
     console.log("[picks/ssr] URL:", url);
-    const res = await fetch(url, { headers: { accept: "application/json" }, cache: "no-store" });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(url, {
+      headers: { accept: "application/json" },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
     const text = await res.text();
 
     let data;

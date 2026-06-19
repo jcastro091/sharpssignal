@@ -7,9 +7,10 @@ export default function PicksTable({ picks = [] }) {
     { key: "__matchup", label: "Matchup", hide: "" }, // always show
     { key: "Tier", label: "Tier", hide: "hidden sm:table-cell" },
     { key: "Market", label: "Market", hide: "hidden md:table-cell" },
-    { key: "Direction", label: "Side", hide: "hidden md:table-cell" },
-    { key: "Predicted", label: "Prediction", hide: "hidden lg:table-cell" },
-    { key: "Prediction Result", label: "Result", hide: "hidden xl:table-cell" },
+    { key: "Predicted", label: "Pick", hide: "hidden md:table-cell" },
+    { key: "Odds (Am)", label: "Odds", hide: "hidden lg:table-cell" },
+    { key: "Prediction Result", label: "Result", hide: "" },
+    { key: "__pnl", label: "P&L", hide: "hidden xl:table-cell" },
   ];
 
   // Default: newest first by Timestamp
@@ -52,6 +53,14 @@ export default function PicksTable({ picks = [] }) {
         const at = ad ? ad.getTime() : -Infinity;
         const bt = bd ? bd.getTime() : -Infinity;
         return direction === "asc" ? at - bt : bt - at;
+      }
+
+      if (key === "__pnl") {
+        const aVal = Number(String(a.PnL ?? a["P&L"] ?? a.pnl ?? a.Profit ?? "").replace(/[^0-9.-]/g, ""));
+        const bVal = Number(String(b.PnL ?? b["P&L"] ?? b.pnl ?? b.Profit ?? "").replace(/[^0-9.-]/g, ""));
+        const av = Number.isFinite(aVal) ? aVal : -Infinity;
+        const bv = Number.isFinite(bVal) ? bVal : -Infinity;
+        return direction === "asc" ? av - bv : bv - av;
       }
 
       // String sort fallback
@@ -115,7 +124,39 @@ export default function PicksTable({ picks = [] }) {
       );
     }
 
-    if (key === "Timestamp") return formatDate(pick[key]);
+    if (key === "Timestamp") return formatDate(pick[key] || pick["Game Time"] || pick.ts_iso || pick.ts_local);
+
+    if (key === "Odds (Am)") {
+      const raw = pick[key] ?? pick["American Odds"] ?? pick.american_odds ?? pick.odds_american;
+      const n = Number(String(raw ?? "").replace(/[^0-9.-]/g, ""));
+      if (!Number.isFinite(n)) return "-";
+      return n > 0 ? `+${Math.round(n)}` : String(Math.round(n));
+    }
+
+    if (key === "Prediction Result") {
+      const raw = pick[key] ?? pick.Result ?? pick.Winner ?? pick.result;
+      const s = String(raw ?? "").trim().toLowerCase();
+      const label =
+        ["win", "won", "w", "1", "true"].includes(s) ? "Win" :
+        ["loss", "lose", "lost", "l", "0", "false"].includes(s) ? "Loss" :
+        ["push", "p", "void", "refund"].includes(s) ? "Push" :
+        raw ? String(raw) : "-";
+      const cls =
+        label === "Win" ? "bg-emerald-100 text-emerald-700" :
+        label === "Loss" ? "bg-rose-100 text-rose-700" :
+        label === "Push" ? "bg-amber-100 text-amber-700" :
+        "bg-gray-100 text-gray-600";
+      return <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${cls}`}>{label}</span>;
+    }
+
+    if (key === "__pnl") {
+      const raw = pick.PnL ?? pick["P&L"] ?? pick.pnl ?? pick.Profit;
+      const n = Number(String(raw ?? "").replace(/[^0-9.-]/g, ""));
+      if (!Number.isFinite(n)) return "-";
+      const cls = n >= 0 ? "text-emerald-700" : "text-rose-700";
+      const sign = n < 0 ? "-" : "";
+      return <span className={`font-semibold ${cls}`}>{`${sign}$${Math.abs(n).toFixed(2)}`}</span>;
+    }
 
     const val = pick[key];
     if (val === null || val === undefined || val === "") return "-";
