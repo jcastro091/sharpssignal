@@ -9,6 +9,7 @@ import {
 export const config = { api: { bodyParser: false } };
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const DEFAULT_PLAN = "pro_telegram";
 
 function entitlementActive(status) {
   return ["active", "trialing", "complete", "paid"].includes(
@@ -49,7 +50,7 @@ async function persistCheckoutSession(session) {
       stripe_subscription_id:
         typeof session.subscription === "string" ? session.subscription : null,
       stripe_checkout_session_id: session.id,
-      plan: session.metadata?.plan || subscription?.metadata?.plan || null,
+      plan: session.metadata?.plan || subscription?.metadata?.plan || DEFAULT_PLAN,
       status,
       entitlement_active: entitlementActive(status) || session.payment_status === "paid",
       current_period_end: currentPeriodEnd,
@@ -71,7 +72,7 @@ async function persistCheckoutSession(session) {
       stripe_subscription_id: typeof session.subscription === "string" ? session.subscription : null,
       payment_status: session.payment_status,
       status,
-      plan: session.metadata?.plan || subscription?.metadata?.plan || null,
+      plan: session.metadata?.plan || subscription?.metadata?.plan || DEFAULT_PLAN,
     },
   });
   if (eventWrite.error) console.warn("[stripe webhook] funnel event write failed:", eventWrite.error.message);
@@ -96,7 +97,7 @@ async function persistSubscription(subscription) {
       stripe_customer_id:
         typeof subscription.customer === "string" ? subscription.customer : null,
       stripe_subscription_id: subscription.id,
-      plan: subscription.metadata?.plan || null,
+      plan: subscription.metadata?.plan || DEFAULT_PLAN,
       status: subscription.status || "unknown",
       entitlement_active: entitlementActive(subscription.status),
       current_period_end: subscription.current_period_end

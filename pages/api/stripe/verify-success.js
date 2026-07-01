@@ -6,6 +6,7 @@ import {
 } from "../../../lib/supabaseServer";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const DEFAULT_PLAN = "pro_telegram";
 
 function getTelegramInviteUrl() {
   return process.env.TELEGRAM_PRO_URL || null;
@@ -23,7 +24,7 @@ async function persistVerifiedCheckout(session) {
       stripe_subscription_id:
         typeof session.subscription === "string" ? session.subscription : null,
       stripe_checkout_session_id: session.id,
-      plan: session.metadata?.plan || null,
+      plan: session.metadata?.plan || DEFAULT_PLAN,
       status: session.status || session.payment_status || "complete",
       entitlement_active: true,
       raw: { session },
@@ -43,7 +44,7 @@ async function persistVerifiedCheckout(session) {
       stripe_subscription_id: typeof session.subscription === "string" ? session.subscription : null,
       payment_status: session.payment_status,
       status: session.status,
-      plan: session.metadata?.plan || null,
+      plan: session.metadata?.plan || DEFAULT_PLAN,
     },
   });
   if (eventWrite.error) console.warn("[verify-success] funnel event write failed:", eventWrite.error.message);

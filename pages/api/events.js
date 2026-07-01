@@ -56,6 +56,9 @@ export default async function handler(req, res) {
       ...(body.metadata && typeof body.metadata === "object" ? body.metadata : {}),
       referral_code: cleanText(body.referral_code, 200) || null,
       landing_page: cleanText(body.landing_page, 1000) || null,
+      plan: cleanText(body.plan, 120) || cleanText(body.metadata?.plan, 120) || null,
+      checkout_url: cleanText(body.checkout_url, 1000) || cleanText(body.metadata?.checkout_url, 1000) || null,
+      location: cleanText(body.location, 200) || cleanText(body.metadata?.location, 200) || null,
     },
   };
 
