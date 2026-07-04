@@ -1,6 +1,6 @@
-const crypto = require("crypto");
+import crypto from "crypto";
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ ok: false, error: "method_not_allowed" });
@@ -9,7 +9,7 @@ module.exports = async function handler(req, res) {
   const body = typeof req.body === "object" && req.body ? req.body : {};
   const result = await submitTailBet(body);
   return res.status(result.status).json(result.body);
-};
+}
 
 async function submitTailBet(body) {
   const row = tailBet(body);
@@ -233,4 +233,4 @@ function stableId(...parts) {
   return `${clean(parts[0]) || "id"}_${crypto.createHash("sha256").update(source).digest("hex").slice(0, 16)}`;
 }
 
-module.exports._private = { americanOdds, decimalOdds, money, tailBet, funnelEvent, legacyFunnelEvent, submitTailBet };
+export const _private = { americanOdds, decimalOdds, money, tailBet, funnelEvent, legacyFunnelEvent, submitTailBet };

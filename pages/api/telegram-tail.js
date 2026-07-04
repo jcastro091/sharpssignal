@@ -1,4 +1,4 @@
-const crypto = require("crypto");
+import crypto from "crypto";
 
 const BOOK_ALIASES = [
   ["DraftKings", /\b(draft\s*kings|draftkings|dk)\b/i],
@@ -11,7 +11,7 @@ const BOOK_ALIASES = [
   ["Hard Rock Bet", /\b(hard\s*rock)\b/i],
 ];
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ ok: false, error: "method_not_allowed" });
@@ -30,7 +30,7 @@ module.exports = async function handler(req, res) {
   const result = await submitTailBet(parsed.tail);
   await replyToTelegram(update, confirmationText(result.body, parsed.tail));
   return res.status(200).json({ ok: result.body.ok, tail: parsed.tail, capture: result.body });
-};
+}
 
 function authorized(req) {
   const expected = clean(process.env.TELEGRAM_TAIL_WEBHOOK_SECRET);
@@ -430,7 +430,7 @@ function clean(value) {
   return String(value || "").trim();
 }
 
-module.exports._private = {
+export const _private = {
   parseTelegramTail,
   extractBetId,
   extractSportsbook,
