@@ -41,11 +41,13 @@ function authorized(req) {
 }
 
 function parseTelegramTail(update) {
-  const message = update.message || update.edited_message || {};
+  const message = telegramMessage(update);
   const text = clean(message.text || message.caption);
   const replyText = clean((message.reply_to_message || {}).text || (message.reply_to_message || {}).caption);
   const sourceText = `${text}\n${replyText}`.trim();
   const bestRetail = extractBestRetail(replyText);
+  const alert = extractAlertContext(replyText);
+  const inferredId = stableId("telegram_pick", alert.away_team, alert.home_team, alert.market, alert.pick_side, alert.game_time);
   const betId = extractBetId(sourceText);
   const sportsbook = extractSportsbook(text) || bestRetail.sportsbook || extractSportsbook(replyText);
   const odds = extractAmericanOdds(text) || bestRetail.odds || extractAmericanOdds(replyText);
@@ -53,30 +55,39 @@ function parseTelegramTail(update) {
   const email = clean(process.env.TAIL_BOT_DEFAULT_EMAIL);
 
   if (!text) return { ok: false, error: "empty_message" };
-  if (!betId) return { ok: false, error: "missing_bet_id" };
+  if (!betId && !alert.has_context) return { ok: false, error: "missing_bet_id" };
   if (!sportsbook) return { ok: false, error: "missing_sportsbook" };
   if (!odds) return { ok: false, error: "missing_odds" };
   const textPick = extractPickSide(text);
-  const alertPick = extractAlertPick(replyText);
+  const alertPick = alert.pick_side || extractAlertPick(replyText);
 
   return {
     ok: true,
     tail: {
       bet_id: betId,
+      pick_id: betId ? "" : inferredId,
       email,
       sportsbook,
       odds_taken: odds,
       stake,
       pick_side: isGenericTailPick(textPick) ? alertPick : textPick || alertPick,
+      market: alert.market,
+      sport: alert.sport,
+      away_team: alert.away_team,
+      home_team: alert.home_team,
       placed_at: new Date().toISOString(),
       source: "telegram_reply",
-      notes: tailNote(text, stake, bestRetail),
+      notes: tailNote(text, stake, bestRetail, alert, betId),
       raw_telegram_update_id: clean(update.update_id),
       telegram_chat_id: clean((message.chat || {}).id),
       telegram_user_id: clean((message.from || {}).id),
       telegram_username: clean((message.from || {}).username),
     },
   };
+}
+
+function telegramMessage(update) {
+  return update.message || update.edited_message || update.channel_post || update.edited_channel_post || {};
 }
 
 function extractBetId(text) {
@@ -150,15 +161,49 @@ function extractAlertPick(text) {
   return match ? clean(match[1]).slice(0, 80) : "";
 }
 
+function extractAlertContext(text) {
+  const lines = clean(text)
+    .split(/\n+/)
+    .map((line) => clean(line))
+    .filter(Boolean);
+  const gameLine = lines.find((line) => /\s(@|vs\.?|v\.?)\s/i.test(line)) || "";
+  const game = extractGame(gameLine);
+  const marketSide = clean(lines.find((line) => /\bMarket\s*:/i.test(line)) || "");
+  const marketMatch = marketSide.match(/\bMarket\s*:\s*([^|]+)/i);
+  const sideMatch = marketSide.match(/\bSide\s*:\s*([^\n|]+)/i);
+  const gameTime = clean((text.match(/\bGame\s*time\s*:\s*([^\n]+)/i) || [])[1]);
+  return {
+    has_context: Boolean(game.away_team && game.home_team && (marketMatch || sideMatch)),
+    sport: "",
+    away_team: game.away_team,
+    home_team: game.home_team,
+    market: marketMatch ? clean(marketMatch[1]) : "",
+    pick_side: sideMatch ? clean(sideMatch[1]) : "",
+    game_time: gameTime,
+  };
+}
+
+function extractGame(line) {
+  const match = clean(line).match(/^(.+?)\s+(?:@|vs\.?|v\.?)\s+(.+)$/i);
+  if (!match) return { away_team: "", home_team: "" };
+  return {
+    away_team: clean(match[1]).slice(0, 80),
+    home_team: clean(match[2]).slice(0, 80),
+  };
+}
+
 function isGenericTailPick(value) {
   const cleaned = clean(value).toLowerCase();
   return !cleaned || /^(i\s+)?(placed\s+)?this(\s+bet)?(\s+\$?\d+(?:\.\d{1,2})?)?$/.test(cleaned);
 }
 
-function tailNote(text, stake, bestRetail) {
+function tailNote(text, stake, bestRetail, alert, betId) {
   const parts = [`telegram_tail: ${text}`];
   if (stake === "1" && !extractStake(text)) {
     parts.push("stake missing, recorded as 1 unit");
+  }
+  if (!betId && alert.has_context) {
+    parts.push("bet_id missing from alert; tracked by inferred pick_id from replied alert context");
   }
   if (bestRetail.sportsbook || bestRetail.odds) {
     parts.push(`price inferred from replied alert: ${[bestRetail.sportsbook, bestRetail.odds].filter(Boolean).join(" ")}`);
@@ -168,7 +213,7 @@ function tailNote(text, stake, bestRetail) {
 
 async function replyToTelegram(update, text) {
   const token = clean(process.env.TELEGRAM_TAIL_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN);
-  const message = update.message || update.edited_message || {};
+  const message = telegramMessage(update);
   const chatId = clean((message.chat || {}).id);
   if (!token || !chatId) return;
   try {
@@ -439,6 +484,7 @@ export const _private = {
   extractStake,
   extractPickSide,
   extractAlertPick,
+  extractAlertContext,
   isGenericTailPick,
   confirmationText,
 };
