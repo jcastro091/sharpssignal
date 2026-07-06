@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import { createPagesBrowserClient } from "@supabase/auth-helpers-nextjs";
 import { ArrowRight, CheckCircle2, Lock, Radio } from "lucide-react";
 import { buildAuthCallbackUrl, getSafeNext } from "../lib/authRedirect";
-import { getFirstTouch, trackFunnelEvent } from "../lib/funnelClient";
+import { appendAttributionToUrl, getFirstTouch, trackFunnelEvent } from "../lib/funnelClient";
 
 const PRO_PLAN = "pro_telegram";
 const BASE_CHECKOUT_URL = process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER || "/subscribe";
@@ -21,9 +21,14 @@ export default function SignUp() {
   const [errorMsg, setErrorMsg] = useState("");
   const [signupComplete, setSignupComplete] = useState(false);
   const [confirmationRequired, setConfirmationRequired] = useState(false);
+  const [firstTouch, setFirstTouch] = useState({});
 
   const next = getSafeNext(router.query.next);
-  const checkoutUrl = useMemo(() => buildCheckoutUrl(BASE_CHECKOUT_URL, { email, next }), [email, next]);
+  const checkoutUrl = useMemo(() => buildCheckoutUrl(BASE_CHECKOUT_URL, { email, next, firstTouch }), [email, next, firstTouch]);
+
+  useEffect(() => {
+    setFirstTouch(getFirstTouch());
+  }, [router.asPath]);
 
   useEffect(() => {
     let mounted = true;
@@ -83,6 +88,9 @@ export default function SignUp() {
             utm_source: firstTouch.utm_source || null,
             utm_medium: firstTouch.utm_medium || null,
             utm_campaign: firstTouch.utm_campaign || null,
+            utm_term: firstTouch.utm_term || null,
+            utm_content: firstTouch.utm_content || null,
+            referral_code: firstTouch.referral_code || null,
             referrer: firstTouch.referrer || null,
           },
         },
@@ -255,7 +263,7 @@ export default function SignUp() {
   );
 }
 
-function buildCheckoutUrl(baseUrl, { email, next }) {
+function buildCheckoutUrl(baseUrl, { email, next, firstTouch }) {
   if (!baseUrl) return "/subscribe";
   try {
     const url = new URL(baseUrl, typeof window === "undefined" ? "https://www.sharps-signal.com" : window.location.origin);
@@ -266,7 +274,7 @@ function buildCheckoutUrl(baseUrl, { email, next }) {
     url.searchParams.set("plan", PRO_PLAN);
     url.searchParams.set("signup_handoff", "1");
     if (next) url.searchParams.set("next", next);
-    return url.toString();
+    return appendAttributionToUrl(url.toString(), { email, next, plan: PRO_PLAN, firstTouch });
   } catch {
     return baseUrl;
   }

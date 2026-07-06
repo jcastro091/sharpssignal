@@ -28,9 +28,15 @@ async function submitTailBet(body) {
 
   let tailBetsSynced = false;
   let tailBetsError = "";
+  let grade = null;
   try {
     await supabaseUpsert("tail_bets", row, "tail_bet_id");
     tailBetsSynced = true;
+    try {
+      grade = await autoGradeTailBet(row);
+    } catch (error) {
+      tailBetsError = String(error.message || error);
+    }
   } catch (error) {
     tailBetsError = String(error.message || error);
   }
@@ -45,6 +51,7 @@ async function submitTailBet(body) {
         tail_bets_synced: tailBetsSynced,
         fallback: tailBetsSynced ? "" : "funnel_events",
         warning: tailBetsSynced ? "" : "tail_bets_unavailable",
+        grade,
       },
     };
   } catch (error) {
@@ -57,6 +64,74 @@ async function submitTailBet(body) {
       },
     };
   }
+}
+
+async function autoGradeTailBet(row) {
+  const match = await findSettledPrediction(row);
+  if (!match) return null;
+  const result = normalizeResult(match.result);
+  if (!result) return null;
+  const grade = buildTailGrade(row, result, match.clv_pct);
+  await supabasePatch("tail_bets", row.tail_bet_id, grade);
+  return grade;
+}
+
+async function findSettledPrediction(row) {
+  const filters = [];
+  if (row.bet_id) filters.push(`bet_id=eq.${encodeURIComponent(row.bet_id)}`);
+  if (row.pick_id) filters.push(`prediction_id=eq.${encodeURIComponent(row.pick_id)}`);
+  if (!filters.length && row.away_team && row.home_team) {
+    filters.push(
+      `away_team=eq.${encodeURIComponent(row.away_team)}&home_team=eq.${encodeURIComponent(row.home_team)}&market=eq.${encodeURIComponent(row.market)}`
+    );
+  }
+  for (const filter of filters) {
+    const rows = await supabaseRead(`model_predictions?select=*&${filter}&order=observed_at.desc&limit=10`);
+    const settled = rows.map(normalizePrediction).find((item) => normalizeResult(item.result));
+    if (settled) return settled;
+  }
+  return null;
+}
+
+function normalizePrediction(row) {
+  const raw = parseJson(row.raw_json) || parseJson(row.raw) || {};
+  const read = (...keys) => {
+    for (const key of keys) {
+      if (row[key] !== undefined && row[key] !== null && row[key] !== "") return row[key];
+      if (raw[key] !== undefined && raw[key] !== null && raw[key] !== "") return raw[key];
+    }
+    return "";
+  };
+  return {
+    result: read("prediction_result", "Prediction Result", "result", "Result"),
+    clv_pct: number(read("clv_pct", "CLV %", "CLV")),
+  };
+}
+
+function normalizeResult(value) {
+  const result = clean(value).toLowerCase();
+  if (["win", "won", "w"].includes(result)) return "win";
+  if (["loss", "lost", "lose", "l"].includes(result)) return "loss";
+  if (["push", "void", "refund", "p"].includes(result)) return "push";
+  return "";
+}
+
+function buildTailGrade(row, result, clvPct) {
+  const stake = Number(row.stake || 0);
+  let pnl = 0;
+  if (result === "win") {
+    pnl = row.odds_american > 0 ? stake * (row.odds_american / 100) : stake * (100 / Math.abs(row.odds_american || 100));
+  } else if (result === "loss") {
+    pnl = -stake;
+  }
+  return {
+    status: "closed",
+    result,
+    pnl: Number(pnl.toFixed(2)),
+    clv_pct: Number.isFinite(clvPct) ? clvPct : null,
+    graded_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
 }
 
 function tailBet(body) {
@@ -143,6 +218,37 @@ async function supabaseInsert(table, row) {
   }
 }
 
+async function supabasePatch(table, id, patch) {
+  const url = String(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
+  const key = String(process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+  if (!url || !key) throw new Error("supabase_not_configured");
+  const response = await fetch(`${url}/rest/v1/${table}?tail_bet_id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: {
+      apikey: key,
+      authorization: `Bearer ${key}`,
+      "content-type": "application/json",
+      prefer: "return=minimal",
+    },
+    body: JSON.stringify(patch),
+  });
+  if (!response.ok) throw new Error(`supabase_${table}_patch_failed_${response.status}: ${await response.text()}`);
+}
+
+async function supabaseRead(path) {
+  const url = String(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
+  const key = String(process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+  if (!url || !key) throw new Error("supabase_not_configured");
+  const response = await fetch(`${url}/rest/v1/${path}`, {
+    headers: {
+      apikey: key,
+      authorization: `Bearer ${key}`,
+    },
+  });
+  if (!response.ok) throw new Error(`supabase_read_failed_${response.status}: ${await response.text()}`);
+  return response.json();
+}
+
 function funnelEvent(body, row) {
   const now = new Date().toISOString();
   return {
@@ -224,6 +330,21 @@ function money(value) {
   return Number.isFinite(number) ? Number(number.toFixed(2)) : null;
 }
 
+function number(value) {
+  const parsed = Number(String(value ?? "").replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseJson(value) {
+  if (!value) return {};
+  if (typeof value === "object") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
+}
+
 function clean(value) {
   return String(value || "").trim();
 }
@@ -233,4 +354,4 @@ function stableId(...parts) {
   return `${clean(parts[0]) || "id"}_${crypto.createHash("sha256").update(source).digest("hex").slice(0, 16)}`;
 }
 
-export const _private = { americanOdds, decimalOdds, money, tailBet, funnelEvent, legacyFunnelEvent, submitTailBet };
+export const _private = { americanOdds, decimalOdds, money, tailBet, funnelEvent, legacyFunnelEvent, submitTailBet, buildTailGrade };

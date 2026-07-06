@@ -151,6 +151,7 @@ function extractPickSide(text) {
   return beforeOdds
     .replace(/\b(i\s+)?(bet|tailed|tail|took|played|got|at|on|for|odds|stake|risk)\b/gi, " ")
     .replace(/\b(draft\s*kings|draftkings|dk|fan\s*duel|fanduel|fd|caesars|bet\s*mgm|betmgm|mgm|fanatics|espn\s*bet|bet365|hard\s*rock)\b/gi, " ")
+    .replace(/\$?\b[0-9]+(?:\.[0-9]{1,2})?\b/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 80);
@@ -235,9 +236,20 @@ async function replyToTelegram(update, text) {
 function confirmationText(result, tail) {
   if (result && result.ok) {
     const status = result.tail_bets_synced === false ? "captured in fallback; ledger migration pending" : "logged";
-    return `Tail ${status}: ${tail.sportsbook} ${tail.odds_taken}, stake ${tail.stake}.`;
+    const game = [tail.away_team, tail.home_team].filter(Boolean).join(" @ ");
+    const pick = tail.pick_side ? ` on ${tail.pick_side}` : "";
+    const stake = tail.stake ? `$${tail.stake}` : "1 unit";
+    const grade = result.grade?.status === "closed" ? ` Result: ${result.grade.result}; P&L ${moneyText(result.grade.pnl)}.` : " I will auto-grade it after the result and CLV settle.";
+    return `Tail ${status}: ${stake}${pick} at ${tail.sportsbook} ${tail.odds_taken}${game ? ` (${game})` : ""}.${grade}`;
   }
   return `I could not log that tail: ${(result || {}).error || "unknown_error"}.`;
+}
+
+function moneyText(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "$0";
+  const sign = n < 0 ? "-" : "";
+  return `${sign}$${Math.abs(n).toFixed(2)}`;
 }
 
 async function submitTailBet(body) {

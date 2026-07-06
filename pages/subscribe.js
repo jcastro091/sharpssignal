@@ -1,7 +1,8 @@
 import Head from "next/head";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Lock, Radio, ReceiptText } from "lucide-react";
-import { trackFunnelEvent } from "../lib/funnelClient";
+import { appendAttributionToUrl, getFirstTouch, trackFunnelEvent } from "../lib/funnelClient";
 
 const proofItems = [
   "Every pick is timestamped before game time.",
@@ -10,7 +11,20 @@ const proofItems = [
 ];
 
 export default function SubscribePage() {
-  const checkoutUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER || "/signup?next=%2Fpicks";
+  const [firstTouch, setFirstTouch] = useState({});
+  const checkoutUrl = useMemo(
+    () =>
+      appendAttributionToUrl(process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER || "/signup?next=%2Fpicks", {
+        firstTouch,
+        plan: "pro_telegram",
+        next: "/picks",
+      }),
+    [firstTouch]
+  );
+
+  useEffect(() => {
+    setFirstTouch(getFirstTouch());
+  }, []);
 
   return (
     <>

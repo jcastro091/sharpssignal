@@ -1,5 +1,6 @@
 // pages/api/odds-shop.ts
 import type { NextApiRequest, NextApiResponse } from "next";
+import { sportsbookOfferUrl } from "../../lib/sportsbookOffers";
 
 /**
  * Live Odds Shopping using The Odds API
@@ -134,6 +135,9 @@ const BOOK_NAME: Record<string, string> = {
   betmgm: "BetMGM",
   caesars: "Caesars",
   pointsbetus: "PointsBet",
+  fanatics: "Fanatics",
+  espnbet: "ESPN BET",
+  ballybet: "Bally Bet",
 };
 
 function prettyBook(id: string) {
@@ -194,7 +198,7 @@ function rowsForSide(ev: any, sideTeam: string): OddsRow[] {
       book: prettyBook(bookId),
       price: side.price,
       side: side.name,
-      link: undefined, // If you have affiliate links, map them by bookId here.
+      link: sportsbookOfferUrl(prettyBook(bookId)),
     });
   }
   return out;

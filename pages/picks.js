@@ -14,7 +14,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
 import { gaEvent } from "../lib/ga";
-import { trackFunnelEvent } from "../lib/funnelClient";
+import { appendAttributionToUrl, trackFunnelEvent } from "../lib/funnelClient";
 
 // --- Tonight window helpers (ET) ---
 const ET_TZ = "America/New_York";
@@ -145,7 +145,10 @@ function isClvGraded(row) {
 }
 
 function TelegramUpsellCTA() {
-  const checkoutUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER || "/signup";
+  const checkoutUrl = appendAttributionToUrl(process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER || "/signup", {
+    plan: "pro_telegram",
+    next: "/picks",
+  });
 
   const [telegramUrl, setTelegramUrl] = useState(null);
   const [unlockError, setUnlockError] = useState(null);
@@ -304,6 +307,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
   // Model metrics
   const [modelMetrics, setModelMetrics] = useState(null);
   const [metricsError, setMetricsError] = useState(null);
+  const [memberDashboard, setMemberDashboard] = useState(null);
 
   // Global filters
   const [startDate, setStartDate] = useState(null);
@@ -350,6 +354,19 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
       }
     }
     loadModelMetrics();
+  }, []);
+
+  useEffect(() => {
+    async function loadMemberDashboard() {
+      try {
+        const res = await fetch("/api/member-dashboard");
+        const data = await res.json();
+        setMemberDashboard(data);
+      } catch (err) {
+        console.error("[picks] failed to load member dashboard", err);
+      }
+    }
+    loadMemberDashboard();
   }, []);
 
   useEffect(() => {
@@ -686,6 +703,8 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
       </div>
       <FreshnessBanner freshness={freshness} rowCount={rawCount} isHistoricalView={hasDateFilter} />
 
+      <MemberDashboard data={memberDashboard} />
+
       {/* NEW: CTA */}
       <TelegramUpsellCTA />
 
@@ -995,6 +1014,132 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
       {/* Table */}
       {mounted && <PicksTable picks={tableRows} />}
     </div>
+  );
+}
+
+function MemberDashboard({ data }) {
+  const alerts = data?.today_research_alerts || [];
+  const books = data?.best_available_books || [];
+  const tails = data?.tail_results || [];
+  const lanes = data?.watchlist_lanes || [];
+  const disclosure = data?.affiliate?.disclosure || "";
+
+  return (
+    <section className="mb-6 rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
+      <div className="flex flex-col gap-2 border-b pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-wide text-indigo-600">Member command center</div>
+          <h2 className="mt-1 text-2xl font-black tracking-normal">Research alerts, best book, and your tails</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            Watchlist lanes stay research-only until the segment clears sample, CLV, ROI, and conflict gates. Official paid picks remain blocked until that happens.
+          </p>
+        </div>
+        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+          {data?.official_pick_gate?.status || "watchlist_only"}
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-3">
+        <div className="rounded border border-slate-200 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-bold">Today’s Research Alerts</h3>
+            <span className="text-xs font-semibold text-slate-500">{alerts.length} grouped</span>
+          </div>
+          <div className="mt-4 space-y-3">
+            {alerts.length ? (
+              alerts.slice(0, 5).map((alert) => (
+                <div key={`${alert.id}-${alert.game_time}`} className="rounded border bg-slate-50 p-3">
+                  <div className="text-sm font-semibold">{alert.away_team || "Away"} @ {alert.home_team || "Home"}</div>
+                  <div className="mt-1 text-xs leading-5 text-slate-600">
+                    {alert.market || "Market"}: <strong>{alert.pick_side || "Watchlist"}</strong>
+                    {alert.appearances ? ` | seen ${alert.appearances}x` : ""}
+                  </div>
+                  <div className="mt-2 text-xs text-slate-700">
+                    Best: <strong>{alert.best_available_price || "-"}</strong> | Min: <strong>{alert.minimum_acceptable_price || "-"}</strong>
+                  </div>
+                  {alert.cta_url && (
+                    <a href={alert.cta_url} className="mt-3 inline-flex rounded bg-slate-950 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800">
+                      Open best book
+                    </a>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="rounded border border-dashed p-4 text-sm text-slate-500">No research alerts captured yet today.</div>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded border border-slate-200 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-bold">Best Available Book</h3>
+            <span className="text-xs font-semibold text-slate-500">{books.length} prices</span>
+          </div>
+          <div className="mt-4 space-y-3">
+            {books.length ? (
+              books.slice(0, 5).map((book, idx) => (
+                <div key={`${book.game}-${idx}`} className="rounded border bg-slate-50 p-3">
+                  <div className="text-sm font-semibold">{book.best_available_price || book.book || "-"}</div>
+                  <div className="mt-1 text-xs leading-5 text-slate-600">{book.game} | {book.market} | {book.pick_side}</div>
+                  <div className="mt-1 text-xs text-slate-700">{book.do_not_bet_below || `Do not bet below ${book.minimum_acceptable_price || "the signal number"}.`}</div>
+                  {book.cta_url && (
+                    <a href={book.cta_url} className="mt-3 inline-flex rounded border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-100">
+                      Open sportsbook
+                    </a>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="rounded border border-dashed p-4 text-sm text-slate-500">No best-book opportunities currently available.</div>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded border border-slate-200 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-bold">Personal Tail Results</h3>
+            <span className="text-xs font-semibold text-slate-500">{tails.length} logged</span>
+          </div>
+          <div className="mt-4 space-y-3">
+            {tails.length ? (
+              tails.slice(0, 6).map((tail) => (
+                <div key={tail.tail_bet_id} className="rounded border bg-slate-50 p-3">
+                  <div className="text-sm font-semibold">{tail.away_team || "Away"} @ {tail.home_team || "Home"}</div>
+                  <div className="mt-1 text-xs leading-5 text-slate-600">
+                    {tail.sportsbook} {tail.odds_american > 0 ? `+${tail.odds_american}` : tail.odds_american} | stake {formatMoney(tail.stake)}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-700">
+                    Status: <strong>{tail.status || "open"}</strong> | P&L: <strong>{formatMoney(tail.pnl)}</strong> | CLV: <strong>{formatPct(tail.clv_pct)}</strong>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="rounded border border-dashed p-4 text-sm text-slate-500">No tailed bets logged yet. Reply to Telegram alerts like “I bet $20 DK +107”.</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded border border-slate-200 bg-slate-50 p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="font-bold">Watchlist Lanes</h3>
+          <span className="text-xs text-slate-500">Promotion disabled until gates clear</span>
+        </div>
+        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {lanes.length ? lanes.slice(0, 6).map((lane) => (
+            <div key={`${lane.sport}-${lane.market}-${lane.signal_lane}`} className="rounded border bg-white p-3 text-sm">
+              <div className="font-semibold">{lane.sport} / {lane.market}</div>
+              <div className="mt-1 text-xs text-slate-600">{lane.signal_lane}</div>
+              <div className="mt-2 text-xs text-slate-700">
+                Shadow {lane.shadow_count} | closed {lane.closed} | ROI {formatPct(lane.roi)} | CLV {formatPct(lane.avg_clv_pct)}
+              </div>
+              <div className="mt-1 text-xs font-semibold text-amber-700">{lane.promotion_status}</div>
+            </div>
+          )) : <div className="text-sm text-slate-500">No watchlist lanes available yet.</div>}
+        </div>
+      </div>
+      {disclosure && <p className="mt-4 text-xs leading-5 text-slate-500">{disclosure}</p>}
+    </section>
   );
 }
 

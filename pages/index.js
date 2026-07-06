@@ -21,14 +21,16 @@ import {
 } from "lucide-react";
 
 import { gaEvent } from "../lib/ga";
-import { trackFunnelEvent } from "../lib/funnelClient";
+import { appendAttributionToUrl, trackFunnelEvent } from "../lib/funnelClient";
 
 function track(action, category, label, value) {
   gaEvent({ action, category, label, value });
 }
 
 function RealtimeUpsellStrip() {
-  const proCheckoutUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER || null;
+  const proCheckoutUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER
+    ? appendAttributionToUrl(process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER, { plan: "pro_telegram", next: "/picks" })
+    : null;
 
   return (
     <div className="mt-6 bg-white/10 border border-white/20 backdrop-blur rounded-2xl p-4">
@@ -72,6 +74,12 @@ function RealtimeUpsellStrip() {
       </div>
     </div>
   );
+}
+
+function attributedCheckoutUrl() {
+  return process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER
+    ? appendAttributionToUrl(process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER, { plan: "pro_telegram", next: "/picks" })
+    : "/signup";
 }
 
 function HowItWorks() {
@@ -132,7 +140,7 @@ function HowItWorks() {
             </p>
             <div className="mt-4">
               <a
-                href={process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER || "/signup"}
+                href={attributedCheckoutUrl()}
                 onClick={() => {
                   track("click_upgrade_realtime", "homepage", "how_it_works_step3");
                   trackFunnelEvent("checkout_click", { location: "how_it_works_step3", plan: "pro_telegram" });
@@ -150,7 +158,9 @@ function HowItWorks() {
 }
 
 export default function Home() {
-  const enterpriseUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER;
+  const enterpriseUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER
+    ? appendAttributionToUrl(process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER, { plan: "pro_telegram", next: "/picks" })
+    : "";
 
   return (
     <>
@@ -423,7 +433,7 @@ export default function Home() {
 
               <div className="text-center">
                 <a
-                  href={process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER || "/signup"}
+                  href={enterpriseUrl || "/signup"}
                   onClick={() => track("click_upgrade_realtime", "homepage", "pricing_pro")}
                   className="inline-block bg-indigo-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-indigo-700 transition"
                 >
