@@ -17,6 +17,7 @@ import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/clien
 import { parse } from "csv-parse/sync";
 import { Readable } from "stream";
 import { DateTime } from "luxon";
+import { loadPicksPreviewFromSupabase } from "../../lib/supabasePicks";
 
 /* =========================
    Config
@@ -365,6 +366,21 @@ function isPickRow(row: CsvRow): boolean {
   return false;
 }
 
+function isTestOrCanaryRow(row: CsvRow): boolean {
+  const haystack = [
+    row["Sport"],
+    row["Away"],
+    row["Home"],
+    row["Market"],
+    row["Predicted"],
+    row["Reason Text"],
+    row["Bet ID"],
+  ]
+    .map((value) => String(value || "").toLowerCase())
+    .join(" ");
+  return haystack.includes("canary") || haystack.includes("test only");
+}
+
 function rowToHistoricalPick(row: CsvRow): HistoricalPick {
   const sport = row["Sport"];
   const away = row["Away"];
@@ -470,7 +486,7 @@ export async function findHistoricalPick(args: {
 }
 
 function latestPickFromRows(rows: CsvRow[]): HistoricalPick | null {
-  const pickRows = rows.filter(isPickRow);
+  const pickRows = rows.filter((row) => isPickRow(row) && !isTestOrCanaryRow(row));
   if (!pickRows.length) return null;
 
   pickRows.sort((a, b) => {
@@ -487,6 +503,25 @@ export async function getPickForQuery(q: string): Promise<HistoricalPick | null>
   const hint =
     s.includes("yesterday") || s.includes("last night") ? "yesterday" : "today";
   return findHistoricalPick({ dateHint: hint, nocache: false });
+}
+
+export async function getOfficialPickForQuery(_q: string): Promise<HistoricalPick | null> {
+  const preview = await loadPicksPreviewFromSupabase({ timezone: TZ });
+  const pick = preview?.todayPicks?.[0];
+  if (!pick) return null;
+  return {
+    matchup: pick.matchup || "",
+    pick: pick.pick || "",
+    line: null,
+    american_odds: pick.americanOdds ?? null,
+    ev_percent: null,
+    kelly_pct: null,
+    reason: "Official paid pick",
+    movement: "",
+    sport: pick.sport || "",
+    startTimeISO: pick.timestampISO || pick.timestampRaw || undefined,
+    pro: ["A", "B", "C"].includes(String(pick.tier || "").toUpperCase()),
+  };
 }
 
 /* =========================
@@ -516,9 +551,16 @@ export default async function handler(
       return res.status(200).json({ ok: true, rows, meta: buildObservationFreshnessMeta(rows) });
     }
 
-    // 2) Default = single-pick lookup backed by S3
+    // 2) Explicit legacy S3 single-pick lookup. Kept for diagnostics only.
     const q = req.query.q ? String(req.query.q) : "";
-    const result = await getPickForQuery(q || "today");
+    if (["s3", "legacy"].includes(source)) {
+      const result = await getPickForQuery(q || "today");
+      return res.status(200).json({ ok: true, result });
+    }
+
+    // 3) Default = official-only Supabase pick lookup. This prevents shadow,
+    // test, or canary observations from leaking into the member-facing API.
+    const result = await getOfficialPickForQuery(q || "today");
     return res.status(200).json({ ok: true, result });
   } catch (err: any) {
     console.error("[/api/picks] error:", err?.message || err);
