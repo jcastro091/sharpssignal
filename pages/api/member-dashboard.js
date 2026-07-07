@@ -3,6 +3,22 @@ import { AFFILIATE_DISCLOSURE, SPORTSBOOK_OFFERS, sportsbookOfferUrl } from "../
 import { getServerUser } from "../../lib/authServer";
 
 const ET_TZ = "America/New_York";
+const BETTING_RULEBOOK = {
+  version: "personal_betting_readiness_v1",
+  minimum_closed_sample: 50,
+  minimum_clv_coverage: 0.95,
+  minimum_avg_clv: 0,
+  minimum_win_rate: 0.53,
+  minimum_roi: 0,
+  minimum_retail_gap_persistence_polls: 2,
+  max_data_freshness_hours: 2,
+  conflicts_allowed: false,
+  bet_action_labels: {
+    BET: "Lane clears hard gates. Bet only if the current price is still within the bettable window.",
+    WATCH: "Interesting, but sample, persistence, or freshness is not strong enough for a personal bet.",
+    SKIP: "Do not bet. Conflict, stale data, bad CLV, poor ROI, or missing audit data blocks it.",
+  },
+};
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -58,6 +74,7 @@ export default async function handler(req, res) {
       authenticated: Boolean(userEmail),
       user_email: userEmail,
       generated_at: new Date().toISOString(),
+      betting_rulebook: BETTING_RULEBOOK,
       today_research_alerts: researchAlerts,
       best_available_books: bestAvailableBooks(researchAlerts),
       tail_results: tailRows,
@@ -65,6 +82,10 @@ export default async function handler(req, res) {
       proof_blocks: buildProofBlocks({ researchAlerts, todayRows, recentRows, tailRows, lanes, operatorCard }),
       operator_card: operatorCard,
       beachhead: buildBeachhead(lanes),
+      retail_gap_timing_backtest: retailGapTimingBacktest(recentRows),
+      manual_review: {
+        mlb_h2h_underdogs: buildManualMlbReview({ todayRows, lanes }),
+      },
       official_pick_gate: {
         status: "watchlist_only",
         message: "Official paid-pick promotion is blocked until a lane clears sample, ROI, win-rate, and CLV gates.",
@@ -91,6 +112,9 @@ function emptyPayload(error) {
     proof_blocks: [],
     operator_card: {},
     beachhead: {},
+    betting_rulebook: BETTING_RULEBOOK,
+    retail_gap_timing_backtest: {},
+    manual_review: { mlb_h2h_underdogs: {} },
     official_pick_gate: {
       status: "watchlist_only",
       message: "Official paid-pick promotion is blocked until a lane clears sample, ROI, win-rate, and CLV gates.",
@@ -145,8 +169,14 @@ function normalizePredictionRows(rows) {
       do_not_bet_below: read("Do Not Bet Below", "do_not_bet_below"),
       line_shop_prices: read("Line Shop Prices", "line_shop_prices"),
       signal_lane: read("Signal Lane", "signal_lane", "Setup", "setup") || "watchlist",
-      retail_gap: number(read("Retail Edge vs Sharp", "retail_gap", "edge", "Edge")),
+      retail_gap: number(read("Retail Edge vs Sharp", "retail_gap", "Retail Edge vs Reference", "retail_edge_vs_reference")),
+      retail_gap_first: number(read("Retail Gap First", "retail_gap_first", "Retail Edge First")),
+      retail_gap_latest: number(read("Retail Gap Latest", "retail_gap_latest", "Retail Edge Latest", "Retail Edge vs Sharp")),
+      retail_gap_max: number(read("Retail Gap Max", "retail_gap_max", "Retail Edge Max")),
       persistence_polls: number(read("Retail Gap Persistence Polls", "persistence_polls")),
+      has_retail_gap_metadata: Boolean(
+        read("Retail Edge vs Sharp", "retail_edge_vs_reference", "Retail Gap Persistence Polls", "retail_gap_persistence_polls")
+      ),
     };
   });
 }
@@ -234,10 +264,13 @@ function buildOperatorCard({ todayRows, recentRows, tailRows, lanes, pipelineRow
   const tailClosed = tailRows.filter((row) => ["win", "loss", "push"].includes(String(row.result || row.status || "").toLowerCase()));
   const tailPnl = tailClosed.reduce((sum, row) => sum + (Number(row.pnl) || 0), 0);
   const api = readApiUsage(latestRun);
-  const decision = officialToday > 0 ? "green" : watchlistToday > 0 ? "yellow" : "red";
+  const topLane = lanes.find((lane) => lane.bet_action === "BET") || lanes.find((lane) => lane.bet_action === "WATCH") || lanes[0] || {};
+  const decision = topLane.bet_action === "BET" ? "green" : topLane.bet_action === "WATCH" || watchlistToday > 0 ? "yellow" : "red";
   return {
     decision,
-    decision_label: decision === "green" ? "Official picks available" : decision === "yellow" ? "Research only today" : "No bet yet",
+    bet_action: topLane.bet_action || (watchlistToday > 0 ? "WATCH" : "SKIP"),
+    bet_action_reasons: topLane.bet_action_reasons || [],
+    decision_label: decision === "green" ? "Bet candidate cleared gates" : decision === "yellow" ? "Watch only" : "Skip today",
     official_picks_today: officialToday,
     watchlist_candidates_today: watchlistToday,
     conflicts,
@@ -271,6 +304,39 @@ function buildBeachhead(lanes) {
     label: "MLB H2H underdogs",
     status: lane.frozen ? "frozen_watchlist" : "watchlist_only",
     message: "This is the current beachhead candidate, but it is not promoted as profitable until sample, CLV, and conflict gates clear.",
+  };
+}
+
+function buildManualMlbReview({ todayRows, lanes }) {
+  const items = todayRows.filter(
+    (row) =>
+      String(row.sport || "").toLowerCase() === "baseball_mlb" &&
+      String(row.market || "").toLowerCase().startsWith("h2h") &&
+      Number(row.odds_american || 0) > 0
+  );
+  const lane = lanes.find(
+    (item) =>
+      String(item.sport || "").toLowerCase() === "baseball_mlb" &&
+      String(item.market || "").toLowerCase().startsWith("h2h") &&
+      item.direction === "underdog"
+  );
+  const closed = items.filter((row) => ["win", "won", "loss", "lost", "push"].includes(String(row.result || "").toLowerCase()));
+  const clvs = closed.map((row) => row.clv_pct).filter(Number.isFinite);
+  const persistent = items.filter((row) => Number(row.persistence_polls || 0) >= BETTING_RULEBOOK.minimum_retail_gap_persistence_polls);
+  return {
+    label: "MLB H2H underdogs",
+    status: "WATCHLIST_NOT_PROFITABLE_CLAIM",
+    did_trigger: items.length > 0,
+    trigger_count: items.length,
+    was_gap_persistent: persistent.length > 0,
+    persistent_count: persistent.length,
+    did_close_better: clvs.length ? clvs.reduce((a, b) => a + b, 0) / clvs.length > 0 : false,
+    avg_clv_pct: clvs.length ? clvs.reduce((a, b) => a + b, 0) / clvs.length : null,
+    record: `${closed.filter((row) => ["win", "won"].includes(String(row.result || "").toLowerCase())).length}-${closed.filter((row) => ["loss", "lost"].includes(String(row.result || "").toLowerCase())).length}-${closed.filter((row) => String(row.result || "").toLowerCase() === "push").length}`,
+    had_conflict: Boolean(lane?.frozen),
+    conflict_count: lane?.frozen ? 1 : 0,
+    answer: items.length ? "watch" : "no_trigger",
+    note: "Manual review lane only. Do not market this as profitable until hard gates clear.",
   };
 }
 
@@ -323,6 +389,8 @@ function watchlistLanes(rows) {
       pnl: 0,
       stake: 0,
       clv_values: [],
+      latest_observed_at: "",
+      max_persistence: 0,
       conflicted: conflictedKeys.has(key),
     };
     bucket.shadow_count += row.official ? 0 : 1;
@@ -335,6 +403,10 @@ function watchlistLanes(rows) {
     bucket.pnl += Number(row.pnl || 0);
     bucket.stake += Number(row.stake || 0);
     if (Number.isFinite(row.clv_pct)) bucket.clv_values.push(row.clv_pct);
+    if (!bucket.latest_observed_at || new Date(row.observed_at || 0) > new Date(bucket.latest_observed_at || 0)) {
+      bucket.latest_observed_at = row.observed_at;
+    }
+    bucket.max_persistence = Math.max(bucket.max_persistence, Number(row.persistence_polls || 0));
     buckets.set(key, bucket);
   }
   return Array.from(buckets.values())
@@ -343,6 +415,17 @@ function watchlistLanes(rows) {
       const clvCoverage = bucket.closed ? bucket.clv_values.length / bucket.closed : null;
       const roi = bucket.stake ? bucket.pnl / bucket.stake : null;
       const dataConfidence = dataConfidenceLabel(bucket.closed, clvCoverage);
+      const latestAgeHours = ageHours(bucket.latest_observed_at);
+      const betAction = betWatchSkipForLane({
+        closed: bucket.closed,
+        roi,
+        avgClv,
+        clvCoverage,
+        winRate: bucket.closed ? bucket.wins / bucket.closed : null,
+        conflicted: bucket.conflicted,
+        latestAgeHours,
+        retailPersistence: bucket.max_persistence,
+      });
       const readiness = readinessLabel({
         closed: bucket.closed,
         roi,
@@ -362,11 +445,38 @@ function watchlistLanes(rows) {
         freeze_reason: bucket.conflicted ? "same-game opposite-side conflict detected" : "",
         data_confidence: dataConfidence,
         betting_readiness: readiness,
+        bet_action: betAction.action,
+        bet_action_reasons: betAction.reasons,
+        latest_age_hours: latestAgeHours,
+        retail_gap_persistence_polls: bucket.max_persistence,
         gate_reason: bucket.conflicted ? "conflict_freeze" : bucket.closed < 30 ? "needs_30_closed_shadow_results" : avgClv == null ? "needs_clv_coverage" : "awaiting_manual_promotion_review",
       };
     })
     .sort((a, b) => b.shadow_count + b.official_count - (a.shadow_count + a.official_count))
     .slice(0, 12);
+}
+
+function betWatchSkipForLane({ closed, roi, avgClv, clvCoverage, winRate, conflicted, latestAgeHours, retailPersistence }) {
+  const hard = [];
+  const watch = [];
+  if (conflicted) hard.push("same-game opposite-side conflict");
+  if (!Number.isFinite(latestAgeHours)) watch.push("no fresh timestamp available");
+  else if (latestAgeHours > BETTING_RULEBOOK.max_data_freshness_hours) hard.push(`data older than ${BETTING_RULEBOOK.max_data_freshness_hours}h`);
+  if (closed < BETTING_RULEBOOK.minimum_closed_sample) watch.push(`need ${BETTING_RULEBOOK.minimum_closed_sample} closed groups; have ${closed}`);
+  if (!Number.isFinite(clvCoverage) || clvCoverage < BETTING_RULEBOOK.minimum_clv_coverage) hard.push(`CLV coverage below ${Math.round(BETTING_RULEBOOK.minimum_clv_coverage * 100)}%`);
+  if (!Number.isFinite(avgClv) || avgClv < BETTING_RULEBOOK.minimum_avg_clv) hard.push("average CLV below 0.0%");
+  if (!Number.isFinite(roi) || roi <= BETTING_RULEBOOK.minimum_roi) hard.push("flat-stake ROI is not positive");
+  if (!Number.isFinite(winRate) || winRate < BETTING_RULEBOOK.minimum_win_rate) watch.push(`win rate below ${Math.round(BETTING_RULEBOOK.minimum_win_rate * 100)}%`);
+  if (retailPersistence && retailPersistence < BETTING_RULEBOOK.minimum_retail_gap_persistence_polls) watch.push(`retail gap needs ${BETTING_RULEBOOK.minimum_retail_gap_persistence_polls} polls`);
+  if (hard.length) return { action: "SKIP", reasons: [...hard, ...watch] };
+  if (watch.length) return { action: "WATCH", reasons: watch };
+  return { action: "BET", reasons: ["all personal betting-readiness gates clear"] };
+}
+
+function ageHours(value) {
+  const ts = new Date(value || "");
+  if (Number.isNaN(ts.getTime())) return null;
+  return Math.max(0, (Date.now() - ts.getTime()) / 36e5);
 }
 
 function conflictedLaneKeys(rows) {
@@ -402,6 +512,52 @@ function readinessLabel({ closed, roi, avgClv, clvCoverage, winRate, conflicted 
   if (closed >= 50 && roi > 0 && avgClv >= 0 && clvCoverage >= 0.95 && winRate >= 0.53) return "green";
   if (closed >= 15 && roi > 0 && avgClv >= 0 && clvCoverage >= 0.8) return "yellow";
   return "red";
+}
+
+function retailGapTimingBacktest(rows) {
+  const closed = rows.filter(
+    (row) =>
+      ["win", "won", "loss", "lost", "push"].includes(String(row.result || "").toLowerCase()) &&
+      row.has_retail_gap_metadata &&
+      Number.isFinite(row.retail_gap_latest || row.retail_gap_first || row.retail_gap)
+  );
+  return {
+    first_alert: retailGapTimingMetrics(closed, () => true, "Bet immediately when the retail gap first appears."),
+    second_poll: retailGapTimingMetrics(
+      closed,
+      (row) => Number(row.persistence_polls || 0) >= BETTING_RULEBOOK.minimum_retail_gap_persistence_polls,
+      "Wait until the gap persists for at least two polls."
+    ),
+    max_observed_gap: retailGapTimingMetrics(
+      closed,
+      (row) => Number.isFinite(row.retail_gap_max || row.retail_gap_latest || row.retail_gap),
+      "Evaluate outcomes for candidates whose max observed gap was captured."
+    ),
+  };
+}
+
+function retailGapTimingMetrics(rows, predicate, description) {
+  const selected = rows.filter(predicate);
+  const wins = selected.filter((row) => ["win", "won"].includes(String(row.result || "").toLowerCase())).length;
+  const losses = selected.filter((row) => ["loss", "lost"].includes(String(row.result || "").toLowerCase())).length;
+  const pushes = selected.filter((row) => String(row.result || "").toLowerCase() === "push").length;
+  const pnl = selected.map((row) => Number(row.pnl || 0));
+  const clvs = selected.map((row) => row.clv_pct).filter(Number.isFinite);
+  const gaps = selected
+    .map((row) => row.retail_gap_max || row.retail_gap_latest || row.retail_gap)
+    .filter(Number.isFinite);
+  return {
+    description,
+    count: selected.length,
+    wins,
+    losses,
+    pushes,
+    win_rate: wins + losses ? wins / (wins + losses) : null,
+    roi: selected.length ? pnl.reduce((a, b) => a + b, 0) / selected.length : null,
+    unit_pnl: pnl.length ? pnl.reduce((a, b) => a + b, 0) : null,
+    avg_clv_pct: clvs.length ? clvs.reduce((a, b) => a + b, 0) / clvs.length : null,
+    avg_max_retail_gap: gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length : null,
+  };
 }
 
 function normalizeTailRows(rows) {

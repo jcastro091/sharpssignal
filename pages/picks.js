@@ -1025,6 +1025,9 @@ function MemberDashboard({ data }) {
   const proofBlocks = data?.proof_blocks || [];
   const operator = data?.operator_card || {};
   const beachhead = data?.beachhead || {};
+  const rulebook = data?.betting_rulebook || {};
+  const timing = data?.retail_gap_timing_backtest || {};
+  const manual = data?.manual_review?.mlb_h2h_underdogs || {};
   const disclosure = data?.affiliate?.disclosure || "";
 
   return (
@@ -1045,19 +1048,22 @@ function MemberDashboard({ data }) {
       <div className="mt-5 grid gap-3 lg:grid-cols-3">
         <div className={`rounded border p-4 ${operator.decision === "green" ? "border-emerald-200 bg-emerald-50" : operator.decision === "yellow" ? "border-amber-200 bg-amber-50" : "border-rose-200 bg-rose-50"}`}>
           <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Should we bet today?</div>
-          <div className="mt-2 text-xl font-black">{operator.decision_label || "Loading status"}</div>
+          <div className="mt-2 text-xl font-black">{operator.bet_action || "SKIP"}: {operator.decision_label || "Loading status"}</div>
           <div className="mt-2 text-xs leading-5 text-slate-700">
             Official {operator.official_picks_today ?? 0} | watchlist {operator.watchlist_candidates_today ?? 0} | conflicts {operator.conflicts ?? 0} | CLV gaps {operator.clv_gaps ?? 0}
           </div>
           <div className="mt-1 text-xs leading-5 text-slate-700">
             Games watched {operator.games_watched ?? 0} | API {operator.api_used ?? "-"} / {operator.api_cap ?? "-"}
           </div>
+          {operator.bet_action_reasons?.length ? (
+            <div className="mt-2 text-xs font-semibold text-slate-700">{operator.bet_action_reasons.slice(0, 2).join("; ")}</div>
+          ) : null}
         </div>
         <div className="rounded border border-slate-200 bg-slate-50 p-4">
           <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Beachhead lane</div>
           <div className="mt-2 text-xl font-black">{beachhead.label || "MLB H2H underdogs"}</div>
           <div className="mt-2 text-xs leading-5 text-slate-700">
-            Status: <strong>{beachhead.status || beachhead.promotion_status || "watchlist_only"}</strong> | readiness <strong>{beachhead.betting_readiness || "red"}</strong> | confidence <strong>{beachhead.data_confidence || "low"}</strong>
+            Action: <strong>{beachhead.bet_action || "WATCH"}</strong> | readiness <strong>{beachhead.betting_readiness || "red"}</strong> | confidence <strong>{beachhead.data_confidence || "low"}</strong>
           </div>
           <p className="mt-2 text-xs leading-5 text-slate-600">{beachhead.message || "Research only until sample, CLV, and conflict gates clear."}</p>
         </div>
@@ -1067,6 +1073,39 @@ function MemberDashboard({ data }) {
           <p className="mt-2 text-xs leading-5 text-slate-600">
             {data?.authenticated ? `Showing tail bets only for ${data.user_email}.` : "Sign in to see personal tail bets and P&L."}
           </p>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-3">
+        <div className="rounded border border-slate-200 bg-white p-4">
+          <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Betting-readiness rulebook</div>
+          <div className="mt-2 text-sm font-semibold text-slate-900">Personal BET requires all hard gates.</div>
+          <p className="mt-2 text-xs leading-5 text-slate-600">
+            {rulebook.minimum_closed_sample || 50} closed groups, {formatPct(rulebook.minimum_clv_coverage ?? 0.95)} CLV coverage, non-negative avg CLV, no same-game conflicts, {rulebook.minimum_retail_gap_persistence_polls || 2}+ retail-gap polls, and data fresher than {rulebook.max_data_freshness_hours || 2}h.
+          </p>
+        </div>
+        <div className="rounded border border-slate-200 bg-white p-4">
+          <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Daily manual review</div>
+          <div className="mt-2 text-sm font-semibold text-slate-900">MLB H2H underdogs</div>
+          <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-700">
+            <div>Triggered: <strong>{manual.trigger_count ?? 0}</strong></div>
+            <div>Persistent: <strong>{manual.persistent_count ?? 0}</strong></div>
+            <div>Closed better: <strong>{String(manual.did_close_better ?? false)}</strong></div>
+            <div>Conflict: <strong>{String(manual.had_conflict ?? false)}</strong></div>
+          </div>
+          <p className="mt-2 text-xs leading-5 text-slate-600">{manual.note || "Manual review only; not a profitable claim."}</p>
+        </div>
+        <div className="rounded border border-slate-200 bg-white p-4">
+          <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Sharp-vs-retail timing</div>
+          {["first_alert", "second_poll", "max_observed_gap"].map((key) => {
+            const row = timing[key] || {};
+            return (
+              <div key={key} className="mt-2 flex items-center justify-between gap-3 text-xs text-slate-700">
+                <span className="font-semibold">{key.replaceAll("_", " ")}</span>
+                <span>{row.count ?? 0} | ROI {formatPct(row.roi)} | CLV {formatPct(row.avg_clv_pct)}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -1181,19 +1220,23 @@ function MemberDashboard({ data }) {
         </div>
         <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {lanes.length ? lanes.slice(0, 6).map((lane) => (
-            <div key={`${lane.sport}-${lane.market}-${lane.signal_lane}`} className="rounded border bg-white p-3 text-sm">
+            <div key={`${lane.sport}-${lane.market}-${lane.signal_lane}-${lane.direction}`} className="rounded border bg-white p-3 text-sm">
               <div className="font-semibold">{lane.sport} / {lane.market}</div>
               <div className="mt-1 text-xs text-slate-600">{lane.signal_lane}</div>
               <div className="mt-2 text-xs text-slate-700">
                 Shadow {lane.shadow_count} | closed {lane.closed} | ROI {formatPct(lane.roi)} | CLV {formatPct(lane.avg_clv_pct)}
               </div>
               <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-bold uppercase">
+                <span className={`rounded border px-2 py-1 ${lane.bet_action === "BET" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : lane.bet_action === "WATCH" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
+                  {lane.bet_action || "WATCH"}
+                </span>
                 <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-slate-700">{lane.promotion_status}</span>
                 <span className={`rounded border px-2 py-1 ${lane.betting_readiness === "green" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : lane.betting_readiness === "yellow" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
                   readiness {lane.betting_readiness || "red"}
                 </span>
                 <span className="rounded border border-slate-200 bg-white px-2 py-1 text-slate-700">confidence {lane.data_confidence || "low"}</span>
               </div>
+              {lane.bet_action_reasons?.length ? <div className="mt-2 text-xs text-slate-600">{lane.bet_action_reasons.slice(0, 2).join("; ")}</div> : null}
               {lane.frozen && <div className="mt-2 text-xs font-semibold text-rose-700">Frozen: {lane.freeze_reason || "conflict detected"}</div>}
             </div>
           )) : <div className="text-sm text-slate-500">No watchlist lanes available yet.</div>}
