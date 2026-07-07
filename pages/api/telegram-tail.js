@@ -195,7 +195,10 @@ function extractGame(line) {
 
 function isGenericTailPick(value) {
   const cleaned = clean(value).toLowerCase();
-  return !cleaned || /^(i\s+)?(placed\s+)?this(\s+bet)?(\s+\$?\d+(?:\.\d{1,2})?)?$/.test(cleaned);
+  return (
+    !cleaned ||
+    /^(i\s+)?(placed\s+)?(this|it|here|that)(\s+(bet|game|play|pick))?(\s+\$?\d+(?:\.\d{1,2})?)?$/.test(cleaned)
+  );
 }
 
 function tailNote(text, stake, bestRetail, alert, betId) {
