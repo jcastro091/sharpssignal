@@ -24,6 +24,11 @@ export default async function handler(req, res) {
   if (update.message_reaction || update.message_reaction_count) {
     return res.status(200).json({ ok: true, action: "soft_interest", tracked_bet: false });
   }
+  const link = await parseTelegramAccountLink(update);
+  if (link.ok) {
+    await replyToTelegram(update, link.message);
+    return res.status(200).json(link);
+  }
   const callback = parseTelegramCallback(update);
   if (callback.ok && callback.action === "custom") {
     await answerCallback(update, "Reply with your stake, book, and odds.");
@@ -36,11 +41,12 @@ export default async function handler(req, res) {
     return res.status(200).json(callback);
   }
   if (callback.ok && callback.action === "tail") {
-    const result = await submitTailBet(callback.tail);
-    const text = confirmationText(result.body, callback.tail);
+    const tail = await resolveTailIdentity(callback.tail);
+    const result = await submitTailBet(tail);
+    const text = confirmationText(result.body, tail);
     await answerCallback(update, result.body.ok ? "Tail logged." : "Could not log tail.");
     await replyToTelegram(update, text);
-    return res.status(200).json({ ok: result.body.ok, tail: callback.tail, capture: result.body });
+    return res.status(200).json({ ok: result.body.ok, tail, capture: result.body });
   }
 
   const parsed = parseTelegramTail(update);
@@ -49,9 +55,10 @@ export default async function handler(req, res) {
     return res.status(200).json(parsed);
   }
 
-  const result = await submitTailBet(parsed.tail);
-  await replyToTelegram(update, confirmationText(result.body, parsed.tail));
-  return res.status(200).json({ ok: result.body.ok, tail: parsed.tail, capture: result.body });
+  const tail = await resolveTailIdentity(parsed.tail);
+  const result = await submitTailBet(tail);
+  await replyToTelegram(update, confirmationText(result.body, tail));
+  return res.status(200).json({ ok: result.body.ok, tail, capture: result.body });
 }
 
 function authorized(req) {
@@ -74,7 +81,7 @@ function parseTelegramTail(update) {
   const sportsbook = extractSportsbook(text) || bestRetail.sportsbook || extractSportsbook(replyText);
   const odds = extractAmericanOdds(text) || bestRetail.odds || extractAmericanOdds(replyText);
   const stake = extractStake(text) || "1";
-  const email = clean(process.env.TAIL_BOT_DEFAULT_EMAIL);
+  const identity = telegramIdentity(update);
 
   if (!text) return { ok: false, error: "empty_message" };
   if (!betId && !alert.has_context) return { ok: false, error: "missing_bet_id" };
@@ -88,7 +95,7 @@ function parseTelegramTail(update) {
     tail: {
       bet_id: betId,
       pick_id: betId ? "" : inferredId,
-      email,
+      email: "",
       sportsbook,
       odds_taken: odds,
       stake,
@@ -100,10 +107,10 @@ function parseTelegramTail(update) {
       placed_at: new Date().toISOString(),
       source: "telegram_reply",
       notes: tailNote(text, stake, bestRetail, alert, betId),
-      raw_telegram_update_id: clean(update.update_id),
-      telegram_chat_id: clean((message.chat || {}).id),
-      telegram_user_id: clean((message.from || {}).id),
-      telegram_username: clean((message.from || {}).username),
+      raw_telegram_update_id: identity.update_id,
+      telegram_chat_id: identity.chat_id,
+      telegram_user_id: identity.user_id,
+      telegram_username: identity.username,
     },
   };
 }
@@ -135,7 +142,7 @@ function parseTelegramCallback(update) {
   const betId = extractBetId(replyText);
   const sportsbook = bestRetail.sportsbook || extractSportsbook(replyText) || clean(process.env.TAIL_BOT_DEFAULT_SPORTSBOOK);
   const odds = bestRetail.odds || extractAmericanOdds(replyText);
-  const email = clean(process.env.TAIL_BOT_DEFAULT_EMAIL);
+  const identity = telegramIdentity(update);
 
   if (!betId && !alert.has_context) return { ok: false, error: "missing_bet_id" };
   if (!sportsbook) return { ok: false, error: "missing_sportsbook" };
@@ -147,7 +154,7 @@ function parseTelegramCallback(update) {
     tail: {
       bet_id: betId,
       pick_id: betId ? "" : inferredId,
-      email,
+      email: "",
       sportsbook,
       odds_taken: odds,
       stake: String(stake),
@@ -159,11 +166,117 @@ function parseTelegramCallback(update) {
       placed_at: new Date().toISOString(),
       source: "telegram_button",
       notes: tailNote(`button:${data}`, String(stake), bestRetail, alert, betId),
-      raw_telegram_update_id: clean(update.update_id),
-      telegram_chat_id: clean((message.chat || {}).id),
-      telegram_user_id: clean((callback.from || {}).id),
-      telegram_username: clean((callback.from || {}).username),
+      raw_telegram_update_id: identity.update_id,
+      telegram_chat_id: identity.chat_id,
+      telegram_user_id: identity.user_id,
+      telegram_username: identity.username,
     },
+  };
+}
+
+async function parseTelegramAccountLink(update) {
+  const message = telegramMessage(update);
+  const text = clean(message.text || message.caption);
+  const match = text.match(/^\/?link\s+([A-Z0-9]{6,12})$/i);
+  if (!match) return { ok: false, action: "not_link" };
+  const identity = telegramIdentity(update);
+  if (!identity.user_id) {
+    return { ok: true, action: "link", linked: false, message: "I could not see your Telegram user ID. Try sending /link CODE directly from your own account." };
+  }
+  const result = await consumeTelegramLinkCode(match[1], identity, update);
+  return {
+    ok: true,
+    action: "link",
+    linked: result.ok,
+    message: result.ok
+      ? `Telegram linked to ${result.email}. Future replies will land in your personal ledger.`
+      : `I could not link that code: ${result.error}. Generate a fresh code from the member dashboard and try again.`,
+  };
+}
+
+function telegramIdentity(update) {
+  const callback = telegramCallback(update);
+  const message = callback.message || telegramMessage(update);
+  const from = callback.from || message.from || {};
+  return {
+    update_id: clean(update.update_id),
+    chat_id: clean((message.chat || {}).id),
+    user_id: clean(from.id),
+    username: clean(from.username),
+  };
+}
+
+async function consumeTelegramLinkCode(code, identity, update) {
+  const normalized = clean(code).toUpperCase();
+  try {
+    const rows = await supabaseRead(
+      `telegram_link_codes?select=*&code=eq.${encodeURIComponent(normalized)}&used_at=is.null&expires_at=gte.${encodeURIComponent(new Date().toISOString())}&limit=1`
+    );
+    const row = rows[0];
+    if (!row) return { ok: false, error: "expired_or_invalid_code" };
+    const now = new Date().toISOString();
+    await supabaseUpsert(
+      "telegram_accounts",
+      {
+        telegram_user_id: identity.user_id,
+        user_id: row.user_id || null,
+        email: clean(row.email).toLowerCase(),
+        telegram_username: identity.username,
+        telegram_chat_id: identity.chat_id,
+        last_seen_at: now,
+        linked_at: now,
+        source: "telegram_link_code",
+        raw_json: update || {},
+        updated_at: now,
+      },
+      "telegram_user_id"
+    );
+    await supabasePatch("telegram_link_codes", `code=eq.${encodeURIComponent(normalized)}`, {
+      used_at: now,
+      used_by_telegram_user_id: identity.user_id,
+      updated_at: now,
+    });
+    return { ok: true, email: clean(row.email).toLowerCase() };
+  } catch (error) {
+    return { ok: false, error: String(error.message || error) };
+  }
+}
+
+async function resolveTailIdentity(tail) {
+  const telegramUserId = clean(tail.telegram_user_id);
+  const fallbackEmail = clean(process.env.TAIL_BOT_DEFAULT_EMAIL).toLowerCase();
+  let email = clean(tail.email).toLowerCase();
+  let accountLinkStatus = email ? "provided_email" : "unlinked";
+
+  if (telegramUserId) {
+    try {
+      const rows = await supabaseRead(
+        `telegram_accounts?select=email,telegram_username&telegram_user_id=eq.${encodeURIComponent(telegramUserId)}&limit=1`
+      );
+      const account = rows[0];
+      if (account?.email) {
+        email = clean(account.email).toLowerCase();
+        accountLinkStatus = "linked";
+      }
+    } catch {
+      accountLinkStatus = "lookup_failed";
+    }
+  }
+
+  if (!email && fallbackEmail) {
+    email = fallbackEmail;
+    accountLinkStatus = accountLinkStatus === "lookup_failed" ? "lookup_failed_fallback" : "fallback_default_email";
+  }
+
+  const notes = [clean(tail.notes)];
+  if (accountLinkStatus !== "linked") {
+    notes.push(`telegram account link status: ${accountLinkStatus}`);
+  }
+  return {
+    ...tail,
+    email,
+    account_link_status: accountLinkStatus,
+    notes: notes.filter(Boolean).join(" | "),
   };
 }
 
@@ -429,6 +542,11 @@ function tailBet(body) {
     home_team: clean(body.home_team),
     status: clean(body.status) || "open",
     notes: clean(body.notes),
+    telegram_user_id: clean(body.telegram_user_id),
+    telegram_username: clean(body.telegram_username),
+    telegram_chat_id: clean(body.telegram_chat_id),
+    raw_telegram_update_id: clean(body.raw_telegram_update_id),
+    account_link_status: clean(body.account_link_status) || "unknown",
     placed_at: placedAt,
     source: clean(body.source) || "telegram_reply",
     raw_json: JSON.stringify(body),
@@ -442,6 +560,48 @@ async function recordTailEvent(body, row) {
   } catch (error) {
     await supabaseInsert("funnel_events", legacyFunnelEvent(body, row));
   }
+}
+
+async function supabasePatch(table, filter, patch) {
+  const url = String(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
+  const key = String(process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+  if (!url || !key) {
+    throw new Error("supabase_not_configured");
+  }
+
+  const response = await fetch(`${url}/rest/v1/${table}?${filter}`, {
+    method: "PATCH",
+    headers: {
+      apikey: key,
+      authorization: `Bearer ${key}`,
+      "content-type": "application/json",
+      prefer: "return=minimal",
+    },
+    body: JSON.stringify(patch),
+  });
+  if (!response.ok) {
+    throw new Error(`supabase_${table}_patch_failed_${response.status}: ${await response.text()}`);
+  }
+}
+
+async function supabaseRead(path) {
+  const url = String(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
+  const key = String(process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+  if (!url || !key) {
+    throw new Error("supabase_not_configured");
+  }
+
+  const response = await fetch(`${url}/rest/v1/${path}`, {
+    headers: {
+      apikey: key,
+      authorization: `Bearer ${key}`,
+      accept: "application/json",
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`supabase_read_failed_${response.status}: ${await response.text()}`);
+  }
+  return response.json();
 }
 
 async function supabaseUpsert(table, row, onConflict) {
@@ -538,6 +698,10 @@ function legacyFunnelEvent(body, row) {
       away_team: row.away_team,
       home_team: row.home_team,
       notes: row.notes,
+      telegram_user_id: row.telegram_user_id,
+      telegram_username: row.telegram_username,
+      telegram_chat_id: row.telegram_chat_id,
+      account_link_status: row.account_link_status,
       raw: body,
     },
     created_at: row.placed_at,
@@ -604,4 +768,6 @@ export const _private = {
   extractAlertContext,
   isGenericTailPick,
   confirmationText,
+  resolveTailIdentity,
+  parseTelegramAccountLink,
 };

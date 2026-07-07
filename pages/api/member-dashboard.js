@@ -822,6 +822,10 @@ function normalizeTailRows(rows) {
     home_team: row.home_team,
     market: row.market,
     pick_side: row.pick_side,
+    source: row.source,
+    telegram_user_id: row.telegram_user_id,
+    telegram_username: row.telegram_username,
+    account_link_status: row.account_link_status || "unknown",
   }));
 }
 

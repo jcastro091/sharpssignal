@@ -58,6 +58,10 @@ function normalizeLedgerRow(row) {
     clv_pct: row.clv_pct,
     notes: row.notes || "",
     source: row.source || "",
+    telegram_user_id: row.telegram_user_id || "",
+    telegram_username: row.telegram_username || "",
+    telegram_chat_id: row.telegram_chat_id || "",
+    account_link_status: row.account_link_status || "unknown",
   };
 }
 
@@ -231,6 +235,11 @@ function tailBet(body) {
     home_team: clean(body.home_team),
     status: clean(body.status) || "open",
     notes: clean(body.notes),
+    telegram_user_id: clean(body.telegram_user_id),
+    telegram_username: clean(body.telegram_username),
+    telegram_chat_id: clean(body.telegram_chat_id),
+    raw_telegram_update_id: clean(body.raw_telegram_update_id),
+    account_link_status: clean(body.account_link_status) || (clean(body.telegram_user_id) ? "unlinked" : "not_telegram"),
     placed_at: placedAt,
     source: clean(body.source) || "member_dashboard",
     raw_json: JSON.stringify(body),
@@ -371,6 +380,10 @@ function legacyFunnelEvent(body, row) {
       away_team: row.away_team,
       home_team: row.home_team,
       notes: row.notes,
+      telegram_user_id: row.telegram_user_id,
+      telegram_username: row.telegram_username,
+      telegram_chat_id: row.telegram_chat_id,
+      account_link_status: row.account_link_status,
       raw: body,
     },
     created_at: row.placed_at,

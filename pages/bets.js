@@ -56,6 +56,7 @@ function statusTone(row) {
 
 export default function BetsPage({ userEmail = "" }) {
   const [ledger, setLedger] = useState({ ok: false, summary: {}, bets: [] });
+  const [telegramLink, setTelegramLink] = useState({ ok: false, loading: true });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -76,6 +77,34 @@ export default function BetsPage({ userEmail = "" }) {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    async function loadTelegramLink() {
+      try {
+        const response = await fetch("/api/telegram-link-code");
+        const data = await response.json();
+        if (active) setTelegramLink({ ...data, loading: false });
+      } catch (error) {
+        if (active) setTelegramLink({ ok: false, error: String(error), loading: false });
+      }
+    }
+    loadTelegramLink();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function refreshTelegramCode() {
+    setTelegramLink((current) => ({ ...current, loading: true }));
+    try {
+      const response = await fetch("/api/telegram-link-code", { method: "POST" });
+      const data = await response.json();
+      setTelegramLink({ ...data, loading: false });
+    } catch (error) {
+      setTelegramLink({ ok: false, error: String(error), loading: false });
+    }
+  }
 
   const bets = Array.isArray(ledger.bets) ? ledger.bets : [];
   const summary = ledger.summary || {};
@@ -111,6 +140,33 @@ export default function BetsPage({ userEmail = "" }) {
             Ledger data is temporarily unavailable: {ledger.error || "unknown error"}
           </div>
         )}
+
+        <div className="mb-5 rounded-xl border bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-bold">Connect Telegram replies</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Send this command in Telegram so replies and one-tap tails land in this private ledger for {userEmail || "your account"}.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={refreshTelegramCode}
+              className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-100"
+            >
+              New code
+            </button>
+          </div>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <code className="rounded-lg border bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
+              {telegramLink.loading ? "Loading..." : telegramLink.command || "Code unavailable"}
+            </code>
+            {telegramLink.expires_at && <span className="text-xs text-slate-500">Expires {dateLabel(telegramLink.expires_at)}</span>}
+          </div>
+          {!telegramLink.ok && !telegramLink.loading && (
+            <p className="mt-2 text-xs text-amber-700">Telegram linking is temporarily unavailable: {telegramLink.error || "unknown error"}</p>
+          )}
+        </div>
 
         <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
           <div className="border-b px-4 py-3">
