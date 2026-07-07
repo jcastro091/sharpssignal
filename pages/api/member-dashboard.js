@@ -64,12 +64,23 @@ export default async function handler(req, res) {
     const laneDecisionRows = laneDecisionResult.error ? [] : normalizeLaneDecisionRows(laneDecisionResult.data || []);
     const laneDecisionContext = buildLaneDecisionContext(laneDecisionRows);
     const lanes = laneDecisionContext.latest_rows.length ? laneDecisionContext.latest_rows : watchlistLanes(recentRows);
+    const manualReview = {
+      mlb_h2h_underdogs: buildManualMlbReview({ todayRows, lanes }),
+    };
     const operatorCard = buildOperatorCard({
       todayRows,
       recentRows,
       tailRows,
       lanes,
       pipelineRows: pipelineResult.data || [],
+    });
+    const dailyBettingReadiness = buildDailyBettingReadiness({
+      operatorCard,
+      lanes,
+      laneDecisionContext,
+      researchAlerts,
+      tailRows,
+      manualReview,
     });
 
     return res.status(200).json({
@@ -86,11 +97,10 @@ export default async function handler(req, res) {
       alert_routing: laneDecisionContext.alert_routing,
       proof_blocks: buildProofBlocks({ researchAlerts, todayRows, recentRows, tailRows, lanes, operatorCard }),
       operator_card: operatorCard,
+      daily_betting_readiness: dailyBettingReadiness,
       beachhead: buildBeachhead(lanes),
       retail_gap_timing_backtest: retailGapTimingBacktest(recentRows),
-      manual_review: {
-        mlb_h2h_underdogs: buildManualMlbReview({ todayRows, lanes }),
-      },
+      manual_review: manualReview,
       official_pick_gate: {
         status: "watchlist_only",
         message: "Official paid-pick promotion is blocked until a lane clears sample, ROI, win-rate, and CLV gates.",
@@ -118,6 +128,7 @@ function emptyPayload(error) {
     alert_routing: alertRoutingForLanes([]),
     proof_blocks: [],
     operator_card: {},
+    daily_betting_readiness: emptyReadinessCard(),
     beachhead: {},
     betting_rulebook: BETTING_RULEBOOK,
     retail_gap_timing_backtest: {},
@@ -367,10 +378,11 @@ function buildOperatorCard({ todayRows, recentRows, tailRows, lanes, pipelineRow
   const tailPnl = tailClosed.reduce((sum, row) => sum + (Number(row.pnl) || 0), 0);
   const api = readApiUsage(latestRun);
   const topLane = lanes.find((lane) => lane.bet_action === "BET") || lanes.find((lane) => lane.bet_action === "WATCH") || lanes[0] || {};
-  const decision = topLane.bet_action === "BET" ? "green" : topLane.bet_action === "WATCH" || watchlistToday > 0 ? "yellow" : "red";
+  const hasLaneSnapshot = lanes.length > 0;
+  const decision = topLane.bet_action === "BET" ? "green" : topLane.bet_action === "WATCH" || (!hasLaneSnapshot && watchlistToday > 0) ? "yellow" : "red";
   return {
     decision,
-    bet_action: topLane.bet_action || (watchlistToday > 0 ? "WATCH" : "SKIP"),
+    bet_action: topLane.bet_action || (!hasLaneSnapshot && watchlistToday > 0 ? "WATCH" : "SKIP"),
     bet_action_reasons: topLane.bet_action_reasons || [],
     decision_label: decision === "green" ? "Bet candidate cleared gates" : decision === "yellow" ? "Watch only" : "Skip today",
     official_picks_today: officialToday,
@@ -384,6 +396,139 @@ function buildOperatorCard({ todayRows, recentRows, tailRows, lanes, pipelineRow
     api_cap: api.cap,
     api_remaining: api.remaining,
     api_projected_monthly_used: api.projected,
+  };
+}
+
+function buildDailyBettingReadiness({ operatorCard, lanes, laneDecisionContext, researchAlerts, tailRows, manualReview }) {
+  const sortedLanes = [...(lanes || [])].sort((a, b) => actionRank(a.bet_action) - actionRank(b.bet_action));
+  const topLane = sortedLanes[0] || {};
+  const counts = (laneDecisionContext?.alert_routing || alertRoutingForLanes(lanes || [])).counts || {};
+  const hasSavedLaneSnapshot = Boolean(laneDecisionContext?.latest_day && (lanes || []).length);
+  const hasBet = Number(counts.BET || 0) > 0;
+  const hasWatch = Number(counts.WATCH || 0) > 0 || (!hasSavedLaneSnapshot && Number(operatorCard.watchlist_candidates_today || 0) > 0);
+  const action = hasBet ? "BET" : hasWatch ? "WATCH" : "SKIP";
+  const tone = action === "BET" ? "green" : action === "WATCH" ? "yellow" : "red";
+  const reasons = readinessReasons({ action, topLane, operatorCard, counts });
+  const changes = laneDecisionContext?.history?.what_changed || [];
+  const tailClosed = (tailRows || []).filter((row) => ["win", "loss", "push"].includes(String(row.result || row.status || "").toLowerCase()));
+  const tailPnl = tailClosed.reduce((sum, row) => sum + (Number(row.pnl) || 0), 0);
+  const manualMlb = manualReview?.mlb_h2h_underdogs || {};
+
+  return {
+    action,
+    tone,
+    label: readinessLabelForAction(action),
+    plain_english: readinessPlainEnglish(action),
+    reasons,
+    next_step: readinessNextStep(action),
+    money_stance:
+      action === "BET"
+        ? "A lane cleared the audit gates. Still bet only if the current sportsbook price is inside the bettable window."
+        : "Do not blindly bet. Keep collecting samples, CLV, and conflict-free closes before risking money from this lane.",
+    source_of_truth: laneDecisionContext?.latest_day
+      ? `lane_decisions saved for ${laneDecisionContext.latest_day}`
+      : "live watchlist fallback; no saved lane_decisions snapshot",
+    lane_snapshot: {
+      latest_day: laneDecisionContext?.latest_day || null,
+      total_lanes: (lanes || []).length,
+      bet: Number(counts.BET || 0),
+      watch: Number(counts.WATCH || 0),
+      skip: Number(counts.SKIP || 0),
+      top_lane: summarizeLane(topLane),
+    },
+    operations: {
+      official_picks_today: operatorCard.official_picks_today || 0,
+      watchlist_candidates_today: operatorCard.watchlist_candidates_today || 0,
+      research_alerts_today: (researchAlerts || []).length,
+      conflicts: operatorCard.conflicts || 0,
+      clv_gaps: operatorCard.clv_gaps || 0,
+      games_watched: operatorCard.games_watched || 0,
+      latest_no_pick_reason: friendlyReason(operatorCard.latest_no_pick_reason),
+    },
+    personal_ledger: {
+      logged_bets: (tailRows || []).length,
+      closed_bets: tailClosed.length,
+      pnl: tailPnl,
+    },
+    alert_routing: {
+      user_push: hasBet ? "allowed for BET lanes only" : "blocked until a lane reaches BET",
+      research: Number(counts.WATCH || 0) > 0 ? "WATCH lanes stay dashboard/internal research" : "no WATCH lanes",
+      quiet: `${Number(counts.SKIP || 0)} SKIP lanes stay operator-only`,
+    },
+    what_changed: changes.slice(0, 4),
+    manual_review: {
+      beachhead: "MLB H2H underdogs",
+      status: manualMlb.status || "WATCHLIST_NOT_PROFITABLE_CLAIM",
+      triggered: Boolean(manualMlb.did_trigger),
+      persistent: Boolean(manualMlb.was_gap_persistent),
+      conflict: Boolean(manualMlb.had_conflict),
+    },
+  };
+}
+
+function emptyReadinessCard() {
+  return {
+    action: "SKIP",
+    tone: "red",
+    label: "Skip today",
+    plain_english: "The dashboard could not load enough audited data to approve a bet.",
+    reasons: ["dashboard data unavailable"],
+    next_step: "Check the operator report and lane_decisions persistence before betting.",
+    lane_snapshot: { latest_day: null, total_lanes: 0, bet: 0, watch: 0, skip: 0, top_lane: {} },
+  };
+}
+
+function actionRank(action) {
+  const normalized = String(action || "WATCH").toUpperCase();
+  if (normalized === "BET") return 0;
+  if (normalized === "WATCH") return 1;
+  return 2;
+}
+
+function readinessLabelForAction(action) {
+  if (action === "BET") return "Bettable lane found";
+  if (action === "WATCH") return "Watch only";
+  return "Skip today";
+}
+
+function readinessPlainEnglish(action) {
+  if (action === "BET") return "One or more lanes cleared the hard betting gates. Confirm the live price is still inside the bettable window before placing anything.";
+  if (action === "WATCH") return "There is research worth monitoring, but the lane has not cleared enough sample, CLV, freshness, or conflict gates for a real-money bet.";
+  return "No lane is bettable right now. The system should stay quiet for users and keep the reason visible to the operator.";
+}
+
+function readinessNextStep(action) {
+  if (action === "BET") return "Check the best available sportsbook price, confirm minimum acceptable odds, then log any tail bet immediately.";
+  if (action === "WATCH") return "Let the lane collect more closes and CLV, then review tomorrow's transition summary.";
+  return "Do not force action. Repair data gaps, watch for conflicts, and wait for a lane to move from SKIP to WATCH or BET.";
+}
+
+function readinessReasons({ action, topLane, operatorCard, counts }) {
+  const laneReasons = Array.isArray(topLane.bet_action_reasons) ? topLane.bet_action_reasons.filter(Boolean) : [];
+  const reasons = [...laneReasons];
+  if (operatorCard.conflicts) reasons.push(`${operatorCard.conflicts} lane conflict${operatorCard.conflicts === 1 ? "" : "s"} still block promotion`);
+  if (operatorCard.clv_gaps) reasons.push(`${operatorCard.clv_gaps} closed row${operatorCard.clv_gaps === 1 ? "" : "s"} still missing CLV`);
+  if (!reasons.length && action === "BET") reasons.push("all personal betting-readiness gates clear");
+  if (!reasons.length && action === "WATCH") reasons.push("research is active, but no lane has cleared BET gates");
+  if (!reasons.length && action === "SKIP") reasons.push(`${Number(counts.SKIP || 0)} lanes are SKIP and no WATCH/BET lane is active`);
+  return reasons.slice(0, 5);
+}
+
+function summarizeLane(lane) {
+  if (!lane || !lane.lane_key) return {};
+  return {
+    lane_key: lane.lane_key,
+    sport: lane.sport,
+    market: lane.market,
+    direction: lane.direction,
+    action: lane.bet_action || "WATCH",
+    readiness: lane.betting_readiness || "red",
+    confidence: lane.data_confidence || "low",
+    closed: lane.closed || 0,
+    roi: lane.roi ?? null,
+    avg_clv_pct: lane.avg_clv_pct ?? null,
+    clv_coverage: lane.clv_coverage ?? null,
+    reasons: lane.bet_action_reasons || [],
   };
 }
 

@@ -1024,6 +1024,7 @@ function MemberDashboard({ data }) {
   const lanes = data?.watchlist_lanes || [];
   const proofBlocks = data?.proof_blocks || [];
   const operator = data?.operator_card || {};
+  const readiness = data?.daily_betting_readiness || {};
   const beachhead = data?.beachhead || {};
   const rulebook = data?.betting_rulebook || {};
   const timing = data?.retail_gap_timing_backtest || {};
@@ -1048,9 +1049,50 @@ function MemberDashboard({ data }) {
         </div>
       </div>
 
+      <div className={`mt-5 rounded border p-5 ${
+        readiness.tone === "green"
+          ? "border-emerald-200 bg-emerald-50"
+          : readiness.tone === "yellow"
+            ? "border-amber-200 bg-amber-50"
+            : "border-rose-200 bg-rose-50"
+      }`}>
+        <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr] lg:items-start">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Daily betting readiness</div>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <div className="text-3xl font-black tracking-normal">{readiness.action || "SKIP"}</div>
+              <div className="text-lg font-black text-slate-900">{readiness.label || "Skip today"}</div>
+            </div>
+            <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-800">
+              {readiness.plain_english || "No lane is currently approved for a real-money bet."}
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <ReadinessMetric label="Lane snapshot" value={`${readiness.lane_snapshot?.bet ?? 0} BET / ${readiness.lane_snapshot?.watch ?? 0} WATCH / ${readiness.lane_snapshot?.skip ?? 0} SKIP`} />
+              <ReadinessMetric label="Alerts today" value={`${readiness.operations?.research_alerts_today ?? 0} research`} />
+              <ReadinessMetric label="Your ledger" value={`${readiness.personal_ledger?.closed_bets ?? 0} closed | ${formatMoney(readiness.personal_ledger?.pnl)}`} />
+            </div>
+          </div>
+          <div className="rounded border border-white/70 bg-white/70 p-4">
+            <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Why</div>
+            <div className="mt-2 space-y-2 text-xs font-semibold leading-5 text-slate-700">
+              {(readiness.reasons || ["No readiness reasons available."]).slice(0, 4).map((reason, idx) => (
+                <div key={`${reason}-${idx}`} className="rounded border border-slate-200 bg-white px-3 py-2">{reason}</div>
+              ))}
+            </div>
+            <div className="mt-3 text-xs font-bold uppercase tracking-wide text-slate-600">Next step</div>
+            <p className="mt-1 text-xs leading-5 text-slate-700">{readiness.next_step || "Wait for a lane to clear the betting gates."}</p>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 border-t border-white/70 pt-4 text-xs text-slate-700 md:grid-cols-3">
+          <div><strong>Source:</strong> {readiness.source_of_truth || "lane_decisions"}</div>
+          <div><strong>User alerts:</strong> {readiness.alert_routing?.user_push || "blocked until BET"}</div>
+          <div><strong>Money stance:</strong> {readiness.money_stance || "Do not blindly bet."}</div>
+        </div>
+      </div>
+
       <div className="mt-5 grid gap-3 lg:grid-cols-3">
         <div className={`rounded border p-4 ${operator.decision === "green" ? "border-emerald-200 bg-emerald-50" : operator.decision === "yellow" ? "border-amber-200 bg-amber-50" : "border-rose-200 bg-rose-50"}`}>
-          <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Should we bet today?</div>
+          <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Operator snapshot</div>
           <div className="mt-2 text-xl font-black">{operator.bet_action || "SKIP"}: {operator.decision_label || "Loading status"}</div>
           <div className="mt-2 text-xs leading-5 text-slate-700">
             Official {operator.official_picks_today ?? 0} | watchlist {operator.watchlist_candidates_today ?? 0} | conflicts {operator.conflicts ?? 0} | CLV gaps {operator.clv_gaps ?? 0}
@@ -1058,9 +1100,6 @@ function MemberDashboard({ data }) {
           <div className="mt-1 text-xs leading-5 text-slate-700">
             Games watched {operator.games_watched ?? 0} | API {operator.api_used ?? "-"} / {operator.api_cap ?? "-"}
           </div>
-          {operator.bet_action_reasons?.length ? (
-            <div className="mt-2 text-xs font-semibold text-slate-700">{operator.bet_action_reasons.slice(0, 2).join("; ")}</div>
-          ) : null}
         </div>
         <div className="rounded border border-slate-200 bg-slate-50 p-4">
           <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Beachhead lane</div>
@@ -1282,6 +1321,15 @@ function MemberDashboard({ data }) {
       </div>
       {disclosure && <p className="mt-4 text-xs leading-5 text-slate-500">{disclosure}</p>}
     </section>
+  );
+}
+
+function ReadinessMetric({ label, value }) {
+  return (
+    <div className="rounded border border-white/70 bg-white/70 p-3">
+      <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="mt-1 text-sm font-black text-slate-950">{value}</div>
+    </div>
   );
 }
 
