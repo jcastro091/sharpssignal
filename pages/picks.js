@@ -132,6 +132,21 @@ function formatPct(value) {
   return `${(n * 100).toFixed(1)}%`;
 }
 
+function formatOdds(value) {
+  const n = numericValue(value);
+  if (n == null) return "-";
+  return n > 0 ? `+${n}` : String(n);
+}
+
+function parseBestPrice(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/^([A-Za-z][A-Za-z0-9 .'-]+?)\s+([+-]?\d{3,4})\b/);
+  return {
+    book: match ? match[1].trim() : "",
+    odds: match ? match[2] : "",
+  };
+}
+
 function clvValue(row) {
   return numericValue(row?.clv_pct ?? row?.["CLV %"] ?? row?.CLV ?? row?.clv);
 }
@@ -1018,6 +1033,7 @@ export default function PicksPage({ initialPicks = [], initialTrades = [], initi
 }
 
 function MemberDashboard({ data }) {
+  const [tailStatus, setTailStatus] = useState({});
   const alerts = data?.today_research_alerts || [];
   const books = data?.best_available_books || [];
   const tails = data?.tail_results || [];
@@ -1033,6 +1049,48 @@ function MemberDashboard({ data }) {
   const changed = laneDecisions?.history?.what_changed || [];
   const routingCounts = data?.alert_routing?.counts || {};
   const disclosure = data?.affiliate?.disclosure || "";
+  const trackTail = async (alert, stake) => {
+    const key = `${alert.id || alert.bet_id || alert.pick_id || alert.game_time}-${stake}`;
+    const custom = stake === "custom";
+    if (custom) {
+      setTailStatus((current) => ({ ...current, [key]: "Use the full ledger form for custom stake/book edits." }));
+      window.location.href = "/bets";
+      return;
+    }
+    setTailStatus((current) => ({ ...current, [key]: "Logging..." }));
+    const parsed = parseBestPrice(alert.best_available_price);
+    const body = {
+      email: data?.user_email || "",
+      bet_id: alert.bet_id || "",
+      pick_id: alert.bet_id ? "" : alert.id,
+      sportsbook: alert.recommended_book || parsed.book,
+      odds_taken: parsed.odds || alert.odds_american,
+      stake,
+      pick_side: alert.pick_side,
+      market: alert.market,
+      sport: alert.sport,
+      away_team: alert.away_team,
+      home_team: alert.home_team,
+      source: "member_dashboard_quick_tail",
+      notes: `dashboard quick tail from readiness card; best=${alert.best_available_price || ""}; min=${alert.minimum_acceptable_price || ""}`,
+      page_path: "/picks",
+      landing_page: typeof window !== "undefined" ? window.location.href : "",
+    };
+    try {
+      const response = await fetch("/api/tail-bets", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload = await response.json();
+      setTailStatus((current) => ({
+        ...current,
+        [key]: payload.ok ? `Logged $${stake} at ${body.sportsbook} ${formatOdds(body.odds_taken)}.` : `Could not log: ${payload.error || "unknown error"}`,
+      }));
+    } catch (error) {
+      setTailStatus((current) => ({ ...current, [key]: "Could not log. Try the full ledger form." }));
+    }
+  };
 
   return (
     <section className="mb-6 rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
@@ -1227,6 +1285,39 @@ function MemberDashboard({ data }) {
                   {alert.cta_url && (
                     <a href={alert.cta_url} className="mt-3 inline-flex rounded bg-slate-950 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800">
                       Open best book
+                    </a>
+                  )}
+                  {data?.authenticated ? (
+                    <>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {[10, 25].map((stake) => {
+                          const key = `${alert.id || alert.bet_id || alert.pick_id || alert.game_time}-${stake}`;
+                          return (
+                            <button
+                              key={stake}
+                              type="button"
+                              onClick={() => trackTail(alert, stake)}
+                              className="rounded border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
+                            >
+                              Track ${stake}
+                            </button>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          onClick={() => trackTail(alert, "custom")}
+                          className="rounded border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-100"
+                        >
+                          Custom
+                        </button>
+                      </div>
+                      {[10, 25].map((stake) => `${alert.id || alert.bet_id || alert.pick_id || alert.game_time}-${stake}`).map((key) =>
+                        tailStatus[key] ? <div key={key} className="mt-2 text-xs font-semibold text-slate-700">{tailStatus[key]}</div> : null
+                      )}
+                    </>
+                  ) : (
+                    <a href="/signin?next=%2Fpicks" className="mt-3 inline-flex rounded border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-100">
+                      Sign in to track
                     </a>
                   )}
                 </div>

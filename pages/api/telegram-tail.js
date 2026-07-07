@@ -21,6 +21,28 @@ export default async function handler(req, res) {
   }
 
   const update = typeof req.body === "object" && req.body ? req.body : {};
+  if (update.message_reaction || update.message_reaction_count) {
+    return res.status(200).json({ ok: true, action: "soft_interest", tracked_bet: false });
+  }
+  const callback = parseTelegramCallback(update);
+  if (callback.ok && callback.action === "custom") {
+    await answerCallback(update, "Reply with your stake, book, and odds.");
+    await replyToTelegram(update, "Reply to the alert with your actual bet, like: DraftKings +107 $20");
+    return res.status(200).json(callback);
+  }
+  if (callback.ok && callback.action === "skip") {
+    await answerCallback(update, "Marked as skipped.");
+    await replyToTelegram(update, "Skipped. No bet was added to your ledger.");
+    return res.status(200).json(callback);
+  }
+  if (callback.ok && callback.action === "tail") {
+    const result = await submitTailBet(callback.tail);
+    const text = confirmationText(result.body, callback.tail);
+    await answerCallback(update, result.body.ok ? "Tail logged." : "Could not log tail.");
+    await replyToTelegram(update, text);
+    return res.status(200).json({ ok: result.body.ok, tail: callback.tail, capture: result.body });
+  }
+
   const parsed = parseTelegramTail(update);
   if (!parsed.ok) {
     await replyToTelegram(update, helpText(parsed.error));
@@ -88,6 +110,61 @@ function parseTelegramTail(update) {
 
 function telegramMessage(update) {
   return update.message || update.edited_message || update.channel_post || update.edited_channel_post || {};
+}
+
+function telegramCallback(update) {
+  return update.callback_query || {};
+}
+
+function parseTelegramCallback(update) {
+  const callback = telegramCallback(update);
+  const data = clean(callback.data);
+  if (!data) return { ok: false, error: "missing_callback_data" };
+  const [prefix, value] = data.split(":");
+  if (prefix !== "tail") return { ok: false, error: "unsupported_callback" };
+  if (value === "custom") return { ok: true, action: "custom" };
+  if (value === "skip") return { ok: true, action: "skip" };
+  const stake = moneyAmount(value);
+  if (!stake || stake <= 0) return { ok: false, error: "invalid_callback_stake" };
+
+  const message = callback.message || {};
+  const replyText = clean(message.text || message.caption);
+  const bestRetail = extractBestRetail(replyText);
+  const alert = extractAlertContext(replyText);
+  const inferredId = stableId("telegram_pick", alert.away_team, alert.home_team, alert.market, alert.pick_side, alert.game_time);
+  const betId = extractBetId(replyText);
+  const sportsbook = bestRetail.sportsbook || extractSportsbook(replyText) || clean(process.env.TAIL_BOT_DEFAULT_SPORTSBOOK);
+  const odds = bestRetail.odds || extractAmericanOdds(replyText);
+  const email = clean(process.env.TAIL_BOT_DEFAULT_EMAIL);
+
+  if (!betId && !alert.has_context) return { ok: false, error: "missing_bet_id" };
+  if (!sportsbook) return { ok: false, error: "missing_sportsbook" };
+  if (!odds) return { ok: false, error: "missing_odds" };
+
+  return {
+    ok: true,
+    action: "tail",
+    tail: {
+      bet_id: betId,
+      pick_id: betId ? "" : inferredId,
+      email,
+      sportsbook,
+      odds_taken: odds,
+      stake: String(stake),
+      pick_side: alert.pick_side || extractAlertPick(replyText),
+      market: alert.market,
+      sport: alert.sport,
+      away_team: alert.away_team,
+      home_team: alert.home_team,
+      placed_at: new Date().toISOString(),
+      source: "telegram_button",
+      notes: tailNote(`button:${data}`, String(stake), bestRetail, alert, betId),
+      raw_telegram_update_id: clean(update.update_id),
+      telegram_chat_id: clean((message.chat || {}).id),
+      telegram_user_id: clean((callback.from || {}).id),
+      telegram_username: clean((callback.from || {}).username),
+    },
+  };
 }
 
 function extractBetId(text) {
@@ -217,7 +294,8 @@ function tailNote(text, stake, bestRetail, alert, betId) {
 
 async function replyToTelegram(update, text) {
   const token = clean(process.env.TELEGRAM_TAIL_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN);
-  const message = telegramMessage(update);
+  const callback = telegramCallback(update);
+  const message = callback.message || telegramMessage(update);
   const chatId = clean((message.chat || {}).id);
   if (!token || !chatId) return;
   try {
@@ -229,6 +307,25 @@ async function replyToTelegram(update, text) {
         text,
         reply_to_message_id: message.message_id,
         disable_web_page_preview: true,
+      }),
+    });
+  } catch (error) {
+    return;
+  }
+}
+
+async function answerCallback(update, text) {
+  const token = clean(process.env.TELEGRAM_TAIL_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN);
+  const callbackId = clean((telegramCallback(update) || {}).id);
+  if (!token || !callbackId) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        callback_query_id: callbackId,
+        text,
+        show_alert: false,
       }),
     });
   } catch (error) {
@@ -252,6 +349,11 @@ function moneyText(value) {
   if (!Number.isFinite(n)) return "$0";
   const sign = n < 0 ? "-" : "";
   return `${sign}$${Math.abs(n).toFixed(2)}`;
+}
+
+function moneyAmount(value) {
+  const number = Number(clean(value).replace("$", "").replace(",", ""));
+  return Number.isFinite(number) ? Number(number.toFixed(2)) : null;
 }
 
 async function submitTailBet(body) {
@@ -491,6 +593,7 @@ function clean(value) {
 
 export const _private = {
   parseTelegramTail,
+  parseTelegramCallback,
   extractBetId,
   extractSportsbook,
   extractBestRetail,
