@@ -1,4 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
+import { requireServerUser } from "../lib/authServer";
+
+export async function getServerSideProps({ req, res }) {
+  const auth = await requireServerUser(req, res);
+  if (!auth.user) {
+    return {
+      redirect: {
+        destination: auth.redirect || "/signin?next=%2Fbets",
+        permanent: false,
+      },
+    };
+  }
+  return { props: { userEmail: auth.user.email || "" } };
+}
 
 function money(value) {
   const n = Number(value);
@@ -40,7 +54,7 @@ function statusTone(row) {
   return "bg-amber-50 text-amber-800 border-amber-200";
 }
 
-export default function BetsPage() {
+export default function BetsPage({ userEmail = "" }) {
   const [ledger, setLedger] = useState({ ok: false, summary: {}, bets: [] });
   const [loading, setLoading] = useState(true);
 
@@ -75,7 +89,7 @@ export default function BetsPage() {
             <div className="text-xs font-bold uppercase tracking-wide text-slate-500">Member bet ledger</div>
             <h1 className="mt-2 text-3xl font-black tracking-normal">Your tracked bets</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-600">
-              Telegram replies and manual tails land here with stake, book, odds, CLV, grading status, and notes.
+              Telegram replies and manual tails for {userEmail || "your account"} land here with stake, book, odds, CLV, grading status, and notes.
             </p>
           </div>
           <a href="/picks" className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-100">

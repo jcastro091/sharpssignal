@@ -29,6 +29,7 @@ export default async function handler(req, res) {
   const leadPayload = {
     email,
     sport_interest: sport_interest || "all",
+    source: utm_source || inferSource(referrer),
     utm_source: utm_source || null,
     utm_medium: utm_medium || null,
     utm_campaign: utm_campaign || null,
@@ -96,6 +97,19 @@ export default async function handler(req, res) {
   }
 
   return res.status(200).json({ success: true });
+}
+
+function inferSource(referrer) {
+  const value = String(referrer || "").toLowerCase();
+  if (!value) return "direct";
+  if (value.includes("google.")) return "google";
+  if (value.includes("bing.")) return "bing";
+  if (value.includes("x.com") || value.includes("twitter.com")) return "x";
+  try {
+    return new URL(referrer).hostname.replace(/^www\./, "");
+  } catch {
+    return "referral";
+  }
 }
 
 async function upsertLead(payload) {

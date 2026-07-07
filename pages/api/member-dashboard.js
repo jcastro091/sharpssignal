@@ -1,5 +1,6 @@
 import { createSupabaseServiceClient, hasSupabaseServiceConfig } from "../../lib/supabaseServer";
 import { AFFILIATE_DISCLOSURE, SPORTSBOOK_OFFERS, sportsbookOfferUrl } from "../../lib/sportsbookOffers";
+import { getServerUser } from "../../lib/authServer";
 
 const ET_TZ = "America/New_York";
 
@@ -13,11 +14,16 @@ export default async function handler(req, res) {
   }
 
   try {
+    const user = await getServerUser(req, res);
+    const userEmail = String(user?.email || "").toLowerCase();
     const supabase = createSupabaseServiceClient();
     const todayStart = easternDayStartIso();
     const since = new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString();
 
-    const [todayResult, recentResult, tailsResult] = await Promise.all([
+    const tailsQuery = supabase.from("tail_bets").select("*").order("placed_at", { ascending: false }).limit(20);
+    if (userEmail) tailsQuery.eq("email", userEmail);
+
+    const [todayResult, recentResult, tailsResult, pipelineResult] = await Promise.all([
       supabase
         .from("model_predictions")
         .select("*")
@@ -30,25 +36,35 @@ export default async function handler(req, res) {
         .gte("observed_at", since)
         .order("observed_at", { ascending: false })
         .limit(750),
-      supabase
-        .from("tail_bets")
-        .select("*")
-        .order("placed_at", { ascending: false })
-        .limit(20),
+      userEmail ? tailsQuery : Promise.resolve({ data: [] }),
+      supabase.from("pipeline_runs").select("*").order("started_at", { ascending: false }).limit(50),
     ]);
 
     const todayRows = normalizePredictionRows(todayResult.data || []).filter(isResearchOrShadow);
     const recentRows = normalizePredictionRows(recentResult.data || []).filter(isResearchOrShadow);
     const tailRows = normalizeTailRows(tailsResult.data || []);
     const researchAlerts = groupTodayResearch(todayRows);
+    const lanes = watchlistLanes(recentRows);
+    const operatorCard = buildOperatorCard({
+      todayRows,
+      recentRows,
+      tailRows,
+      lanes,
+      pipelineRows: pipelineResult.data || [],
+    });
 
     return res.status(200).json({
       ok: true,
+      authenticated: Boolean(userEmail),
+      user_email: userEmail,
       generated_at: new Date().toISOString(),
       today_research_alerts: researchAlerts,
       best_available_books: bestAvailableBooks(researchAlerts),
       tail_results: tailRows,
-      watchlist_lanes: watchlistLanes(recentRows),
+      watchlist_lanes: lanes,
+      proof_blocks: buildProofBlocks({ researchAlerts, todayRows, recentRows, tailRows, lanes, operatorCard }),
+      operator_card: operatorCard,
+      beachhead: buildBeachhead(lanes),
       official_pick_gate: {
         status: "watchlist_only",
         message: "Official paid-pick promotion is blocked until a lane clears sample, ROI, win-rate, and CLV gates.",
@@ -66,11 +82,15 @@ export default async function handler(req, res) {
 function emptyPayload(error) {
   return {
     ok: false,
+    authenticated: false,
     error,
     today_research_alerts: [],
     best_available_books: [],
     tail_results: [],
     watchlist_lanes: [],
+    proof_blocks: [],
+    operator_card: {},
+    beachhead: {},
     official_pick_gate: {
       status: "watchlist_only",
       message: "Official paid-pick promotion is blocked until a lane clears sample, ROI, win-rate, and CLV gates.",
@@ -168,6 +188,119 @@ function bestAvailableBooks(alerts) {
         cta_url: sportsbookOfferUrl(book),
       };
     });
+}
+
+function buildProofBlocks({ researchAlerts, todayRows, recentRows, tailRows, lanes, operatorCard }) {
+  const closedRecent = recentRows.filter((row) => ["win", "won", "loss", "lost", "push"].includes(String(row.result || "").toLowerCase()));
+  const clvCovered = closedRecent.filter((row) => Number.isFinite(row.clv_pct)).length;
+  const tailClosed = tailRows.filter((row) => ["win", "loss", "push"].includes(String(row.result || row.status || "").toLowerCase()));
+  const tailPnl = tailClosed.reduce((sum, row) => sum + (Number(row.pnl) || 0), 0);
+  return [
+    {
+      label: "Today research",
+      value: `${researchAlerts.length} grouped`,
+      detail: researchAlerts.length ? "Signals are being tracked before promotion." : "No watchlist alerts have appeared today.",
+    },
+    {
+      label: "No-pick reason",
+      value: friendlyReason(operatorCard.latest_no_pick_reason),
+      detail: "No-pick days still explain what the runner watched and why paid alerts did not fire.",
+    },
+    {
+      label: "CLV coverage",
+      value: closedRecent.length ? `${clvCovered}/${closedRecent.length}` : "n/a",
+      detail: "Closed research rows need closing-line value before we trust a lane.",
+    },
+    {
+      label: "Your ledger",
+      value: `${tailRows.length} bets`,
+      detail: tailRows.length ? `Closed P&L ${moneyText(tailPnl)}.` : "Reply to Telegram alerts to build your personal tracked record.",
+    },
+    {
+      label: "Audited lanes",
+      value: `${lanes.length} lanes`,
+      detail: "Each lane shows readiness, confidence, and conflict freeze status.",
+    },
+  ];
+}
+
+function buildOperatorCard({ todayRows, recentRows, tailRows, lanes, pipelineRows }) {
+  const latestRun = pipelineRows[0] || {};
+  const officialToday = todayRows.filter((row) => row.official).length;
+  const watchlistToday = todayRows.filter((row) => !row.official).length;
+  const conflicts = lanes.filter((lane) => lane.frozen).length;
+  const closedRecent = recentRows.filter((row) => ["win", "won", "loss", "lost", "push"].includes(String(row.result || "").toLowerCase()));
+  const clvGaps = closedRecent.filter((row) => !Number.isFinite(row.clv_pct)).length;
+  const tailClosed = tailRows.filter((row) => ["win", "loss", "push"].includes(String(row.result || row.status || "").toLowerCase()));
+  const tailPnl = tailClosed.reduce((sum, row) => sum + (Number(row.pnl) || 0), 0);
+  const api = readApiUsage(latestRun);
+  const decision = officialToday > 0 ? "green" : watchlistToday > 0 ? "yellow" : "red";
+  return {
+    decision,
+    decision_label: decision === "green" ? "Official picks available" : decision === "yellow" ? "Research only today" : "No bet yet",
+    official_picks_today: officialToday,
+    watchlist_candidates_today: watchlistToday,
+    conflicts,
+    clv_gaps: clvGaps,
+    tail_pnl: tailPnl,
+    latest_no_pick_reason: latestRun.no_alert_reason || "",
+    games_watched: Number(latestRun.future_events_seen || latestRun.events_seen || 0),
+    api_used: api.used,
+    api_cap: api.cap,
+    api_remaining: api.remaining,
+    api_projected_monthly_used: api.projected,
+  };
+}
+
+function buildBeachhead(lanes) {
+  const lane = lanes.find(
+    (item) =>
+      String(item.sport || "").toLowerCase() === "baseball_mlb" &&
+      String(item.market || "").toLowerCase().startsWith("h2h") &&
+      item.direction === "underdog"
+  );
+  if (!lane) {
+    return {
+      label: "MLB H2H underdogs",
+      status: "watchlist_only",
+      message: "No lane sample available yet. Keep collecting shadow data.",
+    };
+  }
+  return {
+    ...lane,
+    label: "MLB H2H underdogs",
+    status: lane.frozen ? "frozen_watchlist" : "watchlist_only",
+    message: "This is the current beachhead candidate, but it is not promoted as profitable until sample, CLV, and conflict gates clear.",
+  };
+}
+
+function readApiUsage(run) {
+  const raw = parseJson(run?.raw) || {};
+  const primary = raw?.api_usage?.primary || {};
+  return {
+    used: Number(run?.primary_used || primary.used || 0),
+    remaining: Number(run?.primary_remaining || primary.remaining || 0),
+    cap: Number(primary.cap || (Number(run?.primary_used || 0) + Number(run?.primary_remaining || 0)) || 0),
+    projected: Number(primary.projected_monthly_used || 0),
+  };
+}
+
+function friendlyReason(value) {
+  const labels = {
+    no_model_qualified_edges: "No model-qualified edges",
+    shadow_only_pass_tier: "Only pass-tier shadows",
+    shadow_only_retail_gap: "Retail-gap research only",
+    no_events: "No eligible events",
+    "": "No runner reason",
+  };
+  return labels[String(value || "").trim()] || String(value || "No runner reason");
+}
+
+function moneyText(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "$0.00";
+  const sign = n < 0 ? "-" : "";
+  return `${sign}$${Math.abs(n).toFixed(2)}`;
 }
 
 function watchlistLanes(rows) {

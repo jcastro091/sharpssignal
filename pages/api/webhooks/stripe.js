@@ -62,11 +62,23 @@ async function persistCheckoutSession(session) {
   );
   if (error) throw error;
 
-  const eventWrite = await supabase.from("funnel_events").insert({
+  const attribution = attributionFromSession(session);
+  const eventWrite = await insertFunnelEvent(supabase, {
     event_name: "subscribe_success",
+    event_type: "subscribe_success",
     email,
     source: "stripe_webhook",
+    plan: session.metadata?.plan || subscription?.metadata?.plan || DEFAULT_PLAN,
+    page_path: attribution.first_path || null,
+    page_url: attribution.landing_page || null,
+    referrer: attribution.referrer || null,
+    utm_source: attribution.utm_source || null,
+    utm_medium: attribution.utm_medium || null,
+    utm_campaign: attribution.utm_campaign || null,
+    utm_term: attribution.utm_term || null,
+    utm_content: attribution.utm_content || null,
     metadata: {
+      ...attribution,
       stripe_checkout_session_id: session.id,
       stripe_customer_id: typeof session.customer === "string" ? session.customer : null,
       stripe_subscription_id: typeof session.subscription === "string" ? session.subscription : null,
@@ -112,8 +124,9 @@ async function persistSubscription(subscription) {
   if (error) throw error;
 
   if (subscription.cancel_at_period_end || subscription.status === "canceled" || subscription.status === "unpaid") {
-    const eventWrite = await supabase.from("funnel_events").insert({
+    const eventWrite = await insertFunnelEvent(supabase, {
       event_name: "subscription_cancelled",
+      event_type: "subscription_cancelled",
       email,
       source: "stripe_webhook",
       metadata: {
@@ -124,6 +137,37 @@ async function persistSubscription(subscription) {
     });
     if (eventWrite.error) console.warn("[stripe webhook] cancellation funnel event write failed:", eventWrite.error.message);
   }
+}
+
+async function insertFunnelEvent(supabase, row) {
+  let result = await supabase.from("funnel_events").insert(row);
+  if (result.error && missingColumn(result.error.message) === "event_type") {
+    const fallback = { ...row };
+    delete fallback.event_type;
+    result = await supabase.from("funnel_events").insert(fallback);
+  }
+  return result;
+}
+
+function attributionFromSession(session) {
+  const metadata = session?.metadata || {};
+  return {
+    utm_source: metadata.utm_source || "",
+    utm_medium: metadata.utm_medium || "",
+    utm_campaign: metadata.utm_campaign || "",
+    utm_term: metadata.utm_term || "",
+    utm_content: metadata.utm_content || "",
+    referral_code: metadata.referral_code || metadata.ref || "",
+    referrer: metadata.referrer || "",
+    landing_page: metadata.landing_page || "",
+    first_path: metadata.first_path || "",
+    client_reference_id: session?.client_reference_id || "",
+  };
+}
+
+function missingColumn(message = "") {
+  const match = String(message).match(/'([^']+)' column|column '([^']+)'|Could not find the '([^']+)'/i);
+  return match?.[1] || match?.[2] || match?.[3] || "";
 }
 
 export default async function handler(req, res) {

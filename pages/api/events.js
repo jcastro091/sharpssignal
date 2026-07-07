@@ -9,6 +9,7 @@ const ALLOWED_EVENTS = new Set([
   "signup_view",
   "subscribe_view",
   "dashboard_view",
+  "plan_view",
   "signup_click",
   "signup_submit",
   "signup_success",
@@ -40,6 +41,7 @@ export default async function handler(req, res) {
 
   const row = {
     event_name: eventName,
+    event_type: eventName,
     visitor_id: cleanText(body.visitor_id, 120) || null,
     session_id: cleanText(body.session_id, 120) || null,
     email: cleanText(body.email, 320).toLowerCase() || null,
@@ -64,7 +66,12 @@ export default async function handler(req, res) {
 
   try {
     const supabase = createSupabaseServiceClient();
-    const { error } = await supabase.from("funnel_events").insert(row);
+    let { error } = await supabase.from("funnel_events").insert(row);
+    if (error && missingColumn(error.message) === "event_type") {
+      const fallback = { ...row };
+      delete fallback.event_type;
+      ({ error } = await supabase.from("funnel_events").insert(fallback));
+    }
     if (error) {
       console.warn("[events] Supabase write failed:", error.message);
       return res.status(200).json({ ok: true, persisted: false, reason: error.message });
@@ -74,4 +81,9 @@ export default async function handler(req, res) {
     console.warn("[events]", error?.message || error);
     return res.status(200).json({ ok: true, persisted: false, reason: "write_failed" });
   }
+}
+
+function missingColumn(message = "") {
+  const match = String(message).match(/'([^']+)' column|column '([^']+)'|Could not find the '([^']+)'/i);
+  return match?.[1] || match?.[2] || match?.[3] || "";
 }

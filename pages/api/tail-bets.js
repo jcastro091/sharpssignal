@@ -1,8 +1,11 @@
 import crypto from "crypto";
+import { getServerUser } from "../../lib/authServer";
 
 export default async function handler(req, res) {
   if (req.method === "GET") {
-    const result = await listTailBets(req.query || {});
+    const user = await getServerUser(req, res);
+    if (!user?.email) return res.status(401).json({ ok: false, error: "auth_required", bets: [], summary: summarizeLedger([]) });
+    const result = await listTailBets(req.query || {}, user.email);
     return res.status(result.status).json(result.body);
   }
   if (req.method !== "POST") {
@@ -15,10 +18,12 @@ export default async function handler(req, res) {
   return res.status(result.status).json(result.body);
 }
 
-async function listTailBets(query) {
+async function listTailBets(query, email) {
   try {
     const limit = Math.min(Math.max(Number(query.limit || 100), 1), 250);
-    const rows = await supabaseRead(`tail_bets?select=*&order=placed_at.desc&limit=${limit}`);
+    const rows = await supabaseRead(
+      `tail_bets?select=*&email=eq.${encodeURIComponent(String(email || "").toLowerCase())}&order=placed_at.desc&limit=${limit}`
+    );
     const ledger = rows.map(normalizeLedgerRow);
     return { status: 200, body: { ok: true, generated_at: new Date().toISOString(), summary: summarizeLedger(ledger), bets: ledger } };
   } catch (error) {

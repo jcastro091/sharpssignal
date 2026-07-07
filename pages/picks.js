@@ -1022,6 +1022,9 @@ function MemberDashboard({ data }) {
   const books = data?.best_available_books || [];
   const tails = data?.tail_results || [];
   const lanes = data?.watchlist_lanes || [];
+  const proofBlocks = data?.proof_blocks || [];
+  const operator = data?.operator_card || {};
+  const beachhead = data?.beachhead || {};
   const disclosure = data?.affiliate?.disclosure || "";
 
   return (
@@ -1036,6 +1039,49 @@ function MemberDashboard({ data }) {
         </div>
         <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
           {data?.official_pick_gate?.status || "watchlist_only"}
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 lg:grid-cols-3">
+        <div className={`rounded border p-4 ${operator.decision === "green" ? "border-emerald-200 bg-emerald-50" : operator.decision === "yellow" ? "border-amber-200 bg-amber-50" : "border-rose-200 bg-rose-50"}`}>
+          <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Should we bet today?</div>
+          <div className="mt-2 text-xl font-black">{operator.decision_label || "Loading status"}</div>
+          <div className="mt-2 text-xs leading-5 text-slate-700">
+            Official {operator.official_picks_today ?? 0} | watchlist {operator.watchlist_candidates_today ?? 0} | conflicts {operator.conflicts ?? 0} | CLV gaps {operator.clv_gaps ?? 0}
+          </div>
+          <div className="mt-1 text-xs leading-5 text-slate-700">
+            Games watched {operator.games_watched ?? 0} | API {operator.api_used ?? "-"} / {operator.api_cap ?? "-"}
+          </div>
+        </div>
+        <div className="rounded border border-slate-200 bg-slate-50 p-4">
+          <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Beachhead lane</div>
+          <div className="mt-2 text-xl font-black">{beachhead.label || "MLB H2H underdogs"}</div>
+          <div className="mt-2 text-xs leading-5 text-slate-700">
+            Status: <strong>{beachhead.status || beachhead.promotion_status || "watchlist_only"}</strong> | readiness <strong>{beachhead.betting_readiness || "red"}</strong> | confidence <strong>{beachhead.data_confidence || "low"}</strong>
+          </div>
+          <p className="mt-2 text-xs leading-5 text-slate-600">{beachhead.message || "Research only until sample, CLV, and conflict gates clear."}</p>
+        </div>
+        <div className="rounded border border-slate-200 bg-white p-4">
+          <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Account scope</div>
+          <div className="mt-2 text-xl font-black">{data?.authenticated ? "Private ledger" : "Research preview"}</div>
+          <p className="mt-2 text-xs leading-5 text-slate-600">
+            {data?.authenticated ? `Showing tail bets only for ${data.user_email}.` : "Sign in to see personal tail bets and P&L."}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded border border-slate-200 bg-slate-50 p-4">
+        <h3 className="font-bold">Why subscribe now</h3>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {proofBlocks.length ? proofBlocks.map((block) => (
+            <div key={block.label} className="rounded border bg-white p-3">
+              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{block.label}</div>
+              <div className="mt-1 text-lg font-black">{block.value}</div>
+              <p className="mt-1 text-xs leading-5 text-slate-600">{block.detail}</p>
+            </div>
+          )) : (
+            <div className="text-sm text-slate-500">Proof blocks are loading.</div>
+          )}
         </div>
       </div>
 
@@ -1057,6 +1103,11 @@ function MemberDashboard({ data }) {
                   <div className="mt-2 text-xs text-slate-700">
                     Best: <strong>{alert.best_available_price || "-"}</strong> | Min: <strong>{alert.minimum_acceptable_price || "-"}</strong>
                   </div>
+                  {alert.best_available_price && (
+                    <div className="mt-1 text-xs font-semibold text-emerald-700">
+                      Still bettable at {alert.best_available_price}; do not bet below {alert.minimum_acceptable_price || "the signal number"}.
+                    </div>
+                  )}
                   {alert.cta_url && (
                     <a href={alert.cta_url} className="mt-3 inline-flex rounded bg-slate-950 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800">
                       Open best book
@@ -1082,6 +1133,9 @@ function MemberDashboard({ data }) {
                   <div className="text-sm font-semibold">{book.best_available_price || book.book || "-"}</div>
                   <div className="mt-1 text-xs leading-5 text-slate-600">{book.game} | {book.market} | {book.pick_side}</div>
                   <div className="mt-1 text-xs text-slate-700">{book.do_not_bet_below || `Do not bet below ${book.minimum_acceptable_price || "the signal number"}.`}</div>
+                  <div className="mt-1 text-xs font-semibold text-emerald-700">
+                    Still bettable at {book.best_available_price || book.book}; do not bet below {book.minimum_acceptable_price || "the signal number"}.
+                  </div>
                   {book.cta_url && (
                     <a href={book.cta_url} className="mt-3 inline-flex rounded border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-100">
                       Open sportsbook
