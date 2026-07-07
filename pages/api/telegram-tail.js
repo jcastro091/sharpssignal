@@ -238,12 +238,11 @@ async function replyToTelegram(update, text) {
 
 function confirmationText(result, tail) {
   if (result && result.ok) {
-    const status = result.tail_bets_synced === false ? "captured in fallback; ledger migration pending" : "logged";
-    const game = [tail.away_team, tail.home_team].filter(Boolean).join(" @ ");
-    const pick = tail.pick_side ? ` on ${tail.pick_side}` : "";
+    const status = result.tail_bets_synced === false ? "fallback; ledger migration pending" : result.grade?.status || "open";
+    const pick = tail.pick_side || [tail.away_team, tail.home_team].filter(Boolean).join(" @ ") || "tail";
     const stake = tail.stake ? `$${tail.stake}` : "1 unit";
-    const grade = result.grade?.status === "closed" ? ` Result: ${result.grade.result}; P&L ${moneyText(result.grade.pnl)}.` : " I will auto-grade it after the result and CLV settle.";
-    return `Tail ${status}: ${stake}${pick} at ${tail.sportsbook} ${tail.odds_taken}${game ? ` (${game})` : ""}.${grade}`;
+    const grade = result.grade?.status === "closed" ? ` Result: ${result.grade.result}; P&L ${moneyText(result.grade.pnl)}.` : " Auto-grading after final and CLV settle.";
+    return `Logged ${pick} ${tail.odds_taken} ${tail.sportsbook} ${stake}. Current status: ${status}.${grade}`;
   }
   return `I could not log that tail: ${(result || {}).error || "unknown_error"}.`;
 }

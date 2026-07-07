@@ -1,14 +1,81 @@
 import crypto from "crypto";
 
 export default async function handler(req, res) {
+  if (req.method === "GET") {
+    const result = await listTailBets(req.query || {});
+    return res.status(result.status).json(result.body);
+  }
   if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
+    res.setHeader("Allow", "GET, POST");
     return res.status(405).json({ ok: false, error: "method_not_allowed" });
   }
 
   const body = typeof req.body === "object" && req.body ? req.body : {};
   const result = await submitTailBet(body);
   return res.status(result.status).json(result.body);
+}
+
+async function listTailBets(query) {
+  try {
+    const limit = Math.min(Math.max(Number(query.limit || 100), 1), 250);
+    const rows = await supabaseRead(`tail_bets?select=*&order=placed_at.desc&limit=${limit}`);
+    const ledger = rows.map(normalizeLedgerRow);
+    return { status: 200, body: { ok: true, generated_at: new Date().toISOString(), summary: summarizeLedger(ledger), bets: ledger } };
+  } catch (error) {
+    return {
+      status: 200,
+      body: {
+        ok: false,
+        error: String(error?.message || error),
+        generated_at: new Date().toISOString(),
+        summary: summarizeLedger([]),
+        bets: [],
+      },
+    };
+  }
+}
+
+function normalizeLedgerRow(row) {
+  return {
+    tail_bet_id: row.tail_bet_id,
+    placed_at: row.placed_at,
+    game: [row.away_team, row.home_team].filter(Boolean).join(" @ "),
+    away_team: row.away_team,
+    home_team: row.home_team,
+    market: row.market,
+    pick_side: row.pick_side,
+    sportsbook: row.sportsbook,
+    odds_american: row.odds_american,
+    stake: row.stake,
+    status: row.status || "open",
+    result: row.result || "",
+    pnl: row.pnl,
+    clv_pct: row.clv_pct,
+    notes: row.notes || "",
+    source: row.source || "",
+  };
+}
+
+function summarizeLedger(rows) {
+  const closed = rows.filter((row) => ["win", "loss", "push"].includes(clean(row.result || row.status).toLowerCase()));
+  const wins = closed.filter((row) => clean(row.result || row.status).toLowerCase() === "win").length;
+  const losses = closed.filter((row) => clean(row.result || row.status).toLowerCase() === "loss").length;
+  const pushes = closed.filter((row) => clean(row.result || row.status).toLowerCase() === "push").length;
+  const stake = rows.reduce((sum, row) => sum + (number(row.stake) || 0), 0);
+  const pnl = closed.reduce((sum, row) => sum + (number(row.pnl) || 0), 0);
+  const clvs = closed.map((row) => number(row.clv_pct)).filter((value) => Number.isFinite(value));
+  return {
+    total: rows.length,
+    open: rows.filter((row) => clean(row.status).toLowerCase() === "open").length,
+    closed: closed.length,
+    wins,
+    losses,
+    pushes,
+    stake,
+    pnl,
+    roi: stake > 0 ? pnl / stake : null,
+    avg_clv_pct: clvs.length ? clvs.reduce((a, b) => a + b, 0) / clvs.length : null,
+  };
 }
 
 async function submitTailBet(body) {
@@ -354,4 +421,4 @@ function stableId(...parts) {
   return `${clean(parts[0]) || "id"}_${crypto.createHash("sha256").update(source).digest("hex").slice(0, 16)}`;
 }
 
-export const _private = { americanOdds, decimalOdds, money, tailBet, funnelEvent, legacyFunnelEvent, submitTailBet, buildTailGrade };
+export const _private = { americanOdds, decimalOdds, money, tailBet, funnelEvent, legacyFunnelEvent, submitTailBet, buildTailGrade, summarizeLedger };

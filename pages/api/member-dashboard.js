@@ -117,6 +117,7 @@ function normalizePredictionRows(rows) {
       result: read("prediction_result", "Prediction Result", "result", "Result"),
       pnl: number(read("pnl", "P&L", "Profit")),
       stake: number(read("stake", "Stake")) || 1,
+      odds_american: number(read("odds_american", "Odds (Am)", "American Odds")),
       clv_pct: number(read("clv_pct", "CLV %", "CLV")),
       best_available_price: read("Best Available Price", "best_available_price"),
       recommended_book: read("Recommended Book", "recommended_book"),
@@ -171,12 +172,15 @@ function bestAvailableBooks(alerts) {
 
 function watchlistLanes(rows) {
   const buckets = new Map();
+  const conflictedKeys = conflictedLaneKeys(rows);
   for (const row of rows) {
-    const key = [row.sport || "unknown", row.market || "unknown", row.signal_lane || "watchlist"].join("|");
+    const direction = Number(row.odds_american || 0) > 0 ? "underdog" : Number(row.odds_american || 0) < 0 ? "favorite" : "unknown";
+    const key = [row.sport || "unknown", row.market || "unknown", row.signal_lane || "watchlist", direction].join("|");
     const bucket = buckets.get(key) || {
       sport: row.sport || "unknown",
       market: row.market || "unknown",
       signal_lane: row.signal_lane || "watchlist",
+      direction,
       shadow_count: 0,
       official_count: 0,
       closed: 0,
@@ -186,6 +190,7 @@ function watchlistLanes(rows) {
       pnl: 0,
       stake: 0,
       clv_values: [],
+      conflicted: conflictedKeys.has(key),
     };
     bucket.shadow_count += row.official ? 0 : 1;
     bucket.official_count += row.official ? 1 : 0;
@@ -202,17 +207,68 @@ function watchlistLanes(rows) {
   return Array.from(buckets.values())
     .map((bucket) => {
       const avgClv = bucket.clv_values.length ? bucket.clv_values.reduce((a, b) => a + b, 0) / bucket.clv_values.length : null;
+      const clvCoverage = bucket.closed ? bucket.clv_values.length / bucket.closed : null;
+      const roi = bucket.stake ? bucket.pnl / bucket.stake : null;
+      const dataConfidence = dataConfidenceLabel(bucket.closed, clvCoverage);
+      const readiness = readinessLabel({
+        closed: bucket.closed,
+        roi,
+        avgClv,
+        clvCoverage,
+        winRate: bucket.closed ? bucket.wins / bucket.closed : null,
+        conflicted: bucket.conflicted,
+      });
       return {
         ...bucket,
         win_rate: bucket.closed ? bucket.wins / bucket.closed : null,
-        roi: bucket.stake ? bucket.pnl / bucket.stake : null,
+        roi,
         avg_clv_pct: avgClv,
-        promotion_status: "watchlist_only",
-        gate_reason: bucket.closed < 30 ? "needs_30_closed_shadow_results" : avgClv == null ? "needs_clv_coverage" : "awaiting_manual_promotion_review",
+        clv_coverage: clvCoverage,
+        promotion_status: bucket.conflicted ? "frozen" : "watchlist_only",
+        frozen: bucket.conflicted,
+        freeze_reason: bucket.conflicted ? "same-game opposite-side conflict detected" : "",
+        data_confidence: dataConfidence,
+        betting_readiness: readiness,
+        gate_reason: bucket.conflicted ? "conflict_freeze" : bucket.closed < 30 ? "needs_30_closed_shadow_results" : avgClv == null ? "needs_clv_coverage" : "awaiting_manual_promotion_review",
       };
     })
     .sort((a, b) => b.shadow_count + b.official_count - (a.shadow_count + a.official_count))
     .slice(0, 12);
+}
+
+function conflictedLaneKeys(rows) {
+  const byGame = new Map();
+  for (const row of rows) {
+    const gameKey = [row.sport, row.away_team, row.home_team, row.game_time].map((part) => String(part || "").trim().toLowerCase()).join("|");
+    const item = {
+      pick: String(row.pick_side || "").trim().toLowerCase(),
+      direction: Number(row.odds_american || 0) > 0 ? "underdog" : Number(row.odds_american || 0) < 0 ? "favorite" : "unknown",
+      laneKey: [row.sport || "unknown", row.market || "unknown", row.signal_lane || "watchlist", Number(row.odds_american || 0) > 0 ? "underdog" : Number(row.odds_american || 0) < 0 ? "favorite" : "unknown"].join("|"),
+    };
+    if (!item.pick) continue;
+    const list = byGame.get(gameKey) || [];
+    list.push(item);
+    byGame.set(gameKey, list);
+  }
+  const conflicted = new Set();
+  for (const list of byGame.values()) {
+    if (new Set(list.map((item) => item.pick)).size <= 1) continue;
+    for (const item of list) conflicted.add(item.laneKey);
+  }
+  return conflicted;
+}
+
+function dataConfidenceLabel(closed, clvCoverage) {
+  if (closed >= 50 && clvCoverage >= 0.95) return "high";
+  if (closed >= 15 && clvCoverage >= 0.8) return "medium";
+  return "low";
+}
+
+function readinessLabel({ closed, roi, avgClv, clvCoverage, winRate, conflicted }) {
+  if (conflicted) return "red";
+  if (closed >= 50 && roi > 0 && avgClv >= 0 && clvCoverage >= 0.95 && winRate >= 0.53) return "green";
+  if (closed >= 15 && roi > 0 && avgClv >= 0 && clvCoverage >= 0.8) return "yellow";
+  return "red";
 }
 
 function normalizeTailRows(rows) {

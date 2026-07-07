@@ -1098,7 +1098,7 @@ function MemberDashboard({ data }) {
         <div className="rounded border border-slate-200 p-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="font-bold">Personal Tail Results</h3>
-            <span className="text-xs font-semibold text-slate-500">{tails.length} logged</span>
+            <a href="/bets" className="text-xs font-bold text-indigo-700 hover:text-indigo-900">{tails.length} logged | full ledger</a>
           </div>
           <div className="mt-4 space-y-3">
             {tails.length ? (
@@ -1133,7 +1133,14 @@ function MemberDashboard({ data }) {
               <div className="mt-2 text-xs text-slate-700">
                 Shadow {lane.shadow_count} | closed {lane.closed} | ROI {formatPct(lane.roi)} | CLV {formatPct(lane.avg_clv_pct)}
               </div>
-              <div className="mt-1 text-xs font-semibold text-amber-700">{lane.promotion_status}</div>
+              <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-bold uppercase">
+                <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-slate-700">{lane.promotion_status}</span>
+                <span className={`rounded border px-2 py-1 ${lane.betting_readiness === "green" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : lane.betting_readiness === "yellow" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
+                  readiness {lane.betting_readiness || "red"}
+                </span>
+                <span className="rounded border border-slate-200 bg-white px-2 py-1 text-slate-700">confidence {lane.data_confidence || "low"}</span>
+              </div>
+              {lane.frozen && <div className="mt-2 text-xs font-semibold text-rose-700">Frozen: {lane.freeze_reason || "conflict detected"}</div>}
             </div>
           )) : <div className="text-sm text-slate-500">No watchlist lanes available yet.</div>}
         </div>
