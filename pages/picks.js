@@ -1028,6 +1028,9 @@ function MemberDashboard({ data }) {
   const rulebook = data?.betting_rulebook || {};
   const timing = data?.retail_gap_timing_backtest || {};
   const manual = data?.manual_review?.mlb_h2h_underdogs || {};
+  const laneDecisions = data?.lane_decisions || {};
+  const changed = laneDecisions?.history?.what_changed || [];
+  const routingCounts = data?.alert_routing?.counts || {};
   const disclosure = data?.affiliate?.disclosure || "";
 
   return (
@@ -1106,6 +1109,41 @@ function MemberDashboard({ data }) {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <div className="rounded border border-slate-200 bg-white p-4">
+          <div className="text-xs font-bold uppercase tracking-wide text-slate-600">What changed since yesterday?</div>
+          <div className="mt-2 text-sm font-semibold text-slate-900">
+            Lane snapshot {laneDecisions.latest_day || "not saved yet"}
+          </div>
+          <div className="mt-3 space-y-2 text-xs leading-5 text-slate-700">
+            {changed.length ? changed.slice(0, 4).map((item, idx) => (
+              <div key={`${item}-${idx}`} className="rounded border border-slate-200 bg-slate-50 px-3 py-2">{item}</div>
+            )) : (
+              <div className="rounded border border-dashed p-3 text-slate-500">No saved lane-decision history yet.</div>
+            )}
+          </div>
+        </div>
+        <div className="rounded border border-slate-200 bg-white p-4">
+          <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Alert routing</div>
+          <div className="mt-2 text-sm font-semibold text-slate-900">Throttle by action, not by noise.</div>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+            <div className="rounded border border-emerald-200 bg-emerald-50 p-3 text-emerald-800">
+              <div className="font-black">BET</div>
+              <div>{routingCounts.BET || 0} urgent</div>
+            </div>
+            <div className="rounded border border-amber-200 bg-amber-50 p-3 text-amber-800">
+              <div className="font-black">WATCH</div>
+              <div>{routingCounts.WATCH || 0} research</div>
+            </div>
+            <div className="rounded border border-rose-200 bg-rose-50 p-3 text-rose-800">
+              <div className="font-black">SKIP</div>
+              <div>{routingCounts.SKIP || 0} quiet</div>
+            </div>
+          </div>
+          <p className="mt-2 text-xs leading-5 text-slate-600">Only BET lanes should become urgent user alerts. WATCH stays research/dashboard; SKIP stays operator-only.</p>
         </div>
       </div>
 

@@ -39,7 +39,7 @@ export default async function handler(req, res) {
     const tailsQuery = supabase.from("tail_bets").select("*").order("placed_at", { ascending: false }).limit(20);
     if (userEmail) tailsQuery.eq("email", userEmail);
 
-    const [todayResult, recentResult, tailsResult, pipelineResult] = await Promise.all([
+    const [todayResult, recentResult, tailsResult, pipelineResult, laneDecisionResult] = await Promise.all([
       supabase
         .from("model_predictions")
         .select("*")
@@ -54,13 +54,16 @@ export default async function handler(req, res) {
         .limit(750),
       userEmail ? tailsQuery : Promise.resolve({ data: [] }),
       supabase.from("pipeline_runs").select("*").order("started_at", { ascending: false }).limit(50),
+      supabase.from("lane_decisions").select("*").order("day", { ascending: false }).limit(120),
     ]);
 
     const todayRows = normalizePredictionRows(todayResult.data || []).filter(isResearchOrShadow);
     const recentRows = normalizePredictionRows(recentResult.data || []).filter(isResearchOrShadow);
     const tailRows = normalizeTailRows(tailsResult.data || []);
     const researchAlerts = groupTodayResearch(todayRows);
-    const lanes = watchlistLanes(recentRows);
+    const laneDecisionRows = laneDecisionResult.error ? [] : normalizeLaneDecisionRows(laneDecisionResult.data || []);
+    const laneDecisionContext = buildLaneDecisionContext(laneDecisionRows);
+    const lanes = laneDecisionContext.latest_rows.length ? laneDecisionContext.latest_rows : watchlistLanes(recentRows);
     const operatorCard = buildOperatorCard({
       todayRows,
       recentRows,
@@ -79,6 +82,8 @@ export default async function handler(req, res) {
       best_available_books: bestAvailableBooks(researchAlerts),
       tail_results: tailRows,
       watchlist_lanes: lanes,
+      lane_decisions: laneDecisionContext,
+      alert_routing: laneDecisionContext.alert_routing,
       proof_blocks: buildProofBlocks({ researchAlerts, todayRows, recentRows, tailRows, lanes, operatorCard }),
       operator_card: operatorCard,
       beachhead: buildBeachhead(lanes),
@@ -109,6 +114,8 @@ function emptyPayload(error) {
     best_available_books: [],
     tail_results: [],
     watchlist_lanes: [],
+    lane_decisions: { latest_rows: [], history: { what_changed: [] }, alert_routing: alertRoutingForLanes([]) },
+    alert_routing: alertRoutingForLanes([]),
     proof_blocks: [],
     operator_card: {},
     beachhead: {},
@@ -183,6 +190,101 @@ function normalizePredictionRows(rows) {
 
 function isResearchOrShadow(row) {
   return row.shadow || ["research", "pass", "pass_tier", "near_miss"].includes(String(row.tier_code || "").toLowerCase()) || !row.official;
+}
+
+function normalizeLaneDecisionRows(rows) {
+  return rows.map((row) => {
+    const reasons = Array.isArray(row.bet_action_reasons)
+      ? row.bet_action_reasons
+      : String(row.bet_action_reasons || "")
+          .split(/[|,]/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+    return {
+      ...row,
+      lane_key: row.lane_key || [row.sport || "unknown", row.market || "unknown", row.direction || "unknown"].join("|"),
+      signal_lane: row.signal_lane || "watchlist",
+      bet_action: row.bet_action || "WATCH",
+      bet_action_reasons: reasons,
+      shadow_count: number(row.shadow_count),
+      official_count: number(row.official_count),
+      closed: number(row.closed),
+      wins: number(row.wins),
+      losses: number(row.losses),
+      pushes: number(row.pushes),
+      roi: number(row.roi),
+      avg_clv_pct: number(row.avg_clv_pct),
+      clv_coverage: number(row.clv_coverage),
+      latest_age_hours: number(row.latest_age_hours),
+      retail_gap_persistence_polls: number(row.retail_gap_persistence_polls),
+      frozen: Boolean(row.conflicted),
+      freeze_reason: row.freeze_reason || "",
+      manual_review_required: Boolean(row.manual_review_required),
+    };
+  });
+}
+
+function buildLaneDecisionContext(rows) {
+  const latestDay = rows.map((row) => row.day).filter(Boolean).sort().pop();
+  const latestRows = rows.filter((row) => row.day === latestDay);
+  const priorByLane = new Map();
+  rows
+    .filter((row) => row.day && row.day !== latestDay)
+    .sort((a, b) => String(b.day).localeCompare(String(a.day)))
+    .forEach((row) => {
+      if (!priorByLane.has(row.lane_key)) priorByLane.set(row.lane_key, row);
+    });
+  const transitions = latestRows
+    .map((row) => {
+      const previous = priorByLane.get(row.lane_key);
+      if (!previous) {
+        return {
+          lane_key: row.lane_key,
+          summary: `${row.lane_key}: new tracked lane; action ${row.bet_action || "WATCH"}`,
+          current: row,
+        };
+      }
+      const changed =
+        previous.bet_action !== row.bet_action ||
+        previous.promotion_status !== row.promotion_status ||
+        previous.betting_readiness !== row.betting_readiness ||
+        Boolean(previous.conflicted) !== Boolean(row.conflicted) ||
+        Number(previous.closed || 0) !== Number(row.closed || 0) ||
+        Number(previous.avg_clv_pct || 0) !== Number(row.avg_clv_pct || 0);
+      if (!changed) return null;
+      return {
+        lane_key: row.lane_key,
+        summary: `${row.lane_key}: action ${previous.bet_action || "-"}->${row.bet_action || "-"}; readiness ${previous.betting_readiness || "-"}->${row.betting_readiness || "-"}; closed ${Number(row.closed || 0) - Number(previous.closed || 0)}`,
+        previous,
+        current: row,
+      };
+    })
+    .filter(Boolean);
+  return {
+    latest_day: latestDay || null,
+    latest_rows: latestRows,
+    history: {
+      transitions,
+      what_changed: transitions.length ? transitions.slice(0, 6).map((item) => item.summary) : ["No material lane decision changes since the prior saved report."],
+    },
+    alert_routing: alertRoutingForLanes(latestRows),
+  };
+}
+
+function alertRoutingForLanes(lanes) {
+  const counts = { BET: 0, WATCH: 0, SKIP: 0 };
+  for (const lane of lanes || []) {
+    const action = String(lane.bet_action || "WATCH").toUpperCase();
+    counts[action] = (counts[action] || 0) + 1;
+  }
+  return {
+    policy: {
+      BET: "urgent_user_alert",
+      WATCH: "research_alert_operator_and_member_dashboard",
+      SKIP: "operator_only_no_user_push",
+    },
+    counts,
+  };
 }
 
 function groupTodayResearch(rows) {
