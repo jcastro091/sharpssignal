@@ -213,10 +213,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader("Cache-Control", "no-store");
 
     const forceS3 = req.query.source === "s3";
+    const debug = req.query.debug === "1";
     let supabaseError: string | null = null;
     if (!forceS3) {
       try {
-        const fromSupabase = await loadPicksPreviewFromSupabase({ timezone: TZ });
+        const fromSupabase = await loadPicksPreviewFromSupabase({ timezone: TZ, debug });
         if (fromSupabase) {
           return res.status(200).json(fromSupabase);
         }
@@ -287,7 +288,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const roiPct = staked ? (profit / staked) * 100 : 0;
 
     // Debug mode: quickly see why counts are zero
-    const debug = req.query.debug === "1";
     if (debug) {
       const headers = rows[0] ? Object.keys(rows[0]) : [];
       const sample = rows.slice(0, 3);
