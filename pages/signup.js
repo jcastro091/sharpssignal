@@ -5,6 +5,7 @@ import { createPagesBrowserClient } from "@supabase/auth-helpers-nextjs";
 import { ArrowRight, CheckCircle2, Lock, Radio } from "lucide-react";
 import { buildAuthCallbackUrl, getSafeNext } from "../lib/authRedirect";
 import { appendAttributionToUrl, getFirstTouch, trackFunnelEvent } from "../lib/funnelClient";
+import { startTrackedCheckout } from "../lib/checkoutClient";
 
 const PRO_PLAN = "pro_telegram";
 const BASE_CHECKOUT_URL = process.env.NEXT_PUBLIC_CHECKOUT_URL_STARTER || "/subscribe";
@@ -58,11 +59,11 @@ export default function SignUp() {
   }, [next, router, signupComplete, supabase]);
 
   const trackCheckout = (location) => {
-    trackFunnelEvent("checkout_click", {
+    return startTrackedCheckout({
       email,
       location,
       plan: PRO_PLAN,
-      checkout_url: checkoutUrl,
+      fallbackUrl: checkoutUrl,
       next,
     });
   };
@@ -237,7 +238,10 @@ export default function SignUp() {
               </div>
               <a
                 href={checkoutUrl}
-                onClick={() => trackCheckout("signup_success_primary")}
+                onClick={(event) => {
+                  event.preventDefault();
+                  trackCheckout("signup_success_primary");
+                }}
                 className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded bg-emerald-400 px-4 py-3 font-semibold text-slate-950 hover:bg-emerald-300"
               >
                 Continue to Pro checkout

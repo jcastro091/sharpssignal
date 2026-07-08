@@ -21,7 +21,8 @@ import {
 } from "lucide-react";
 
 import { gaEvent } from "../lib/ga";
-import { appendAttributionToUrl, trackFunnelEvent } from "../lib/funnelClient";
+import { appendAttributionToUrl } from "../lib/funnelClient";
+import { startTrackedCheckout } from "../lib/checkoutClient";
 
 function track(action, category, label, value) {
   gaEvent({ action, category, label, value });
@@ -50,9 +51,15 @@ function RealtimeUpsellStrip() {
         <div className="flex flex-col sm:flex-row gap-2">
           <a
             href={proCheckoutUrl || "/signup"}
-            onClick={() => {
+            onClick={(event) => {
+              event.preventDefault();
               track("click_upgrade_realtime", "homepage", "realtime_strip_upgrade");
-              trackFunnelEvent("checkout_click", { location: "homepage_realtime_strip", plan: "pro_telegram" });
+              startTrackedCheckout({
+                location: "homepage_realtime_strip",
+                plan: "pro_telegram",
+                next: "/picks",
+                fallbackUrl: proCheckoutUrl || "/signup",
+              });
             }}
             className="inline-flex items-center justify-center gap-2 bg-white text-indigo-700 px-5 py-2.5 rounded-xl font-bold hover:bg-white/95 transition"
           >
@@ -62,9 +69,15 @@ function RealtimeUpsellStrip() {
 
           <a
             href={proCheckoutUrl || "/subscribe"}
-            onClick={() => {
+            onClick={(event) => {
+              event.preventDefault();
               track("click_join_telegram_after_checkout", "homepage", "realtime_strip_join");
-              trackFunnelEvent("checkout_click", { location: "homepage_join_after_checkout", plan: "pro_telegram" });
+              startTrackedCheckout({
+                location: "homepage_join_after_checkout",
+                plan: "pro_telegram",
+                next: "/picks",
+                fallbackUrl: proCheckoutUrl || "/subscribe",
+              });
             }}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold border bg-white/10 border-white/30 hover:bg-white/15 text-white transition"
           >
@@ -141,9 +154,15 @@ function HowItWorks() {
             <div className="mt-4">
               <a
                 href={attributedCheckoutUrl()}
-                onClick={() => {
+                onClick={(event) => {
+                  event.preventDefault();
                   track("click_upgrade_realtime", "homepage", "how_it_works_step3");
-                  trackFunnelEvent("checkout_click", { location: "how_it_works_step3", plan: "pro_telegram" });
+                  startTrackedCheckout({
+                    location: "how_it_works_step3",
+                    plan: "pro_telegram",
+                    next: "/picks",
+                    fallbackUrl: attributedCheckoutUrl(),
+                  });
                 }}
                 className="inline-flex items-center gap-2 text-indigo-700 font-semibold hover:underline"
               >

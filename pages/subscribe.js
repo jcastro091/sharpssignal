@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Lock, Radio, ReceiptText } from "lucide-react";
 import { appendAttributionToUrl, getFirstTouch, trackFunnelEvent } from "../lib/funnelClient";
+import { startTrackedCheckout } from "../lib/checkoutClient";
 
 const proofItems = [
   "Every pick is timestamped before game time.",
@@ -102,7 +103,15 @@ export default function SubscribePage() {
               <a
                 href={checkoutUrl}
                 className="mt-8 inline-flex w-full items-center justify-center rounded bg-emerald-400 px-5 py-3 font-semibold text-slate-950 hover:bg-emerald-300"
-                onClick={() => trackFunnelEvent("checkout_click", { location: "subscribe_pricing", plan: "pro_telegram" })}
+                onClick={(event) => {
+                  event.preventDefault();
+                  startTrackedCheckout({
+                    location: "subscribe_pricing",
+                    plan: "pro_telegram",
+                    next: "/picks",
+                    fallbackUrl: checkoutUrl,
+                  });
+                }}
               >
                 Unlock realtime alerts
               </a>
