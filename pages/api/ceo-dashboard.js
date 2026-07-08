@@ -6,13 +6,21 @@ const REQUIRED_COLUMNS = {
   subscriptions: ["utm_content"],
   funnel_events: ["event_id", "event_type", "landing_page", "partner_id", "plan", "referral_code"],
   lane_decisions: [
+    "best_available_price",
     "current_best_retail_book",
     "latest_clv_pct",
     "latest_game",
     "latest_game_time",
     "latest_pick",
     "latest_result",
+    "minimum_acceptable_price",
     "minimum_bettable_odds",
+    "recommended_book",
+  ],
+  model_predictions: [
+    "best_available_price",
+    "minimum_acceptable_price",
+    "recommended_book",
   ],
 };
 
