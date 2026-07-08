@@ -2,6 +2,7 @@
 import crypto from "crypto";
 import Stripe from "stripe";
 import { createSupabaseServiceClient, hasSupabaseServiceConfig } from "../../../lib/supabaseServer";
+import { cleanEnvToken } from "../../../lib/stripeEnv.js";
 
 const DEFAULT_PLAN = "pro_telegram";
 const DEFAULT_NEXT = "/picks";
@@ -23,14 +24,14 @@ function first(value) {
 function checkoutPriceId(plan) {
   const normalized = clean(plan || DEFAULT_PLAN).toLowerCase();
   if (normalized === "pro_telegram") {
-    return (
+    return cleanEnvToken(
       process.env.STRIPE_PRICE_PRO_TELEGRAM ||
       process.env.STRIPE_PRO_TELEGRAM_PRICE_ID ||
       process.env.STRIPE_PRICE_ID ||
       ""
     );
   }
-  return process.env.STRIPE_PRICE_ID || "";
+  return cleanEnvToken(process.env.STRIPE_PRICE_ID || "");
 }
 
 function siteOrigin(req) {
@@ -268,3 +269,5 @@ function stableId(...parts) {
   const source = parts.map((part) => clean(part, 1000)).join("|");
   return `${clean(parts[0], 40) || "id"}_${crypto.createHash("sha256").update(source).digest("hex").slice(0, 20)}`;
 }
+
+export const _private = { checkoutPriceId };
