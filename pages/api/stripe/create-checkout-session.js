@@ -1,5 +1,7 @@
 // pages/api/stripe/create-checkout-session.js
+import crypto from "crypto";
 import Stripe from "stripe";
+import { createSupabaseServiceClient, hasSupabaseServiceConfig } from "../../../lib/supabaseServer";
 
 const DEFAULT_PLAN = "pro_telegram";
 const DEFAULT_NEXT = "/picks";
@@ -103,8 +105,27 @@ export default async function handler(req, res) {
     const plan = clean(body.plan, 80) || DEFAULT_PLAN;
     const priceId = checkoutPriceId(plan);
     const fallback_url = fallbackUrl(req, body);
+    const origin = siteOrigin(req);
+    const next = safePath(body.next);
+    const attr = attribution(body);
+    const email = clean(body.email, 320);
+    const metadata = compactMetadata({
+      ...attr,
+      email,
+      plan,
+      next,
+      source: "server_checkout_session",
+    });
 
     if (!stripe || !priceId) {
+      await recordCheckoutEvent({
+        body,
+        attr,
+        plan,
+        status: "fallback",
+        fallback_url,
+        reason: !stripe ? "missing_stripe_secret_key" : "missing_stripe_price_id",
+      });
       return res.status(200).json({
         ok: false,
         fallback_url,
@@ -112,28 +133,19 @@ export default async function handler(req, res) {
       });
     }
 
-    const origin = siteOrigin(req);
-    const next = safePath(body.next);
-    const attr = attribution(body);
-    const metadata = compactMetadata({
-      ...attr,
-      email: body.email,
-      plan,
-      next,
-      source: "server_checkout_session",
-    });
-
     const successUrl = new URL(next, origin);
     successUrl.searchParams.set("checkout", "success");
     successUrl.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
     const cancelUrl = new URL("/subscribe", origin);
     cancelUrl.searchParams.set("checkout", "cancelled");
+    const customerId = await resolveStripeCustomer({ email, metadata });
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      customer_email: clean(body.email, 320) || undefined,
-      client_reference_id: clean(body.client_reference_id || body.email || attr.visitor_id, 200) || undefined,
+      customer: customerId || undefined,
+      customer_email: customerId ? undefined : email || undefined,
+      client_reference_id: clean(body.client_reference_id || email || attr.visitor_id, 200) || undefined,
       success_url: successUrl.toString(),
       cancel_url: cancelUrl.toString(),
       allow_promotion_codes: true,
@@ -141,9 +153,118 @@ export default async function handler(req, res) {
       subscription_data: { metadata },
     });
 
+    await recordCheckoutEvent({
+      body,
+      attr,
+      plan,
+      status: "created",
+      checkout_url: session.url,
+      stripe_checkout_session_id: session.id,
+      stripe_customer_id: customerId,
+    });
+
     return res.status(200).json({ ok: true, url: session.url, id: session.id });
   } catch (error) {
     console.warn("[create-checkout-session]", error?.message || error);
     return res.status(500).json({ ok: false, error: "checkout_session_failed" });
   }
+}
+
+async function resolveStripeCustomer({ email, metadata }) {
+  if (!email || !stripe) return "";
+  try {
+    const existing = await stripe.customers.list({ email, limit: 1 });
+    const customer = existing.data?.[0];
+    if (customer?.id) {
+      await stripe.customers.update(customer.id, { metadata: { ...(customer.metadata || {}), ...metadata } });
+      return customer.id;
+    }
+    const created = await stripe.customers.create({ email, metadata });
+    return created.id;
+  } catch (error) {
+    console.warn("[create-checkout-session] customer metadata write failed:", error?.message || error);
+    return "";
+  }
+}
+
+async function recordCheckoutEvent({ body, attr, plan, status, fallback_url = "", checkout_url = "", reason = "", stripe_checkout_session_id = "", stripe_customer_id = "" }) {
+  if (!hasSupabaseServiceConfig()) return { persisted: false, reason: "missing_supabase" };
+  const now = new Date().toISOString();
+  const email = clean(body.email, 320).toLowerCase();
+  const row = {
+    event_id: stableId("checkout", email, attr.visitor_id, attr.session_id, status, stripe_checkout_session_id || fallback_url || now),
+    event_name: "checkout_click",
+    event_type: "checkout_click",
+    event_at: now,
+    email: email || null,
+    source: "server_checkout_session",
+    visitor_id: attr.visitor_id || null,
+    session_id: attr.session_id || null,
+    plan,
+    page_path: attr.first_path || null,
+    page_url: attr.landing_page || null,
+    landing_page: attr.landing_page || null,
+    referrer: attr.referrer || null,
+    utm_source: attr.utm_source || null,
+    utm_medium: attr.utm_medium || null,
+    utm_campaign: attr.utm_campaign || null,
+    utm_term: attr.utm_term || null,
+    utm_content: attr.utm_content || null,
+    referral_code: attr.referral_code || null,
+    partner_id: attr.partner_id || null,
+    raw_json: JSON.stringify({
+      status,
+      reason,
+      fallback_url,
+      checkout_url,
+      stripe_checkout_session_id,
+      stripe_customer_id,
+      location: attr.location,
+      next: body.next || DEFAULT_NEXT,
+    }),
+    metadata: {
+      status,
+      reason,
+      fallback_url,
+      checkout_url,
+      stripe_checkout_session_id,
+      stripe_customer_id,
+      location: attr.location,
+      next: body.next || DEFAULT_NEXT,
+    },
+  };
+  try {
+    const supabase = createSupabaseServiceClient();
+    const result = await insertWithColumnFallback(supabase, "funnel_events", row);
+    if (result.error) return { persisted: false, reason: result.error.message };
+    return { persisted: true };
+  } catch (error) {
+    console.warn("[create-checkout-session] checkout event write failed:", error?.message || error);
+    return { persisted: false, reason: "write_failed" };
+  }
+}
+
+async function insertWithColumnFallback(supabase, table, row) {
+  let payload = { ...row };
+  let result = await supabase.from(table).insert(payload);
+  const removed = new Set();
+  while (result.error) {
+    const column = missingColumn(result.error.message);
+    if (!column || removed.has(column) || !(column in payload)) break;
+    removed.add(column);
+    payload = { ...payload };
+    delete payload[column];
+    result = await supabase.from(table).insert(payload);
+  }
+  return result;
+}
+
+function missingColumn(message = "") {
+  const match = String(message).match(/'([^']+)' column|column '([^']+)'|Could not find the '([^']+)'/i);
+  return match?.[1] || match?.[2] || match?.[3] || "";
+}
+
+function stableId(...parts) {
+  const source = parts.map((part) => clean(part, 1000)).join("|");
+  return `${clean(parts[0], 40) || "id"}_${crypto.createHash("sha256").update(source).digest("hex").slice(0, 20)}`;
 }
