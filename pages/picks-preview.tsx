@@ -438,7 +438,8 @@ export async function getServerSideProps({ req }: any) {
       };
     }
 
-    return { props: { ...json, qs } };
+    const { key: _responseKey, ...previewProps } = json;
+    return { props: { ...previewProps, qs } };
   } catch (e: any) {
     return {
       props: { ok: false, error: e?.message || "Failed to load preview", qs },
