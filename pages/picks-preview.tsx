@@ -16,6 +16,38 @@ type PreviewPick = {
   americanOdds: number | null;
 };
 
+type MlbProbation = {
+  status?: string;
+  bet_action?: string;
+  reasons?: string[];
+  data_confidence?: string;
+  betting_readiness?: string;
+  closed?: number;
+  record?: string;
+  roi?: number | null;
+  avg_clv_pct?: number | null;
+  clv_coverage?: number | null;
+  current_best_retail_book?: string;
+  minimum_bettable_odds?: string;
+  latest_result?: string;
+  latest_clv_pct?: number | null;
+  latest_game?: string;
+  latest_pick?: string;
+  latest_game_time?: string;
+};
+
+type PreviewStatus = {
+  betting_readiness?: string;
+  official_pick_status?: string;
+  research_status?: string;
+};
+
+type ResearchSummary = {
+  officialPicksToday?: number;
+  shadowCandidatesToday?: number;
+  message?: string;
+};
+
 function fmtTs(raw: string) {
   if (!raw) return "—";
   return raw; // keep raw as shown in your CSV (simple + transparent)
@@ -28,6 +60,15 @@ type Props =
       modelRunTimeISO: string | null;
       statsLast7: { winRatePct: number; roiPct: number; totalBets: number };
       todayPicks: PreviewPick[];
+      counts?: {
+        todayPicks?: number;
+        todayDateTimeRows?: number;
+        shadowRowsToday?: number;
+        shadowGroupsToday?: number;
+      };
+      status?: PreviewStatus;
+      researchSummary?: ResearchSummary;
+      mlbH2hUnderdogProbation?: MlbProbation;
       qs: string;
     }
   | { ok: false; error: string; qs: string };
@@ -50,6 +91,15 @@ function tierBadge(tier: string) {
   if (t.includes("B")) return "🟡 B (Pro)";
   if (t.includes("C")) return "⚪️ C";
   return tier || "—";
+}
+
+function pct(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "n/a";
+  return `${(Number(value) * 100).toFixed(1)}%`;
+}
+
+function plainStatus(value: string | undefined) {
+  return String(value || "SKIP").replace(/_/g, " ").toUpperCase();
 }
 
 // --- SOFT GATE SETTINGS ---
@@ -110,6 +160,10 @@ export default function PicksPreviewPage(props: Props) {
   }
 
   const { today, modelRunTimeISO, statsLast7, todayPicks } = props;
+  const summary = props.researchSummary || {};
+  const previewStatus = props.status || {};
+  const mlb = props.mlbH2hUnderdogProbation || {};
+  const mlbReasons = Array.isArray(mlb.reasons) && mlb.reasons.length ? mlb.reasons : ["Waiting for clean sample, CLV coverage, no-conflict status, and fresh prices."];
 
   const total = todayPicks.length;
   const gatedCount = Math.max(0, total - FREE_VISIBLE_ROWS);
@@ -171,13 +225,14 @@ export default function PicksPreviewPage(props: Props) {
               <div className="text-sm font-semibold text-emerald-300">Most visitors start here</div>
               <h2 className="mt-1 text-2xl font-bold">Unlock the full picks table and track the record for free.</h2>
               <p className="mt-2 text-sm text-slate-300">
-                No card required. We use your signup to connect preview interest to lead conversion before any ad spend.
+                You are not buying guaranteed picks; you are getting audited signal access, no-pick context,
+                CLV coverage, and the watchlist lanes we are proving before promotion.
               </p>
             </div>
             <Link
               href={signupHref}
               onClick={() =>
-                trackFunnelEvent("signup_submit", {
+                trackFunnelEvent("signup_click", {
                   location: "picks_preview_primary_panel",
                   label: "primary_panel_cta",
                 })
@@ -187,6 +242,69 @@ export default function PicksPreviewPage(props: Props) {
               Sign up free
             </Link>
           </div>
+        </div>
+
+        <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow">
+            <div className="text-xs font-bold uppercase tracking-wide text-slate-500">Today&apos;s research status</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-bold text-white">
+                {plainStatus(previewStatus.betting_readiness)}
+              </span>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+                {plainStatus(previewStatus.research_status)}
+              </span>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-slate-700">
+              {summary.message || "No official pick is public right now; watchlist research remains excluded from paid ROI."}
+            </p>
+            <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <div className="text-xs text-slate-500">Official</div>
+                <div className="font-bold">{summary.officialPicksToday ?? props.counts?.todayPicks ?? 0}</div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500">Shadow groups</div>
+                <div className="font-bold">{summary.shadowCandidatesToday ?? props.counts?.shadowGroupsToday ?? 0}</div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500">Rows today</div>
+                <div className="font-bold">{props.counts?.todayDateTimeRows ?? total}</div>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow">
+            <div className="text-xs font-bold uppercase tracking-wide text-slate-500">MLB H2H underdog probation</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
+                {plainStatus(mlb.bet_action)}
+              </span>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+                {plainStatus(mlb.data_confidence || "low")} confidence
+              </span>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-slate-700">
+              First beachhead: MLB H2H underdogs. This is a watchlist lane, not a profitability claim.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+              <div><div className="text-xs text-slate-500">Closed</div><div className="font-bold">{mlb.closed ?? 0}</div></div>
+              <div><div className="text-xs text-slate-500">Record</div><div className="font-bold">{mlb.record || "0-0-0"}</div></div>
+              <div><div className="text-xs text-slate-500">Avg CLV</div><div className="font-bold">{pct(mlb.avg_clv_pct)}</div></div>
+              <div><div className="text-xs text-slate-500">CLV coverage</div><div className="font-bold">{pct(mlb.clv_coverage)}</div></div>
+            </div>
+            {(mlb.current_best_retail_book || mlb.minimum_bettable_odds) && (
+              <p className="mt-3 text-sm text-slate-700">
+                Best retail: <strong>{mlb.current_best_retail_book || "n/a"}</strong>. Do not bet below{" "}
+                <strong>{mlb.minimum_bettable_odds || "the listed minimum"}</strong>.
+              </p>
+            )}
+            <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-600">
+              {mlbReasons.slice(0, 3).map((reason, index) => (
+                <li key={`${reason}-${index}`}>{reason}</li>
+              ))}
+            </ul>
+          </section>
         </div>
 
         {/* Picks */}

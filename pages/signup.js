@@ -31,6 +31,16 @@ export default function SignUp() {
   }, [router.asPath]);
 
   useEffect(() => {
+    if (!signupComplete) return;
+    trackFunnelEvent("plan_view", {
+      email,
+      location: "signup_success_plan_card",
+      plan: PRO_PLAN,
+      next,
+    });
+  }, [email, next, signupComplete]);
+
+  useEffect(() => {
     let mounted = true;
 
     async function redirectIfSignedIn() {

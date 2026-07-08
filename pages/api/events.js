@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { createSupabaseServiceClient, hasSupabaseServiceConfig } from "../../lib/supabaseServer";
 
 const ALLOWED_EVENTS = new Set([
@@ -40,6 +41,9 @@ export default async function handler(req, res) {
   }
 
   const row = {
+    event_id:
+      cleanText(body.event_id, 160) ||
+      stableId("funnel", eventName, body.visitor_id, body.session_id, body.email, body.page_url, Date.now()),
     event_name: eventName,
     event_type: eventName,
     visitor_id: cleanText(body.visitor_id, 120) || null,
@@ -54,6 +58,10 @@ export default async function handler(req, res) {
     utm_campaign: cleanText(body.utm_campaign, 200) || null,
     utm_term: cleanText(body.utm_term, 200) || null,
     utm_content: cleanText(body.utm_content, 200) || null,
+    referral_code: cleanText(body.referral_code, 200) || null,
+    landing_page: cleanText(body.landing_page, 1000) || null,
+    partner_id: cleanText(body.partner_id, 200) || cleanText(body.metadata?.partner_id, 200) || null,
+    plan: cleanText(body.plan, 120) || cleanText(body.metadata?.plan, 120) || null,
     metadata: {
       ...(body.metadata && typeof body.metadata === "object" ? body.metadata : {}),
       referral_code: cleanText(body.referral_code, 200) || null,
@@ -66,12 +74,7 @@ export default async function handler(req, res) {
 
   try {
     const supabase = createSupabaseServiceClient();
-    let { error } = await supabase.from("funnel_events").insert(row);
-    if (error && missingColumn(error.message) === "event_type") {
-      const fallback = { ...row };
-      delete fallback.event_type;
-      ({ error } = await supabase.from("funnel_events").insert(fallback));
-    }
+    const { error } = await insertWithColumnFallback(supabase, "funnel_events", row);
     if (error) {
       console.warn("[events] Supabase write failed:", error.message);
       return res.status(200).json({ ok: true, persisted: false, reason: error.message });
@@ -83,7 +86,27 @@ export default async function handler(req, res) {
   }
 }
 
+async function insertWithColumnFallback(supabase, table, row) {
+  let payload = { ...row };
+  let result = await supabase.from(table).insert(payload);
+  const removed = new Set();
+  while (result.error) {
+    const column = missingColumn(result.error.message);
+    if (!column || removed.has(column) || !(column in payload)) break;
+    removed.add(column);
+    payload = { ...payload };
+    delete payload[column];
+    result = await supabase.from(table).insert(payload);
+  }
+  return result;
+}
+
 function missingColumn(message = "") {
   const match = String(message).match(/'([^']+)' column|column '([^']+)'|Could not find the '([^']+)'/i);
   return match?.[1] || match?.[2] || match?.[3] || "";
+}
+
+function stableId(...parts) {
+  const source = parts.map((part) => cleanText(part, 1000)).join("|");
+  return `${cleanText(parts[0], 40) || "id"}_${crypto.createHash("sha256").update(source).digest("hex").slice(0, 20)}`;
 }

@@ -43,32 +43,49 @@ async function persistCheckoutSession(session) {
     null;
 
   const supabase = createSupabaseServiceClient();
-  const { error } = await supabase.from("subscriptions").upsert(
+  const attribution = attributionFromSession(session);
+  const plan = session.metadata?.plan || subscription?.metadata?.plan || DEFAULT_PLAN;
+  const { error } = await upsertWithColumnFallback(
+    supabase,
+    "subscriptions",
     {
+      subscription_id:
+        (typeof session.subscription === "string" && session.subscription) ||
+        session.id,
       email,
+      customer_email: email,
       stripe_customer_id: typeof session.customer === "string" ? session.customer : null,
       stripe_subscription_id:
         typeof session.subscription === "string" ? session.subscription : null,
       stripe_checkout_session_id: session.id,
-      plan: session.metadata?.plan || subscription?.metadata?.plan || DEFAULT_PLAN,
+      plan,
       status,
       entitlement_active: entitlementActive(status) || session.payment_status === "paid",
       current_period_end: currentPeriodEnd,
       cancel_at_period_end: Boolean(subscription?.cancel_at_period_end),
-      raw: { session, subscription },
+      utm_source: attribution.utm_source || null,
+      utm_medium: attribution.utm_medium || null,
+      utm_campaign: attribution.utm_campaign || null,
+      utm_term: attribution.utm_term || null,
+      utm_content: attribution.utm_content || null,
+      referral_code: attribution.referral_code || null,
+      partner_id: attribution.partner_id || null,
+      landing_page: attribution.landing_page || null,
+      referrer: attribution.referrer || null,
+      raw: { session, subscription, attribution },
       updated_at: new Date().toISOString(),
     },
     { onConflict: "stripe_checkout_session_id" }
   );
   if (error) throw error;
 
-  const attribution = attributionFromSession(session);
   const eventWrite = await insertFunnelEvent(supabase, {
+    event_id: stableEventId("subscribe_success", session.id),
     event_name: "subscribe_success",
     event_type: "subscribe_success",
     email,
     source: "stripe_webhook",
-    plan: session.metadata?.plan || subscription?.metadata?.plan || DEFAULT_PLAN,
+    plan,
     page_path: attribution.first_path || null,
     page_url: attribution.landing_page || null,
     referrer: attribution.referrer || null,
@@ -77,6 +94,9 @@ async function persistCheckoutSession(session) {
     utm_campaign: attribution.utm_campaign || null,
     utm_term: attribution.utm_term || null,
     utm_content: attribution.utm_content || null,
+    referral_code: attribution.referral_code || null,
+    landing_page: attribution.landing_page || null,
+    partner_id: attribution.partner_id || null,
     metadata: {
       ...attribution,
       stripe_checkout_session_id: session.id,
@@ -84,7 +104,7 @@ async function persistCheckoutSession(session) {
       stripe_subscription_id: typeof session.subscription === "string" ? session.subscription : null,
       payment_status: session.payment_status,
       status,
-      plan: session.metadata?.plan || subscription?.metadata?.plan || DEFAULT_PLAN,
+      plan,
     },
   });
   if (eventWrite.error) console.warn("[stripe webhook] funnel event write failed:", eventWrite.error.message);
@@ -103,19 +123,33 @@ async function persistSubscription(subscription) {
   } catch {}
 
   const supabase = createSupabaseServiceClient();
-  const { error } = await supabase.from("subscriptions").upsert(
+  const metadata = subscription.metadata || {};
+  const { error } = await upsertWithColumnFallback(
+    supabase,
+    "subscriptions",
     {
+      subscription_id: subscription.id,
       email,
+      customer_email: email,
       stripe_customer_id:
         typeof subscription.customer === "string" ? subscription.customer : null,
       stripe_subscription_id: subscription.id,
-      plan: subscription.metadata?.plan || DEFAULT_PLAN,
+      plan: metadata.plan || DEFAULT_PLAN,
       status: subscription.status || "unknown",
       entitlement_active: entitlementActive(subscription.status),
       current_period_end: subscription.current_period_end
         ? new Date(subscription.current_period_end * 1000).toISOString()
         : null,
       cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
+      utm_source: metadata.utm_source || null,
+      utm_medium: metadata.utm_medium || null,
+      utm_campaign: metadata.utm_campaign || null,
+      utm_term: metadata.utm_term || null,
+      utm_content: metadata.utm_content || null,
+      referral_code: metadata.referral_code || metadata.ref || null,
+      partner_id: metadata.partner_id || null,
+      landing_page: metadata.landing_page || null,
+      referrer: metadata.referrer || null,
       raw: { subscription },
       updated_at: new Date().toISOString(),
     },
@@ -125,6 +159,7 @@ async function persistSubscription(subscription) {
 
   if (subscription.cancel_at_period_end || subscription.status === "canceled" || subscription.status === "unpaid") {
     const eventWrite = await insertFunnelEvent(supabase, {
+      event_id: stableEventId("subscription_cancelled", subscription.id),
       event_name: "subscription_cancelled",
       event_type: "subscription_cancelled",
       email,
@@ -140,13 +175,7 @@ async function persistSubscription(subscription) {
 }
 
 async function insertFunnelEvent(supabase, row) {
-  let result = await supabase.from("funnel_events").insert(row);
-  if (result.error && missingColumn(result.error.message) === "event_type") {
-    const fallback = { ...row };
-    delete fallback.event_type;
-    result = await supabase.from("funnel_events").insert(fallback);
-  }
-  return result;
+  return insertWithColumnFallback(supabase, "funnel_events", row);
 }
 
 function attributionFromSession(session) {
@@ -158,6 +187,7 @@ function attributionFromSession(session) {
     utm_term: metadata.utm_term || "",
     utm_content: metadata.utm_content || "",
     referral_code: metadata.referral_code || metadata.ref || "",
+    partner_id: metadata.partner_id || "",
     referrer: metadata.referrer || "",
     landing_page: metadata.landing_page || "",
     first_path: metadata.first_path || "",
@@ -165,9 +195,43 @@ function attributionFromSession(session) {
   };
 }
 
+async function insertWithColumnFallback(supabase, table, row) {
+  let payload = { ...row };
+  let result = await supabase.from(table).insert(payload);
+  const removed = new Set();
+  while (result.error) {
+    const column = missingColumn(result.error.message);
+    if (!column || removed.has(column) || !(column in payload)) break;
+    removed.add(column);
+    payload = { ...payload };
+    delete payload[column];
+    result = await supabase.from(table).insert(payload);
+  }
+  return result;
+}
+
+async function upsertWithColumnFallback(supabase, table, row, options) {
+  let payload = { ...row };
+  let result = await supabase.from(table).upsert(payload, options);
+  const removed = new Set();
+  while (result.error) {
+    const column = missingColumn(result.error.message);
+    if (!column || removed.has(column) || !(column in payload)) break;
+    removed.add(column);
+    payload = { ...payload };
+    delete payload[column];
+    result = await supabase.from(table).upsert(payload, options);
+  }
+  return result;
+}
+
 function missingColumn(message = "") {
   const match = String(message).match(/'([^']+)' column|column '([^']+)'|Could not find the '([^']+)'/i);
   return match?.[1] || match?.[2] || match?.[3] || "";
+}
+
+function stableEventId(...parts) {
+  return ["stripe", ...parts].filter(Boolean).join(":").slice(0, 180);
 }
 
 export default async function handler(req, res) {

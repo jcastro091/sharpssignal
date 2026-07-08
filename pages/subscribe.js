@@ -26,6 +26,13 @@ export default function SubscribePage() {
     setFirstTouch(getFirstTouch());
   }, []);
 
+  useEffect(() => {
+    trackFunnelEvent("plan_view", {
+      location: "subscribe_pricing",
+      plan: "pro_telegram",
+    });
+  }, []);
+
   return (
     <>
       <Head>

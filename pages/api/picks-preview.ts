@@ -185,6 +185,28 @@ function rowToPreviewPick(row: CsvRow) {
   };
 }
 
+function defaultMlbProbation() {
+  return {
+    status: "watchlist",
+    bet_action: "SKIP",
+    reasons: ["Waiting for clean sample, CLV coverage, no-conflict status, and fresh prices."],
+    data_confidence: "low",
+    betting_readiness: "red",
+    closed: 0,
+    record: "0-0-0",
+    roi: null,
+    avg_clv_pct: null,
+    clv_coverage: null,
+    current_best_retail_book: "",
+    minimum_bettable_odds: "",
+    latest_result: "",
+    latest_clv_pct: null,
+    latest_game: "",
+    latest_pick: "",
+    latest_game_time: "",
+  };
+}
+
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -304,6 +326,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({
       ok: true,
       source: "s3",
+      key: "s3_public_preview",
       supabaseError,
       today,
       modelRunTimeISO: lastModifiedISO,
@@ -313,6 +336,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         totalBets: graded,
       },
       todayPicks,
+      counts: {
+        todayPicks: todayPicks.length,
+        todayDateTimeRows: rows.filter((r) => {
+          const dt = parseRowDateTime(r);
+          return dt?.isValid && dt.toISODate() === today;
+        }).length,
+        officialPicksToday: todayPicks.length,
+        shadowRowsToday: 0,
+        shadowGroupsToday: 0,
+        laneDecisions: 0,
+      },
+      status: {
+        betting_readiness: "SKIP",
+        official_pick_status: todayPicks.length ? "official_picks_available" : "no_official_pick",
+        research_status: "fallback_s3_only",
+      },
+      researchSummary: {
+        officialPicksToday: todayPicks.length,
+        shadowCandidatesToday: 0,
+        message: todayPicks.length
+          ? "Official paid picks were present today."
+          : "No official pick is public right now; Supabase research lanes were unavailable so this is an S3 fallback preview.",
+      },
+      mlbH2hUnderdogProbation: defaultMlbProbation(),
     });
   } catch (err: any) {
     console.error("[/api/picks-preview] error:", err?.message || err);
