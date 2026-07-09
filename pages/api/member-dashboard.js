@@ -191,6 +191,14 @@ function normalizePredictionRows(rows) {
       stake: number(read("stake", "Stake")) || 1,
       odds_american: number(read("odds_american", "Odds (Am)", "American Odds")),
       clv_pct: number(read("clv_pct", "CLV %", "CLV")),
+      candidate_lifecycle_stage: read("candidate_lifecycle_stage"),
+      candidate_lifecycle_status: read("candidate_lifecycle_status"),
+      data_trust_status: read("data_trust_status"),
+      data_trust_missing: Array.isArray(read("data_trust_missing")) ? read("data_trust_missing") : [],
+      lane_key: read("lane_key"),
+      conflict_status: read("conflict_status"),
+      result_status: read("result_status"),
+      clv_status: read("clv_status"),
       best_available_price: read("Best Available Price", "best_available_price"),
       recommended_book: read("Recommended Book", "recommended_book"),
       minimum_acceptable_price: read("Minimum Acceptable Price", "Minimum Acceptable Odds (Am)", "minimum_acceptable_price"),
@@ -479,26 +487,30 @@ function buildDailyBettingReadiness({ operatorCard, lanes, laneDecisionContext, 
 function buildDataTrust({ rows, lanes }) {
   const conflictedKeys = new Set((lanes || []).filter((lane) => lane.frozen).map((lane) => lane.lane_key));
   const checks = (rows || []).map((row) => {
-    const laneKey = rowLaneKey(row);
+    const laneKey = row.lane_key || rowLaneKey(row);
     const result = normalizedResult(row.result);
     const closed = ["win", "loss", "push"].includes(result);
-    const missing = [];
+    const missing = Array.isArray(row.data_trust_missing) ? [...row.data_trust_missing] : [];
     if (!row.best_available_price && !row.recommended_book) missing.push("best_book");
     if (!row.minimum_acceptable_price && !row.do_not_bet_below) missing.push("minimum_price");
-    if (closed && !Number.isFinite(row.clv_pct)) missing.push("clv");
-    if (closed && !result) missing.push("result");
+    if (closed && row.clv_status !== "captured" && !Number.isFinite(row.clv_pct)) missing.push("clv");
+    if (closed && row.result_status !== "graded" && !result) missing.push("result");
     if (!laneKey) missing.push("lane_key");
+    const uniqueMissing = Array.from(new Set(missing.filter(Boolean)));
     return {
       bet_id: row.bet_id || row.id,
       game: `${row.away_team || ""} @ ${row.home_team || ""}`.trim(),
       lane_key: laneKey,
-      conflict_status: conflictedKeys.has(laneKey) ? "conflicted" : "clean",
-      result_status: closed ? result : "pending",
-      clv_status: Number.isFinite(row.clv_pct) ? "captured" : closed ? "missing" : "pending_capture",
+      lifecycle_stage: row.candidate_lifecycle_stage || "",
+      lifecycle_status: row.candidate_lifecycle_status || "",
+      data_trust_status: row.data_trust_status || (uniqueMissing.length ? "blocked" : "ready"),
+      conflict_status: row.conflict_status || (conflictedKeys.has(laneKey) ? "conflicted" : "clean"),
+      result_status: row.result_status || (closed ? "graded" : "pending"),
+      clv_status: row.clv_status || (Number.isFinite(row.clv_pct) ? "captured" : closed ? "missing" : "pending_capture"),
       best_available_price: row.best_available_price || row.recommended_book || "",
       minimum_acceptable_price: row.minimum_acceptable_price || row.do_not_bet_below || "",
-      missing,
-      complete: missing.length === 0,
+      missing: uniqueMissing,
+      complete: uniqueMissing.length === 0 && row.data_trust_status !== "blocked",
     };
   });
   const missingCounts = {};
