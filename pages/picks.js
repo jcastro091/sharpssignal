@@ -1052,6 +1052,9 @@ function MemberDashboard({ data }) {
   const rulebook = data?.betting_rulebook || {};
   const timing = data?.retail_gap_timing_backtest || {};
   const manual = data?.manual_review?.mlb_h2h_underdogs || {};
+  const dataTrust = data?.data_trust || {};
+  const laneTruth = data?.lane_truth?.mlb_h2h_underdogs || {};
+  const foundingBeta = data?.founding_beta || {};
   const laneDecisions = data?.lane_decisions || {};
   const changed = laneDecisions?.history?.what_changed || [];
   const routingCounts = data?.alert_routing?.counts || {};
@@ -1180,6 +1183,39 @@ function MemberDashboard({ data }) {
           <p className="mt-2 text-xs leading-5 text-slate-600">
             {data?.authenticated ? `Showing tail bets only for ${data.user_email}.` : "Sign in to see personal tail bets and P&L."}
           </p>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-3">
+        <div className={`rounded border p-4 ${dataTrust.status === "ready" ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
+          <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Data trust</div>
+          <div className="mt-2 text-sm font-semibold text-slate-900">
+            {(dataTrust.status || "unknown").toUpperCase()} | {dataTrust.complete_candidates ?? 0}/{dataTrust.total_candidates ?? 0} complete
+          </div>
+          <p className="mt-2 text-xs leading-5 text-slate-700">{dataTrust.policy || "Every candidate needs best book, minimum price, lane key, conflict status, result, and CLV handling."}</p>
+          {dataTrust.blockers?.length ? (
+            <div className="mt-2 text-xs leading-5 text-slate-700">{dataTrust.blockers.slice(0, 2).join("; ")}</div>
+          ) : null}
+        </div>
+        <div className={`rounded border p-4 ${laneTruth.is_real ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white"}`}>
+          <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Lane truth</div>
+          <div className="mt-2 text-sm font-semibold text-slate-900">{laneTruth.label || "MLB H2H underdogs"}</div>
+          <div className="mt-2 text-xs leading-5 text-slate-700">
+            {laneTruth.verdict || "NOT_PROVEN_YET"} | closed {laneTruth.closed ?? 0}/{laneTruth.target_closed_groups ?? 50} | CLV {formatPct(laneTruth.avg_clv_pct)}
+          </div>
+          {laneTruth.what_would_need_to_change?.length ? (
+            <p className="mt-2 text-xs leading-5 text-slate-600">{laneTruth.what_would_need_to_change.slice(0, 2).join("; ")}</p>
+          ) : null}
+        </div>
+        <div className="rounded border border-slate-200 bg-white p-4">
+          <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Founding beta</div>
+          <div className="mt-2 text-sm font-semibold text-slate-900">{foundingBeta.headline || "Audited signals before picks claims"}</div>
+          <p className="mt-2 text-xs leading-5 text-slate-600">
+            Transparent watchlists, no-pick reasons, CLV coverage, personal ledger, and sportsbook shopping. No profitability claim until the lane clears gates.
+          </p>
+          <a href={foundingBeta.cta_url || "/subscribe"} className="mt-3 inline-flex rounded bg-slate-950 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800">
+            {foundingBeta.cta_label || "Join founding beta"}
+          </a>
         </div>
       </div>
 

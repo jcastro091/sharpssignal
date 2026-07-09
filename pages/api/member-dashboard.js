@@ -82,6 +82,10 @@ export default async function handler(req, res) {
       tailRows,
       manualReview,
     });
+    const dataTrust = buildDataTrust({ rows: recentRows, lanes });
+    const laneTruth = {
+      mlb_h2h_underdogs: buildMlbLaneTruth(lanes),
+    };
 
     return res.status(200).json({
       ok: true,
@@ -98,6 +102,8 @@ export default async function handler(req, res) {
       proof_blocks: buildProofBlocks({ researchAlerts, todayRows, recentRows, tailRows, lanes, operatorCard }),
       operator_card: operatorCard,
       daily_betting_readiness: dailyBettingReadiness,
+      data_trust: dataTrust,
+      lane_truth: laneTruth,
       beachhead: buildBeachhead(lanes),
       retail_gap_timing_backtest: retailGapTimingBacktest(recentRows),
       manual_review: manualReview,
@@ -109,6 +115,7 @@ export default async function handler(req, res) {
         disclosure: AFFILIATE_DISCLOSURE,
         offers: SPORTSBOOK_OFFERS.map((offer) => ({ ...offer, url: sportsbookOfferUrl(offer.name) })),
       },
+      founding_beta: foundingBetaOffer({ dataTrust, laneTruth }),
     });
   } catch (error) {
     return res.status(200).json(emptyPayload(error?.message || "member_dashboard_failed"));
@@ -129,6 +136,8 @@ function emptyPayload(error) {
     proof_blocks: [],
     operator_card: {},
     daily_betting_readiness: emptyReadinessCard(),
+    data_trust: {},
+    lane_truth: { mlb_h2h_underdogs: {} },
     beachhead: {},
     betting_rulebook: BETTING_RULEBOOK,
     retail_gap_timing_backtest: {},
@@ -138,6 +147,7 @@ function emptyPayload(error) {
       message: "Official paid-pick promotion is blocked until a lane clears sample, ROI, win-rate, and CLV gates.",
     },
     affiliate: { disclosure: AFFILIATE_DISCLOSURE, offers: [] },
+    founding_beta: {},
   };
 }
 
@@ -466,6 +476,104 @@ function buildDailyBettingReadiness({ operatorCard, lanes, laneDecisionContext, 
   };
 }
 
+function buildDataTrust({ rows, lanes }) {
+  const conflictedKeys = new Set((lanes || []).filter((lane) => lane.frozen).map((lane) => lane.lane_key));
+  const checks = (rows || []).map((row) => {
+    const laneKey = rowLaneKey(row);
+    const result = normalizedResult(row.result);
+    const closed = ["win", "loss", "push"].includes(result);
+    const missing = [];
+    if (!row.best_available_price && !row.recommended_book) missing.push("best_book");
+    if (!row.minimum_acceptable_price && !row.do_not_bet_below) missing.push("minimum_price");
+    if (closed && !Number.isFinite(row.clv_pct)) missing.push("clv");
+    if (closed && !result) missing.push("result");
+    if (!laneKey) missing.push("lane_key");
+    return {
+      bet_id: row.bet_id || row.id,
+      game: `${row.away_team || ""} @ ${row.home_team || ""}`.trim(),
+      lane_key: laneKey,
+      conflict_status: conflictedKeys.has(laneKey) ? "conflicted" : "clean",
+      result_status: closed ? result : "pending",
+      clv_status: Number.isFinite(row.clv_pct) ? "captured" : closed ? "missing" : "pending_capture",
+      best_available_price: row.best_available_price || row.recommended_book || "",
+      minimum_acceptable_price: row.minimum_acceptable_price || row.do_not_bet_below || "",
+      missing,
+      complete: missing.length === 0,
+    };
+  });
+  const missingCounts = {};
+  for (const row of checks) {
+    for (const key of row.missing) missingCounts[key] = (missingCounts[key] || 0) + 1;
+  }
+  const complete = checks.filter((row) => row.complete).length;
+  const blockers = [];
+  if (missingCounts.best_book) blockers.push(`${missingCounts.best_book} candidate(s) missing best book`);
+  if (missingCounts.minimum_price) blockers.push(`${missingCounts.minimum_price} candidate(s) missing minimum price`);
+  if (missingCounts.clv) blockers.push(`${missingCounts.clv} closed candidate(s) missing CLV`);
+  if (missingCounts.result) blockers.push(`${missingCounts.result} closed candidate(s) missing result`);
+  if (missingCounts.lane_key) blockers.push(`${missingCounts.lane_key} candidate(s) missing lane key`);
+  return {
+    status: blockers.length ? "blocked" : "ready",
+    total_candidates: checks.length,
+    complete_candidates: complete,
+    coverage: checks.length ? complete / checks.length : null,
+    missing_counts: missingCounts,
+    blockers,
+    policy: "Open candidates use result=pending and CLV=pending_capture; closed candidates must have result and CLV.",
+    examples: checks.filter((row) => row.missing.length).slice(0, 8),
+  };
+}
+
+function buildMlbLaneTruth(lanes) {
+  const mlb = (lanes || []).find((lane) => {
+    const key = String(lane.lane_key || "").toLowerCase();
+    return key.includes("baseball_mlb") && key.includes("h2h") && key.includes("underdog");
+  }) || {};
+  const closed = Number(mlb.closed || 0);
+  const clvCoverage = Number(mlb.clv_coverage);
+  const avgClv = Number(mlb.avg_clv_pct);
+  const blockers = [];
+  if (closed < BETTING_RULEBOOK.minimum_closed_sample) blockers.push(`${BETTING_RULEBOOK.minimum_closed_sample - closed} more clean closed group(s)`);
+  if (!Number.isFinite(clvCoverage) || clvCoverage < BETTING_RULEBOOK.minimum_clv_coverage) blockers.push(`CLV coverage needs ${pctText(BETTING_RULEBOOK.minimum_clv_coverage)}; currently ${pctText(clvCoverage)}`);
+  if (!Number.isFinite(avgClv) || avgClv < BETTING_RULEBOOK.minimum_avg_clv) blockers.push(`avg CLV must be non-negative; currently ${pctText(avgClv)}`);
+  if (mlb.frozen) blockers.push("same-game conflicts must resolve");
+  const isReal = blockers.length === 0 && Boolean(mlb.lane_key);
+  return {
+    label: "MLB H2H underdogs",
+    source_sample: "clean_non_conflicted_groups_only",
+    verdict: isReal ? "REAL_CANDIDATE_READY_FOR_BET_REVIEW" : "NOT_PROVEN_YET",
+    is_real: isReal,
+    closed,
+    target_closed_groups: BETTING_RULEBOOK.minimum_closed_sample,
+    roi: mlb.roi ?? null,
+    avg_clv_pct: mlb.avg_clv_pct ?? null,
+    clv_coverage: mlb.clv_coverage ?? null,
+    record: `${Number(mlb.wins || 0)}-${Number(mlb.losses || 0)}-${Number(mlb.pushes || 0)}`,
+    what_would_need_to_change: blockers,
+  };
+}
+
+function foundingBetaOffer({ dataTrust, laneTruth }) {
+  const lane = laneTruth?.mlb_h2h_underdogs || {};
+  return {
+    headline: "Founding beta: audited signals before picks claims",
+    bullets: [
+      "Transparent watchlist lanes with no-pick reasons",
+      "Best available book and minimum bettable price when a window exists",
+      "Personal Telegram/website tail ledger and P&L",
+      "Audited CLV, conflicts, and lane-readiness gates",
+      "Founding pricing while the model proves out",
+    ],
+    proof: {
+      data_trust_status: dataTrust?.status || "unknown",
+      beachhead_verdict: lane.verdict || "NOT_PROVEN_YET",
+      profitable_claim: false,
+    },
+    cta_label: "Join founding beta",
+    cta_url: "/subscribe?plan=pro_telegram&utm_source=dashboard&utm_campaign=founding_beta&utm_content=transparency_offer",
+  };
+}
+
 function emptyReadinessCard() {
   return {
     action: "SKIP",
@@ -530,6 +638,24 @@ function summarizeLane(lane) {
     clv_coverage: lane.clv_coverage ?? null,
     reasons: lane.bet_action_reasons || [],
   };
+}
+
+function rowLaneKey(row) {
+  const direction = Number(row.odds_american || 0) > 0 ? "underdog" : Number(row.odds_american || 0) < 0 ? "favorite" : "unknown";
+  return [row.sport || "unknown", row.market || "unknown", row.signal_lane || "watchlist", direction].join("|");
+}
+
+function normalizedResult(value) {
+  const raw = String(value || "").toLowerCase();
+  if (["win", "won", "w"].includes(raw)) return "win";
+  if (["loss", "lost", "lose", "l"].includes(raw)) return "loss";
+  if (["push", "void"].includes(raw)) return "push";
+  return "";
+}
+
+function pctText(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? `${(n * 100).toFixed(1)}%` : "-";
 }
 
 function buildBeachhead(lanes) {
