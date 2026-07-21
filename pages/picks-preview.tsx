@@ -17,6 +17,7 @@ type PreviewPick = {
 };
 
 type MlbProbation = {
+  lane_key?: string;
   status?: string;
   bet_action?: string;
   reasons?: string[];
@@ -58,7 +59,7 @@ type Props =
       ok: true;
       today: string;
       modelRunTimeISO: string | null;
-      statsLast7: { winRatePct: number; roiPct: number; totalBets: number };
+      statsLast7: { winRatePct: number | null; roiPct: number | null; totalBets: number };
       todayPicks: PreviewPick[];
       counts?: {
         todayPicks?: number;
@@ -69,6 +70,8 @@ type Props =
       status?: PreviewStatus;
       researchSummary?: ResearchSummary;
       mlbH2hUnderdogProbation?: MlbProbation;
+      hasSelectedLane?: boolean;
+      evidenceCohort?: { decision_policy_version?: string; activation_at?: string };
       qs: string;
     }
   | { ok: false; error: string; qs: string };
@@ -201,14 +204,13 @@ export default function PicksPreviewPage(props: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <div className="bg-white border rounded-xl p-5 shadow">
             <div className="text-xs text-gray-500">Last 7 days</div>
-            <div className="text-2xl font-bold mt-1">{statsLast7.winRatePct}%</div>
+            <div className="text-2xl font-bold mt-1">{statsLast7.winRatePct === null ? "n/a" : `${statsLast7.winRatePct}%`}</div>
             <div className="text-sm text-gray-600">Win rate</div>
           </div>
           <div className="bg-white border rounded-xl p-5 shadow">
             <div className="text-xs text-gray-500">Last 7 days</div>
             <div className="text-2xl font-bold mt-1">
-              {statsLast7.roiPct >= 0 ? "+" : ""}
-              {statsLast7.roiPct}%
+              {statsLast7.roiPct === null ? "n/a" : `${statsLast7.roiPct >= 0 ? "+" : ""}${statsLast7.roiPct}%`}
             </div>
             <div className="text-sm text-gray-600">ROI</div>
           </div>
@@ -275,17 +277,19 @@ export default function PicksPreviewPage(props: Props) {
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow">
-            <div className="text-xs font-bold uppercase tracking-wide text-slate-500">MLB H2H underdog probation</div>
+            <div className="text-xs font-bold uppercase tracking-wide text-slate-500">Current promotion lane</div>
             <div className="mt-2 flex flex-wrap gap-2">
               <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
-                {plainStatus(mlb.bet_action)}
+                {props.hasSelectedLane ? plainStatus(mlb.bet_action) : "NO LANE SELECTED"}
               </span>
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
                 {plainStatus(mlb.data_confidence || "low")} confidence
               </span>
             </div>
             <p className="mt-3 text-sm leading-6 text-slate-700">
-              First beachhead: MLB H2H underdogs. This is a watchlist lane, not a profitability claim.
+              {props.hasSelectedLane
+                ? `${mlb.lane_key || "The selected lane"} remains shadow-only until every evidence gate passes.`
+                : "No lane has passed offline selection. The v3 model-first strategy is evaluating value, with sharp movement required for promotion."}
             </p>
             <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
               <div><div className="text-xs text-slate-500">Closed</div><div className="font-bold">{mlb.closed ?? 0}</div></div>
@@ -316,7 +320,7 @@ export default function PicksPreviewPage(props: Props) {
 
           {total === 0 ? (
             <p className="text-sm text-gray-600">
-              No picks found for today in the latest dataset.
+              No promotion-eligible picks today. Comparator and rejected records remain diagnostic and do not count toward the public record.
             </p>
           ) : (
             <div className="space-y-2">
