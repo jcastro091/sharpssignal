@@ -15,7 +15,7 @@ const engines = [
     eyebrow: "Markets",
     title: "Systematic FX research",
     body: "The markets engine monitors selected currency pairs with defined entries, exits, execution costs, financing, and risk limits.",
-    detail: "Trading remains paper-only while the sample grows. Two closed wins are an observation, not a profitability claim.",
+    detail: "Trading remains paper-only while the sample grows. The early sample is research evidence, not a profitability claim.",
   },
 ];
 
