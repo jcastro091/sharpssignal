@@ -4,11 +4,9 @@ import { useRouter } from "next/router";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 const publicLinks = [
-  { href: "/picks-preview", label: "Preview" },
-  { href: "/record", label: "Record" },
-  { href: "/reports/weekly", label: "Reports" },
-  { href: "/about", label: "Proof" },
-  { href: "/subscribe", label: "Pricing" },
+  { href: "/about", label: "Sports + Markets" },
+  { href: "/verification", label: "Verification" },
+  { href: "/subscribe", label: "Access" },
 ];
 
 export default function Header() {
@@ -46,7 +44,7 @@ export default function Header() {
           <span className="flex h-8 w-8 items-center justify-center rounded bg-slate-950 text-sm text-white">
             SS
           </span>
-          <span>SharpSignal</span>
+          <span>SharpsSignal</span>
         </Link>
 
         <div className="hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex">

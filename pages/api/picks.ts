@@ -537,6 +537,9 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ApiResponse>
 ) {
+  res.setHeader("Cache-Control", "private, no-store");
+  return res.status(410).json({ ok: false, error: "public_signal_history_retired" });
+  /* Controlled signal access will replace this public route.
   try {
     res.setHeader("Cache-Control", "no-store");
     const nocache =
@@ -567,5 +570,5 @@ export default async function handler(
     return res
       .status(500)
       .json({ ok: false, error: err?.message || "Internal error" });
-  }
+  } */
 }

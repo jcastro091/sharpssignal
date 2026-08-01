@@ -1535,6 +1535,8 @@ function StatusMetric({ label, value }) {
 }
 
 export async function getServerSideProps({ req }) {
+  return { redirect: { destination: "/subscribe", permanent: false } };
+  /* Private signal delivery is intentionally disabled until controlled access is active.
   const proto = req.headers["x-forwarded-proto"] || (req.headers.host?.startsWith("localhost") ? "http" : "https");
   const host = req.headers["x-forwarded-host"] || req.headers.host;
   const base = `${proto}://${host}`;
@@ -1572,5 +1574,5 @@ export async function getServerSideProps({ req }) {
     console.error("[picks/ssr] fetch error:", e);
   }
 
-  return { props: { initialPicks: picks, initialTrades: trades, initialFreshness: freshness } };
+  return { props: { initialPicks: picks, initialTrades: trades, initialFreshness: freshness } }; */
 }
