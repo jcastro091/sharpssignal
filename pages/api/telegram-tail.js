@@ -21,6 +21,10 @@ export default async function handler(req, res) {
   }
 
   const update = typeof req.body === "object" && req.body ? req.body : {};
+  if (isPilotReply(update)) {
+    const forwarded = await forwardPilotReply(req, update);
+    return res.status(forwarded.status).json(forwarded.body);
+  }
   if (update.message_reaction || update.message_reaction_count) {
     return res.status(200).json({ ok: true, action: "soft_interest", tracked_bet: false });
   }
@@ -61,9 +65,35 @@ export default async function handler(req, res) {
   return res.status(200).json({ ok: result.body.ok, tail, capture: result.body });
 }
 
+function isPilotReply(update) {
+  const message = update.message || update.edited_message || {};
+  const replied = message.reply_to_message || {};
+  return /PILOT\s+[—-]\s+OPERATOR ONLY/i.test(clean(replied.text || replied.caption));
+}
+
+async function forwardPilotReply(req, update) {
+  const target = clean(process.env.SPORTS_PILOT_WEBHOOK_URL || "https://sharpssignal-sports-backend.vercel.app/api/telegram-tail");
+  const secret = clean(process.env.SPORTS_PILOT_WEBHOOK_SECRET || process.env.TELEGRAM_TAIL_WEBHOOK_SECRET);
+  try {
+    const response = await fetch(target, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(secret ? { "x-telegram-bot-api-secret-token": secret } : {}),
+        "x-sharpssignal-pilot-forwarded": "1",
+      },
+      body: JSON.stringify(update),
+    });
+    const body = await response.json().catch(() => ({ ok: false, error: "pilot_backend_invalid_response" }));
+    return { status: response.ok ? 200 : response.status, body };
+  } catch (error) {
+    return { status: 502, body: { ok: false, error: "pilot_backend_unavailable", detail: clean(error?.message || error) } };
+  }
+}
+
 function authorized(req) {
   const expected = clean(process.env.TELEGRAM_TAIL_WEBHOOK_SECRET);
-  if (!expected) return true;
+  if (!expected) return process.env.NODE_ENV !== "production";
   const querySecret = clean((req.query || {}).secret);
   const headerSecret = clean((req.headers || {})["x-telegram-bot-api-secret-token"]);
   return querySecret === expected || headerSecret === expected;
