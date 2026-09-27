@@ -75,7 +75,7 @@ export default async function handler(req, res) {
     access: {
       email: access.email,
       owner_allowlist_configured: access.allowlistConfigured,
-      setup_warning: access.allowlistConfigured ? "" : "CEO_DASHBOARD_EMAILS is not configured; any authenticated user can access this page.",
+      setup_warning: access.allowlistConfigured ? "" : "Admin access is disabled until an allowlist is configured.",
     },
     betting: {
       action,

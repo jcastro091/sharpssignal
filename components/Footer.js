@@ -17,7 +17,7 @@ export default function Footer() {
             Private sports and currency-market intelligence with aggregate attestation.
             Research only. No guarantees.
           </p>
-          <p className="mt-4 text-xs text-slate-500">Copyright {year} SharpSignal. All rights reserved.</p>
+          <p className="mt-4 text-xs text-slate-500">Copyright {year} SharpsSignal. All rights reserved.</p>
         </div>
 
         <div>
@@ -36,7 +36,7 @@ export default function Footer() {
             <Link href="/contact" className="hover:text-slate-950">Contact</Link>
             <Link href="/legal#terms" className="hover:text-slate-950">Terms</Link>
             <Link href="/legal#privacy" className="hover:text-slate-950">Privacy</Link>
-            <a href="mailto:SharpSignal@gmail.com" className="hover:text-slate-950">SharpSignal@gmail.com</a>
+            <a href="mailto:SharpsSignal@gmail.com" className="hover:text-slate-950">SharpsSignal@gmail.com</a>
           </div>
         </div>
       </div>

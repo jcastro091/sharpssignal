@@ -1,23 +1,12 @@
-import { requireServerUser } from "../lib/authServer";
-
-export async function getServerSideProps({ req, res }) {
-  const auth = await requireServerUser(req, res);
-  if (!auth.user) {
-    return {
-      redirect: {
-        destination: auth.redirect || "/signin?next=%2Fdashboard",
-        permanent: false,
-      },
-    };
-  }
-  return {
-    redirect: {
-      destination: "/picks",
-      permanent: false,
-    },
-  };
-}
-
-export default function DashboardRedirect() {
-  return null;
-}
+import {useEffect,useState} from 'react';
+import Link from 'next/link';
+import {requireServerUser} from '../lib/authServer';
+import {getCeoAccess} from '../lib/ceoAccess';
+import {supabase} from '../lib/supabaseClient';
+export async function getServerSideProps({req,res}){res.setHeader('Cache-Control','private, no-store');const auth=await requireServerUser(req,res);if(!auth.user)return {redirect:{destination:'/signin?next=%2Fdashboard',permanent:false}};const access=await getCeoAccess(req,res);const interests=Array.isArray(auth.user.user_metadata?.interests)?auth.user.user_metadata.interests.filter(x=>['sports','markets'].includes(x)):['sports','markets'];return {props:{initialInterests:interests,isAdmin:access.allowed}};}
+const stamp=x=>{const d=new Date(typeof x==='number'?x*1000:x);return Number.isFinite(d.getTime())?d.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'Not available';};
+const human=x=>String(x||'Pending').replaceAll('_',' ');
+export default function Dashboard({initialInterests,isAdmin}){const [interests,setInterests]=useState(initialInterests),[section,setSection]=useState(initialInterests[0]||'sports'),[feed,setFeed]=useState(null),[error,setError]=useState(''),[refresh,setRefresh]=useState(0),[saving,setSaving]=useState(false),[notice,setNotice]=useState('');
+useEffect(()=>{if(!interests.includes(section))return;let active=true;const controller=new AbortController();setFeed(null);setError('');fetch('/api/member-feed?section='+section,{signal:controller.signal,cache:'no-store'}).then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error||'Feed unavailable');if(active)setFeed(d);}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;controller.abort();};},[section,refresh,interests]);
+async function preference(x){const next=interests.includes(x)?interests.filter(i=>i!==x):[...interests,x];if(!next.length){setNotice('Keep at least one interest selected.');return;}setSaving(true);const {error}=await supabase.auth.updateUser({data:{interests:next}});if(error)setNotice('Could not save your interests. Please try again.');else{setInterests(next);if(!next.includes(section))setSection(next[0]);setNotice('Interests saved.');}setSaving(false);}
+return <main className="member-shell"><aside className="member-nav"><span className="eyebrow">YOUR WORKSPACE</span>{interests.map(x=><button key={x} aria-current={section===x?'page':undefined} onClick={()=>setSection(x)}>{x==='sports'?'↗ Sports':'▥ Markets'}</button>)}<details><summary>My interests</summary>{['sports','markets'].map(x=><label key={x}><input type="checkbox" checked={interests.includes(x)} disabled={saving} onChange={()=>preference(x)}/>{human(x)}</label>)}<p role="status" className="small">{notice}</p></details>{isAdmin&&<Link className="admin-link" href="/admin">Admin workspace ↗</Link>}<small>Paper research only.<br/>No live orders.</small></aside><div className="member-content"><div className="member-top"><span className="eyebrow">YOUR SIGNAL / {section.toUpperCase()}</span><button className="button-secondary" onClick={()=>setRefresh(refresh+1)}>Refresh</button></div><h1>{section==='sports'?'Your sports signal.':'Your market view.'}</h1><p className="muted">Forward paper records, with context. No guaranteed edge or real-money execution.</p><div className="member-stats"><article><small>View</small><b>{section==='sports'?'Sports':'Markets'}</b></article><article><small>Shown records</small><b>{feed?feed.plays.length:'—'}</b></article><article><small>Evidence status</small><b>{feed?human(feed.status):error?'Unavailable':'Loading'}</b></article></div><section className="member-panel"><div className="panel-title"><h2>Paper activity</h2><span className="status-pill">{feed?.observed_at?stamp(feed.observed_at):'Awaiting evidence'}</span></div><p className="small muted">Latest 100 records. Overlapping strategies are separate cohorts, not independent bets. Past entries are not current opportunities.</p>{error?<div role="alert" className="error-message">{error}. Your records have not been replaced with demo data.</div>:!feed?<p role="status">Loading your feed…</p>:!feed.plays.length?<div className="empty-state"><h3>No recorded plays in this view yet.</h3><p>We’ll show them when a qualifying paper entry is recorded.</p></div>:<div className="member-table"><table><thead><tr>{(section==='sports'?['Selection / game','Strategy','Captured odds','Game time','Result','CLV']:['Symbol / direction','Entry','Stop / target','Recorded','Status','Paper P&L']).map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{feed.plays.map((p,i)=><tr key={p.entry_id||p.trade_id||i}>{section==='sports'?<><td><b>{p.side}{p.point!=null?' '+p.point:''}</b><small>{p.away} @ {p.home} · {human(p.market)}</small></td><td>{p.arm}<small>{p.cohort}</small></td><td>{p.decimal??'—'}<small>{p.book}</small></td><td>{stamp(p.start)}</td><td>{human(p.result)}</td><td>{Number.isFinite(p.clv_pct)?(p.clv_pct*100).toFixed(2)+'%':'Not measured'}</td></>:<><td><b>{p.symbol}</b><small>{p.direction>0?'Long':'Short'} · {p.family}</small></td><td>{p.entry_price??'—'}</td><td>{p.stop??'—'} / {p.target??'—'}</td><td>{stamp(p.entry_time)}</td><td>{human(p.status)}</td><td>{p.status==='closed'&&Number.isFinite(p.net_pnl)?'$'+p.net_pnl.toFixed(2):'Pending'}</td></>}</tr>)}</tbody></table></div>}</section><section className="member-panel compact-panel"><h2>Notifications</h2><p>Email, SMS, and push play alerts are not activated for member accounts yet. This dashboard is your current view of recorded paper activity.</p></section></div></main>}

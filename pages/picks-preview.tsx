@@ -1,5 +1,3 @@
-export default function PrivateVerificationRedirect() { return null; }
-
-export function getServerSideProps() {
-  return { redirect: { destination: "/verification", permanent: false } };
-}
+import Link from 'next/link';
+import SignalPreview from '../components/SignalPreview';
+export default function Preview(){return <main className="brand-page"><section className="brand-hero"><div className="hero-copy"><span className="eyebrow">A LOOK INSIDE</span><h1>Meet your<br/><span>signal space.</span></h1><p>A calmer dashboard for a fast-moving world. Sports and Markets sit side by side, with the details you need and none of the operator controls.</p><p>This interactive preview uses fictional content. Your signed-in dashboard shows available forward paper records with their actual status.</p><Link className="button-primary" href="/signup">Create your account ↗</Link></div><SignalPreview/></section></main>}
