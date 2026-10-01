@@ -1,3 +1,39 @@
-import Link from 'next/link';
-import SignalPreview from '../components/SignalPreview';
-export default function Preview(){return <main className="brand-page"><section className="brand-hero"><div className="hero-copy"><span className="eyebrow">A LOOK INSIDE</span><h1>Meet your<br/><span>signal space.</span></h1><p>A calmer dashboard for a fast-moving world. Sports and Markets sit side by side, with the details you need and none of the operator controls.</p><p>This interactive preview uses fictional content. Your signed-in dashboard shows available forward paper records with their actual status.</p><Link className="button-primary" href="/signup">Create your account ↗</Link></div><SignalPreview/></section></main>}
+import Link from "next/link";
+import SignalPreview from "../components/SignalPreview";
+import ResearchGuide from "../components/ResearchGuide";
+export default function Preview() {
+  return (
+    <main className="brand-page">
+      <section className="brand-hero">
+        <div className="hero-copy">
+          <span className="eyebrow">A LOOK INSIDE · FICTIONAL EXAMPLE</span>
+          <h1>
+            Follow the price.
+            <br />
+            <span>Read the result.</span>
+          </h1>
+          <p>
+            A free sports-research workspace for available member records. See
+            captured odds, paper results, and closing-price evidence when it is
+            recorded.
+          </p>
+          <p>
+            This example explains the format. It is not a historical selection
+            or a current opportunity. Your dashboard may have no published
+            records yet.
+          </p>
+          <div className="hero-actions">
+            <Link className="button-primary" href="/signup">
+              Create your free account ↗
+            </Link>
+          </div>
+          <small className="muted">
+            No card required. No automatic email, SMS, or push play alerts.
+          </small>
+        </div>
+        <SignalPreview />
+      </section>
+      <ResearchGuide open />
+    </main>
+  );
+}

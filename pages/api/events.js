@@ -6,6 +6,8 @@ const ALLOWED_EVENTS = new Set([
   "page_view",
   "picks_preview_view",
   "record_view",
+  "member_guide_open",
+  "member_feedback",
   "weekly_report_view",
   "signup_view",
   "subscribe_view",
