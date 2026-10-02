@@ -4,6 +4,9 @@ import Stripe from "stripe";
 import { createSupabaseServiceClient, hasSupabaseServiceConfig } from "../../../lib/supabaseServer";
 import { cleanEnvToken } from "../../../lib/stripeEnv.js";
 
+// Paid purchasing remains disabled pending an approved offer and fulfillment release.
+const PAID_PURCHASING_ENABLED = false;
+
 const DEFAULT_PLAN = "pro_telegram";
 const DEFAULT_NEXT = "/picks";
 const FALLBACK_CHECKOUT_URL =
@@ -100,6 +103,11 @@ function fallbackUrl(req, body) {
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ ok: false, error: "method_not_allowed" });
+
+  if (!PAID_PURCHASING_ENABLED) {
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(503).json({ ok: false, error: "paid_purchasing_not_activated" });
+  }
 
   try {
     const body = req.body || {};

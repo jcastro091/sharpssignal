@@ -9,15 +9,17 @@ import {
   firstRecordIndex,
   resultLabel,
 } from "../lib/memberResearch";
+import { checkoutDestination } from "../lib/authRedirect";
+import CheckoutStatus from "../components/CheckoutStatus";
 import ResearchGuide from "../components/ResearchGuide";
 import ResearchStatus from "../components/ResearchStatus";
 
-export async function getServerSideProps({ req, res }) {
+export async function getServerSideProps({ req, res, query }) {
   res.setHeader("Cache-Control", "private, no-store");
   const auth = await requireServerUser(req, res);
   if (!auth.user)
     return {
-      redirect: { destination: "/signin?next=%2Fdashboard", permanent: false },
+      redirect: { destination: "/signin?next=" + encodeURIComponent(checkoutDestination(query)), permanent: false },
     };
   const access = await getCeoAccess(req, res);
   const interests = Array.isArray(auth.user.user_metadata?.interests)
@@ -155,6 +157,7 @@ export default function Dashboard({ initialInterests, isAdmin }) {
         </small>
       </aside>
       <div className="member-content">
+        <CheckoutStatus />
         <div className="member-top">
           <span className="eyebrow">YOUR SIGNAL / {section.toUpperCase()}</span>
           <button
