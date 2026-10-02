@@ -34,10 +34,9 @@ let subscription,
 const invoice = () => ({
   id: "in_paid",
   status: "paid",
-  paid: true,
   customer: "cus_owner",
-  subscription: "sub_owner",
-  period_end: 2000,
+  parent: { type: "subscription_details", subscription_details: { subscription: "sub_owner" } },
+  period_end: 1000,
 });
 const freshSub = () => ({
   id: "sub_owner",
@@ -45,7 +44,11 @@ const freshSub = () => ({
   status: "active",
   metadata: { user_id: owner, plan: "pro_telegram" },
   latest_invoice: invoice(),
-  current_period_end: 2000,
+  items: {
+    object: "list",
+    has_more: false,
+    data: [{ id: "si_owner", subscription: "sub_owner", current_period_end: 2000 }],
+  },
   cancel_at_period_end: false,
 });
 const freshEvent = () => ({
@@ -160,7 +163,7 @@ const update = (
 await test("valid paid renewal retains original checkout and account binding", async () => {
   await reset();
   await deliver();
-  subscription.current_period_end = 3000;
+  subscription.items.data[0].current_period_end = 3000;
   await deliver(update());
   assert.equal(
     (await row()).current_period_end.toISOString(),
@@ -193,7 +196,7 @@ await test("wrong stored account binding fails without modifying customer", asyn
 await test("active renewal with unpaid invoice cannot grant or erase valid prior access", async () => {
   await reset();
   await deliver();
-  subscription.latest_invoice.paid = false;
+  subscription.latest_invoice.status = "open";
   await assert.rejects(deliver(update()), /latest_invoice/);
   assert.equal((await row()).entitlement_active, true);
 });
@@ -328,6 +331,7 @@ async function route({
   configured = true,
   valid = true,
   storeFailure = false,
+  event = freshEvent(),
 } = {}) {
   let bodyReads = 0,
     storeReads = 0;
@@ -346,7 +350,7 @@ async function route({
                 assert.equal(sig, "signature");
                 assert.equal(secret, "fake");
                 if (!valid) throw Error("bad signature");
-                return freshEvent();
+                return event;
               },
             },
           }
@@ -414,6 +418,85 @@ await test("real Stripe signature validates raw bytes and rejects tampering", as
       "whsec_local_only",
     ),
   );
+});
+await test("Basil fixture omits removed fields and has a different invoice usage end", async () => {
+  const sub = freshSub();
+  assert.equal("paid" in sub.latest_invoice, false);
+  assert.equal("subscription" in sub.latest_invoice, false);
+  assert.equal("current_period_end" in sub, false);
+  assert.notEqual(sub.latest_invoice.period_end, sub.items.data[0].current_period_end);
+  await reset();
+  await deliver();
+  assert.equal((await row()).current_period_end.getTime(), 2000 * 1000);
+});
+await test("Basil invoice payment recovers past-due access and persists item service end", async () => {
+  await reset();
+  await deliver();
+  subscription.status = "past_due";
+  await deliver(update("evt_due", 101));
+  assert.equal((await row()).entitlement_active, false);
+  subscription.status = "active";
+  subscription.items.data[0].current_period_end = 3000;
+  const e = { id: "evt_recovered", created: 102, type: "invoice.paid", data: { object: invoice() } };
+  const r = await route({ event: e });
+  assert.equal(r.status, 200);
+  assert.equal((await row()).entitlement_active, true);
+  assert.equal((await row()).current_period_end.getTime(), 3000 * 1000);
+});
+await test("Basil scheduled cancellation acknowledges and persists purchased service end", async () => {
+  await reset();
+  await deliver();
+  subscription.cancel_at_period_end = true;
+  subscription.items.data[0].current_period_end = 4000;
+  assert.equal((await route({ event: update() })).status, 200);
+  assert.equal((await row()).current_period_end.getTime(), 4000 * 1000);
+  assert.equal((await row()).cancel_at_period_end, true);
+  assert.equal((await row()).entitlement_active, true);
+});
+for (const [name, change] of [
+  ["wrong invoice customer", () => subscription.latest_invoice.customer = "cus_other"],
+  ["wrong invoice subscription", () => subscription.latest_invoice.parent.subscription_details.subscription = "sub_other"],
+  ["open invoice despite obsolete paid true", () => { subscription.latest_invoice.status = "open"; subscription.latest_invoice.paid = true; }],
+  ["missing invoice status", () => delete subscription.latest_invoice.status],
+  ["unexpanded invoice", () => subscription.latest_invoice = "in_paid"],
+  ["missing item periods despite legacy and invoice end", () => { delete subscription.items; subscription.current_period_end = 9000; }],
+  ["empty items", () => subscription.items.data = []],
+  ["paginated items", () => subscription.items.has_more = true],
+  ["wrong item subscription", () => subscription.items.data[0].subscription = "sub_other"],
+  ["mixed item periods", () => subscription.items.data.push({ subscription: "sub_owner", current_period_end: 9000 })],
+  ["string item period", () => subscription.items.data[0].current_period_end = "3000"],
+  ["out of range item period", () => subscription.items.data[0].current_period_end = Number.MAX_SAFE_INTEGER],
+]) {
+  await test(name + " fails closed without writes or loss of prior access", async () => {
+    await reset();
+    await deliver();
+    change();
+    assert.equal((await route({ event: update() })).status, 503);
+    assert.equal(applyCalls, 1);
+    assert.equal(await store.event("evt_update"), undefined);
+    assert.equal((await row()).entitlement_active, true);
+    assert.equal((await row()).current_period_end.getTime(), 2000 * 1000);
+  });
+}
+await test("expanded invoice identities and same-period items are accepted", async () => {
+  await reset();
+  await deliver();
+  subscription.latest_invoice.customer = { id: "cus_owner" };
+  subscription.latest_invoice.parent.subscription_details.subscription = { id: "sub_owner" };
+  subscription.items.data.push({ subscription: "sub_owner", current_period_end: 2000 });
+  assert.equal((await route({ event: update() })).status, 200);
+});
+await test("missing item evidence does not block canceled or past-due revocation", async () => {
+  for (const status of ["canceled", "past_due"]) {
+    await reset();
+    await deliver();
+    subscription.status = status;
+    delete subscription.items;
+    subscription.latest_invoice.status = "open";
+    await deliver(update("evt_revoke", 102, status === "canceled" ? "customer.subscription.deleted" : "customer.subscription.updated"));
+    assert.equal((await row()).entitlement_active, false);
+    assert.equal((await row()).current_period_end, null);
+  }
 });
 await db.close();
 console.log(`${count} webhook/SQL tests passed`);
