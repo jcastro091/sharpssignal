@@ -8,7 +8,7 @@ Paid completion requires Stripe status complete and payment_status paid. Verific
 
 ## Validation
 
-Next.js production build passed. 13 JavaScript regression checks passed for campaign attribution, false signup/payment prevention, durable event IDs, errors and shared webhook/verification completion IDs. Mobile browser checks passed at 375, 390 and 768 pixels: no overflow, Sports default selection, preserved campaign across navigation, preview semantic event and zero page errors. External GA and collector responses were mocked for browser checks; no real signup email or charge was sent. Backend ingestion and daily reporting have a companion change in the sports repository.
+Next.js production build passed. 14 JavaScript regression checks passed for campaign attribution, false signup/payment prevention, durable event IDs, errors and shared webhook/verification completion IDs. Mobile browser checks passed at 375, 390 and 768 pixels: no overflow, Sports default selection, preserved campaign across navigation, preview semantic event and zero page errors. External GA and collector responses were mocked for browser checks; no real signup email or charge was sent. Backend ingestion and daily reporting have a companion change in the sports repository.
 
 ## Release limitation
 
