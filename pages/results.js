@@ -59,7 +59,7 @@ export default function Results() {
     catch (e) { setError(e.message); } finally { setBusy(false); }
   }
   return <main className="member-shell">
-    <aside className="member-nav"><span className="eyebrow">YOUR WORKSPACE</span><Link href="/dashboard">Dashboard</Link><Link href="/alerts">Alerts & settings</Link><Link href="/results" aria-current="page">My results</Link></aside>
+    <aside className="member-nav"><span className="eyebrow">YOUR WORKSPACE</span><Link href="/dashboard">Dashboard</Link><Link href="/results" aria-current="page">My results</Link></aside>
     <div className="member-content">
       <div className="member-top"><span className="eyebrow">MY RESULTS</span><span className="status-pill">Sandbox · test data only</span></div>
       <h1>Your results, together.</h1>
