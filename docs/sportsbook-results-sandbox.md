@@ -49,6 +49,30 @@ SDK-required-book tests remain pending. Local API verification does not establis
 deployed environment configuration. Verification: October 7, 2026, 12:21 UTC;
 nonsecret evidence is in ignored `out/sandbox-integration-evidence.json`.
 
+## Cloud runtime and PC independence
+
+On October 7, the four sandbox configuration values were provisioned as Vercel
+Secrets for project `sharpssignal`, Preview only, branch `codex/customer-results`.
+Deployment `dpl_AtAJs1usr2XDgTmDJ2dKtSpkzVyE` runs commit
+`f372e494a0eac8a21acbc93f5e66daa58536e726` with that configuration:
+https://sharpssignal-akhdwdqgu-jcastro091s-projects.vercel.app/results
+
+A disposable verified Supabase customer exercised the deployed API: configuration
+200 with sandbox enabled, results 200 with an empty account list, server-rendered
+results page 200, and linking context creation 200 through the real SharpSports
+API. Anonymous requests returned 401; a cross-origin mutation returned 403.
+The disposable auth account was deleted afterward. Vercel Deployment Protection
+remains enabled; use the owner's Vercel login to view this preview. This is not a
+production launch or a real sportsbook connection.
+
+The hosted preview needs no running PC. Codex Cloud is a separate development
+environment; it does not host this website. Future development can use the
+GitHub branch/PR and Vercel's stored secrets without reading a PC's env file.
+Codex environment network policy still controls what a cloud coding task can
+call. X scheduling already runs independently in AWS Lambda/EventBridge, with
+credentials in SSM. A cloud task's inability to call Lambda does not stop that
+schedule. This local Codex desktop task requires the PC to keep doing local work.
+
 ## Limits and next verification
 
 Authenticated `GET /v1/bookRegions?abbr=ny&support=true` reports all four target
