@@ -20,8 +20,10 @@ This data is separate from our paper research and is never used as strategy evid
    `SHARPSPORTS_IDENTITY_SECRET` (stable random 32+ characters), and
    `SHARPSPORTS_SANDBOX_ENABLED=true`. Never paste keys in source or reports.
    The provider documents one sandbox key for public and private requests.
-   The guard accepts `sandbox_` / `public_sandbox_` prefixes and rejects live keys.
-   Verify the issued key format before changing this fail-closed guard.
+   Set `SHARPSPORTS_SANDBOX_KEY_SHA256` to the SHA-256 fingerprint of the key
+   independently confirmed in the provider's sandbox console. The issued key
+   has no sandbox prefix. The guard requires that pin and rejects substitutions;
+   its format alone cannot prove the environment. Do not pin a live key.
 3. Enable the provider's Native SDK toggle for the browser extension path.
 4. Sign into Sharp Signals with a verified email, open `/results`, consent,
    prepare a connection and open the provider link. Use only provider test
@@ -29,18 +31,29 @@ This data is separate from our paper research and is never used as strategy evid
 5. Return and reload results. Exercise successful connection, failed login,
    2FA, repeat reads, separate customer identities and disconnect.
 
-No paid subscription has been purchased. No sandbox key is available yet.
-Local fixture tests are not a provider sandbox test. Auth-token response parsing
-(`token`) must be confirmed against the issued sandbox account: the provider's
-OpenAPI response schema is empty. Unexpected shapes fail closed.
+No paid subscription has been purchased. The user supplied a screenshot explicitly
+labelled Sandbox API Key on October 7. The key was extracted into ignored local
+configuration without printing it, then independently pinned. Authenticated
+requests returned HTTP 200 for books, New York regions, extension authorization
+and linking context creation. The real auth response contains `token`, and the
+context response supplies a valid `cid`. The results handler returned a truthful
+empty account/slip list before linking. Eleven security/accounting tests passed.
+
+The hosted UI displayed SANDBOX MODE and reached the Caesars test login. Submission
+is pending user confirmation because Login explicitly accepts SharpSports Terms
+of Use. No dummy or real account has been linked yet, and imported-result,
+reconnection and disconnect tests with the provider remain pending. Local API
+verification does not establish deployed environment configuration.
 
 ## Limits and next verification
 
-The desktop web extension is documented for FanDuel and DraftKings in Chrome;
-mobile apps need a native SDK. iPhone Safari is not that integration path.
-BetMGM/Caesars New York availability still needs an authenticated
-`GET /v1/bookRegions?abbr=ny&support=true` check with the provider; do not advertise
-all four as verified supported. Hosted linking chooses supported book/region.
+Authenticated `GET /v1/bookRegions?abbr=ny&support=true` reports all four target
+books active in New York in the sandbox catalog. FanDuel, DraftKings and BetMGM
+require an SDK and report Chrome extension support; Caesars reports no SDK
+requirement. Mobile apps need a native SDK for the first three. iPhone Safari is
+not that integration path. Catalog status does not establish working live access.
+Hosted linking without an initialized extension offered Caesars but hid the
+SDK-required books, consistent with that distinction.
 
 Reload reads saved provider history; it does not trigger a sportsbook refresh.
 There is no background sync, signed webhook ingestion, persistent import ledger,

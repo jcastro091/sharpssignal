@@ -66,7 +66,7 @@ export default function Results() {
       <p className="muted">Test connecting sportsbook history and viewing settled results in one place.</p>
       <section className="member-panel"><h2>Sandbox connections</h2>
         <p>We’re testing FanDuel, BetMGM, Caesars and DraftKings. Availability depends on the provider, region and device; no live connection is enabled.</p>
-        <p className="small muted">FanDuel and DraftKings web linking require desktop Chrome with the provider’s extension. An iPhone browser alone is not supported by that linking path.</p>
+        <p className="small muted">FanDuel, DraftKings and BetMGM web linking require desktop Chrome with the provider’s extension. An iPhone browser alone is not supported by that linking path. Caesars does not require that extension in the sandbox catalog.</p>
         {!data && !error && <p role="status">Loading connection status…</p>}
         {data?.configured === false && <div className="empty-state"><h3>Sandbox setup is pending.</h3><p>The developer account and sandbox keys must be configured before test accounts can connect.</p></div>}
         {data?.configured && <>

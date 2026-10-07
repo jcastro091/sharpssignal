@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createHandler, configuration, internalId, normalizeSlip, summary } = require('../lib/sportsbookResults.cjs');
 const env = { SHARPSPORTS_SANDBOX_ENABLED: 'true', SHARPSPORTS_SANDBOX_KEY: 'sandbox_fixture_only', SHARPSPORTS_IDENTITY_SECRET: 'test-only-identity-key-32-characters' };
+env.SHARPSPORTS_SANDBOX_KEY_SHA256 = require('node:crypto').createHash('sha256').update(env.SHARPSPORTS_SANDBOX_KEY).digest('hex');
 const user = { id: 'user-A', email_confirmed_at: 'yes' };
 const id = internalId(user.id, env.SHARPSPORTS_IDENTITY_SECRET);
 const request = { method: 'GET', headers: { origin: 'https://app.test', host: 'app.test' }, query: {} };
@@ -12,8 +13,8 @@ async function run(req = request, overrides = {}) {
   await createHandler({ env, getUser: async () => user, fetchImpl: async () => { throw Error('Unexpected network'); }, ...overrides })(req, res);
   return res;
 }
-test('disabled and live credentials never call the provider', async () => {
-  for (const change of [{SHARPSPORTS_SANDBOX_ENABLED:'false'}, {SHARPSPORTS_SANDBOX_KEY:'private_live_test'}, {SHARPSPORTS_IDENTITY_SECRET:''}]) {
+test('disabled, unpinned and substituted credentials never call the provider', async () => {
+  for (const change of [{SHARPSPORTS_SANDBOX_ENABLED:'false'}, {SHARPSPORTS_SANDBOX_KEY:'private_live_test'}, {SHARPSPORTS_SANDBOX_KEY_SHA256:''}, {SHARPSPORTS_IDENTITY_SECRET:''}]) {
     assert.equal(configuration({...env,...change}).ready,false);
     assert.equal((await run(request, {env:{...env,...change}})).body.configured,false);
   }
