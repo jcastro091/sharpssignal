@@ -178,7 +178,9 @@ export default function CeoDashboardPage({ userEmail = "", allowlistConfigured =
             <div className="grid grid-cols-2 gap-3">
               <Metric label="Signup Views" value={num(growth.page_signup_views)} />
               <Metric label="Signup Submits" value={num(growth.signup_submits)} />
-              <Metric label="Leads" value={num(growth.leads)} />
+              <Metric label="Confirmed Signups" value={num(growth.signups_completed)} />
+              <Metric label="Awaiting Confirmation" value={num(growth.confirmation_pending)} />
+              <Metric label="Paid Completions" value={num(growth.subscribe_success)} />
               <Metric label="Plan Views" value={num(growth.plan_views)} />
               <Metric label="Checkout Clicks" value={num(growth.checkout_clicks)} />
               <Metric label="Active Paid" value={num(growth.active_paid)} />

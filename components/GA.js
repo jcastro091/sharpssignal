@@ -19,8 +19,11 @@ export default function GA() {
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
           window.gtag = gtag;
-          gtag('js', new Date());
-          gtag('config', '${GA_ID}', { send_page_view: true, debug_mode: true });
+          if (!window.__ssGaConfigured) {
+            gtag('js', new Date());
+            gtag('config', '${GA_ID}', { send_page_view: false, debug_mode: false, page_location: location.origin + location.pathname, page_referrer: '' });
+            window.__ssGaConfigured = true;
+          }
         `}
       </Script>
     </>
