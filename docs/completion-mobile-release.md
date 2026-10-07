@@ -15,3 +15,13 @@ Next.js production build passed. 14 JavaScript regression checks passed for camp
 Production is unchanged. Vercel deployment creation returned 403 forbidden for team_ko98S44j3huWWUMd2exN2Jh3 (jcastro091s-projects); no independent CLI credential is configured. The branded branch matches the live landing/signup/tracker/API source, but the current CLI deployment dpl_CadXsBnUkHcWnyp96z1LVTMSADtt contains newer dashboard, auth, notification and publishing files absent from this branch. Apply this repair as a patch to the complete live source. Do not replace production with the entire older checkout.
 
 Before production release, preserve all live source files, deploy and inspect a preview using the complete source, verify Supabase unique event_id/upsert compatibility, and then verify confirmed signup and Stripe test-mode payment through persisted records. No production conversion persistence was verified in this environment.
+
+
+## October 7 reconnect attempt
+
+Default account scope now permits preview deployments, though explicit team requests remain 403. The full-source preview is READY:
+https://sharpssignal-5l2ny3g52-jcastro091s-projects.vercel.app/sports
+
+Deployment: dpl_Ahg7j8BJwETD83SLuaKE9hU67iQQ. The first patch-only attempt failed because Vercel replaces the source tree rather than applying a deploymentId overlay. The successful build preserves the existing live source via SHA references and includes the repairs. Backend preview dpl_AHMZhC6kRrQto23wzbqDRerY4iNS (8fd561b3) also reached READY.
+
+Production remains unchanged. Protected-preview fetch still fails 403 at read_protection_bypass, even after a short-lived share link was generated. Workspace network policy prevents direct preview HTTP access. Deployed pages and persistence remain unverified; do not treat READY as an end-to-end conversion test.
