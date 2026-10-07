@@ -1,3 +1,5 @@
+import growth from "../../../lib/growthRules.cjs";
+import {writeFunnelEvent} from "../../../lib/funnelStore";
 // pages/api/webhooks/stripe.js
 import { buffer } from "micro";
 import Stripe from "stripe";
@@ -8,7 +10,7 @@ import {
 
 export const config = { api: { bodyParser: false } };
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 const DEFAULT_PLAN = "pro_telegram";
 
 function entitlementActive(status) {
@@ -18,9 +20,9 @@ function entitlementActive(status) {
 }
 
 async function persistCheckoutSession(session) {
+  if(!growth.paidCheckout(session)) return;
   if (!hasSupabaseServiceConfig()) {
-    console.warn("[stripe webhook] Supabase not configured; entitlement not persisted");
-    return;
+    throw new Error("Tracking storage unavailable");
   }
 
   let subscription = null;
@@ -81,6 +83,10 @@ async function persistCheckoutSession(session) {
 
   const eventWrite = await insertFunnelEvent(supabase, {
     event_id: stableEventId("subscribe_success", session.id),
+    visitor_id: session.metadata?.visitor_id || null,
+    session_id: session.metadata?.session_id || null,
+    checkout_session_id: session.id,
+    event_at: new Date((session.created || Date.now()/1000)*1000).toISOString(),
     event_name: "subscribe_success",
     event_type: "subscribe_success",
     email,
@@ -107,7 +113,7 @@ async function persistCheckoutSession(session) {
       plan,
     },
   });
-  if (eventWrite.error) console.warn("[stripe webhook] funnel event write failed:", eventWrite.error.message);
+  if (eventWrite.error) throw eventWrite.error;
 }
 
 async function persistSubscription(subscription) {
@@ -175,7 +181,7 @@ async function persistSubscription(subscription) {
 }
 
 async function insertFunnelEvent(supabase, row) {
-  return insertWithColumnFallback(supabase, "funnel_events", row);
+  return writeFunnelEvent(supabase, row);
 }
 
 function attributionFromSession(session) {
@@ -248,7 +254,7 @@ export default async function handler(req, res) {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  if (event.type === "checkout.session.completed") {
+  if (["checkout.session.completed", "checkout.session.async_payment_succeeded"].includes(event.type)) {
     await persistCheckoutSession(event.data.object);
   }
 

@@ -1,5 +1,6 @@
 // pages/api/stripe/create-checkout-session.js
 import crypto from "crypto";
+import {writeFunnelEvent} from "../../../lib/funnelStore";
 import Stripe from "stripe";
 import { createSupabaseServiceClient, hasSupabaseServiceConfig } from "../../../lib/supabaseServer";
 import { cleanEnvToken } from "../../../lib/stripeEnv.js";
@@ -193,9 +194,10 @@ async function recordCheckoutEvent({ body, attr, plan, status, fallback_url = ""
   const now = new Date().toISOString();
   const email = clean(body.email, 320).toLowerCase();
   const row = {
-    event_id: stableId("checkout", email, attr.visitor_id, attr.session_id, status, stripe_checkout_session_id || fallback_url || now),
-    event_name: "checkout_click",
-    event_type: "checkout_click",
+    event_id: stripe_checkout_session_id && status === "created" ? "stripe:checkout_created:" + stripe_checkout_session_id : stableId("checkout", email, attr.visitor_id, attr.session_id, status, fallback_url || now),
+    event_name: status === "created" ? "checkout_created" : "checkout_create_failed",
+    event_type: status === "created" ? "checkout_created" : "checkout_create_failed",
+    checkout_session_id: stripe_checkout_session_id || null,
     event_at: now,
     email: email || null,
     source: "server_checkout_session",
@@ -236,7 +238,7 @@ async function recordCheckoutEvent({ body, attr, plan, status, fallback_url = ""
   };
   try {
     const supabase = createSupabaseServiceClient();
-    const result = await insertWithColumnFallback(supabase, "funnel_events", row);
+    const result = await writeFunnelEvent(supabase, row);
     if (result.error) return { persisted: false, reason: result.error.message };
     return { persisted: true };
   } catch (error) {
