@@ -39,11 +39,15 @@ and linking context creation. The real auth response contains `token`, and the
 context response supplies a valid `cid`. The results handler returned a truthful
 empty account/slip list before linking. Eleven security/accounting tests passed.
 
-The hosted UI displayed SANDBOX MODE and reached the Caesars test login. Submission
-is pending user confirmation because Login explicitly accepts SharpSports Terms
-of Use. No dummy or real account has been linked yet, and imported-result,
-reconnection and disconnect tests with the provider remain pending. Local API
-verification does not establish deployed environment configuration.
+The user explicitly approved Terms acceptance, and the hosted UI confirmed the
+Caesars dummy account linked successfully. The results handler imported 69 slips
+initially and reached its 100-slip view limit as the sandbox populated. A second
+test customer received no accounts or slips and could not disconnect the owner's
+account. The owner's disconnect returned 200; the following read returned zero
+accounts and slips. No real sportsbook account was accessed. Reconnection and
+SDK-required-book tests remain pending. Local API verification does not establish
+deployed environment configuration. Verification: October 7, 2026, 12:21 UTC;
+nonsecret evidence is in ignored `out/sandbox-integration-evidence.json`.
 
 ## Limits and next verification
 

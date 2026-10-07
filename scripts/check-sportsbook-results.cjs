@@ -93,3 +93,9 @@ test('disconnect verifies ownership before revoking provider access', async () =
   assert.equal(good.code,200); assert.equal(calls.at(-1).opts.method,'PUT');
   assert.deepEqual(JSON.parse(calls.at(-1).opts.body),{access:false});
 });
+test('disconnect for a customer with no provider account returns not found', async () => {
+  let calls=0;
+  const res=await run({...request,method:'POST',body:{action:'disconnect',accountId:'BACT_other'}},
+    {fetchImpl:async()=>{calls++;return {ok:false,status:404};}});
+  assert.equal(res.code,404); assert.equal(calls,1);
+});
