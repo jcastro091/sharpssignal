@@ -87,6 +87,13 @@ export default async function handler(req,res){
   }
   return res.json({ok:true,qa_test:true});
  }
- // Refunds/cancellations are also checked freshly before every access/admission.
+ // Initial grants are verified before acknowledging the checkout event.
+ if(event.type==='checkout.session.completed'&&object?.metadata?.plan==='pro_telegram'){
+  try{
+   const {verifiedSubscriptionGrant}=require('../../../lib/realtimeBilling.cjs');
+   await verifiedSubscriptionGrant(stripe,createSupabaseServiceClient(),object.id,object.metadata.user_id);
+  }catch{return res.status(503).json({ok:false,error:'subscription_payment_not_verified'});}
+ }
+ // Refunds/cancellations are checked freshly before every access/admission.
  return verifiedWebhook(req,res);
 }

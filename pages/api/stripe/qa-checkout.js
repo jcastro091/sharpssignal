@@ -8,7 +8,7 @@ export default async function handler(req,res){
  try{
   const origin=process.env.QA_CHECKOUT_ORIGIN||(process.env.VERCEL_URL?'https://'+process.env.VERCEL_URL:null);
   if(!origin||!/^https:\/\/[a-z0-9.-]+$/.test(origin))throw new Error('checkout_origin_unavailable');
-  const metadata={user_id:ctx.user.id,plan:'qa_realtime',qa_test:'true',qa_run_id:process.env.QA_CHECKOUT_RUN_ID,utm_source:'qa_journey',utm_campaign:process.env.QA_CHECKOUT_RUN_ID};
+  const metadata={user_id:ctx.user.id,plan:'qa_realtime',qa_test:'true',qa_run_id:process.env.QA_CHECKOUT_RUN_ID,utm_source:'codex_qa_journey',utm_campaign:process.env.QA_CHECKOUT_RUN_ID};
   const session=await ctx.stripe.checkout.sessions.create({mode:'payment',customer_creation:'always',customer_email:ctx.user.email,
    line_items:[{price_data:{currency:'usd',unit_amount:100,product_data:{name:'SharpsSignal verification — $1, no renewal'}},quantity:1}],
    metadata,payment_intent_data:{metadata},success_url:origin+'/billing?session_id={CHECKOUT_SESSION_ID}',cancel_url:origin+'/billing?cancelled=1'},

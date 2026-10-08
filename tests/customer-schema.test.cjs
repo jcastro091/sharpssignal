@@ -7,7 +7,7 @@ test.before(async()=>{
  const linkSchema=fs.readFileSync('supabase/migrations/202607070003_telegram_account_mapping.sql','utf8');
  await db.exec(linkSchema);
  await db.exec(fs.readFileSync('schema/customer-realtime-access.sql','utf8'));
- await db.exec(fs.readFileSync('/workspace/sports/schema/customer-delayed-research.sql','utf8'));
+ await db.exec(fs.readFileSync(process.env.BACKEND_SCHEMA_PATH||'../sports/schema/customer-delayed-research.sql','utf8'));
 });
 test.after(async()=>{await db?.close();});
 function grant(){const now=Date.now();return {stripe_session_id:'cs_live_qa',user_id:owner,billing_mode:'live',plan:'pro_telegram',status:'paid',stripe_payment_intent_id:'pi_qa',stripe_customer_id:'cus_qa',paid_at:new Date(now).toISOString(),valid_until:new Date(now+1800000).toISOString(),verified_at:new Date(now).toISOString(),qa_test:true,amount_cents:100,currency:'usd'};}

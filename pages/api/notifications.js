@@ -20,7 +20,7 @@ export default async function(req,res){
   const sections=['sports','markets'].filter(x=>interests.includes(x)&&(!pref?.sections?.length||pref.sections.includes(x)));
   const feeds=pref?.in_app===false?[]:await Promise.all(sections.map(async section=>{const result=await customerFeed(ctx,section);if(result.status!==200)throw Error();return {section,...result.body};}));
   const read=new Set((reads.data||[]).map(r=>r.notification_id));
-  const notifications=feeds.flatMap(feed=>feed.plays.filter(play=>!pref||feed.section==='sports'?(!pref?.sports?.length||pref.sports.includes(play.sport))&&(!pref?.strategies?.length||pref.strategies.includes(play.arm)||(play.matched_strategies||[]).some(x=>pref.strategies.includes(x))):(!pref?.markets?.length||pref.markets.includes(play.symbol))).map(play=>{
+  const notifications=feeds.flatMap(feed=>feed.plays.filter(play=>feed.section==='sports'?(!pref?.sports?.length||pref.sports.includes(play.sport))&&(!pref?.strategies?.length||pref.strategies.includes(play.arm)||(play.matched_strategies||[]).some(x=>pref.strategies.includes(x))):(!pref?.markets?.length||pref.markets.includes(play.symbol))).map(play=>{
    const id='research_'+crypto.createHash('sha256').update(JSON.stringify([feed.section,play])).digest('hex');
    return {id,section:feed.section,title:play.side||play.symbol,body:play.away?play.away+' @ '+play.home:String(play.direction>0?'Long':'Short'),play,delayed:feed.feed_mode!=='realtime',created_at:play.available_at||play.entry_time,read:read.has(id)};
   }));
