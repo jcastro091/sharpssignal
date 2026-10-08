@@ -43,7 +43,7 @@ export default function Billing({offer,qaEnabled}){
  const verify=useCallback(async()=>{
   setBusy('verify');setError('');setMessage('Confirming your payment with Stripe…');
   try{await request(qaEnabled?'/api/stripe/qa-verify':'/api/stripe/verify-success',{session_id:session});await refresh();setMessage('Payment confirmed. Continue below to connect Telegram.');}
-  catch(e){setError(e.message);setMessage('');}finally{setBusy('');}
+  catch(e){await refresh().catch(()=>{});setError(e.message);setMessage('');}finally{setBusy('');}
  },[session,qaEnabled,refresh]);
  useEffect(()=>{if(session&&verified.current!==session){verified.current=session;verify();}},[session,verify]);
  async function action(name,fn){setBusy(name);setError('');setMessage('');try{await fn();}catch(e){setError(e.message);}finally{setBusy('');}}
