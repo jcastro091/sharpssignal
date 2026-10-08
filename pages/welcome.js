@@ -18,8 +18,7 @@ export default function Welcome() {
         </div>
         <h1 className="mt-5 text-3xl font-bold">Your account is confirmed</h1>
         <p className="mt-3 text-slate-600">
-          Start with the dashboard and public record. If you upgrade, Stripe will verify payment and reveal the
-          realtime Telegram invite from inside the dashboard.
+          Start with the free research dashboard. Paid access and Telegram invitations are not activated.
         </p>
 
         <div className="mt-8 grid gap-3 sm:grid-cols-2">
@@ -27,7 +26,7 @@ export default function Welcome() {
             Open dashboard
           </Link>
           <Link href="/subscribe" className="rounded border border-slate-300 px-5 py-3 font-semibold hover:bg-slate-50">
-            See Pro alerts
+            Access information
           </Link>
         </div>
 
