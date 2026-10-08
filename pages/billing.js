@@ -1,9 +1,10 @@
 import {useState} from 'react';
 import {useRouter} from 'next/router';
 import {createPagesServerClient} from '@supabase/auth-helpers-nextjs';
+import {getSafeNext} from '../lib/authRedirect';
 export async function getServerSideProps(ctx){
  const client=createPagesServerClient(ctx);const {data:{user}}=await client.auth.getUser();
- if(!user?.email_confirmed_at)return {redirect:{destination:'/signin?next=%2Fbilling',permanent:false}};
+ if(!user?.email_confirmed_at)return {redirect:{destination:'/signin?next='+encodeURIComponent(getSafeNext(ctx.resolvedUrl||'/billing')),permanent:false}};
  return {props:{qaEnabled:process.env.QA_CHECKOUT_ENABLED==='true'&&user.id===process.env.QA_CHECKOUT_USER_ID}};
 }
 export default function Billing({qaEnabled}){

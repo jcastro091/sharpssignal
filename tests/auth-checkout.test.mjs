@@ -46,6 +46,9 @@ assert.equal(retry(), true);
 attempts.invalidate();
 assert.equal(retry(), false);
 const target = "/dashboard?checkout=success&session_id=cs_test_owned";
+assert.equal(getSafeNext('/billing?session_id=cs_live_owned&redirect=https://evil.invalid'),'/billing?session_id=cs_live_owned');
+assert.equal(getSafeNext('/billing'),'/billing');
+assert.equal(getSafeNext('/billing?session_id=invalid'),'/billing');
 assert.equal(
   checkoutDestination({ checkout: "success", session_id: "cs_test_owned" }),
   target,
