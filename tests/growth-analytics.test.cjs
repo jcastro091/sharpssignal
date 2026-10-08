@@ -2,6 +2,10 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { cleanEvent, safeUrl } = require("../lib/measurement.cjs");
 const { summarize, STAGES } = require("../lib/growthReport.cjs");
+test('first-touch attribution cannot mix an old source with a later campaign',()=>{
+ const fs=require('node:fs'),vm=require('node:vm');const src=fs.readFileSync('lib/funnelClient.js','utf8');const fn=src.slice(src.indexOf('function mergeAttribution('),src.indexOf('export async function trackFunnelEvent'));
+ const box={};vm.runInNewContext(fn+'; result=mergeAttribution({first_path:"/",captured_at:"2026-10-01",utm_source:"direct",utm_campaign:""},{first_path:"/blog",captured_at:"2026-10-08",utm_source:"x",utm_campaign:"launch"});',box);assert.equal(box.result.utm_source,'direct');assert.equal(box.result.utm_campaign,'');
+});
 test("analytics strips personal fields, URL tokens and arbitrary metadata", () => {
   const e = cleanEvent({
     event_name: "page_view",
