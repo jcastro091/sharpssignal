@@ -168,6 +168,7 @@ createSource = createSource.replace(
   /^import[\s\S]*?from ["'][^"']+["'];\r?\n/gm,
   "",
 );
+createSource = createSource.replace(/^const .*require\([^\n]+\);\r?\n/gm, '');
 createSource =
   'const billingUser=async()=>({user:{id:"owner",email:"owner@example.invalid"},stripe:{checkout:{sessions:{create(){throw Error("Unexpected Stripe checkout");}}}}});\n' +
   createSource;

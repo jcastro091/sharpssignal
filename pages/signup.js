@@ -54,7 +54,7 @@ export default function Signup() {
       }
       setDone(true);
       setMessage(
-        "Check your email to confirm your account. The link will take you to your dashboard. If you already have an account, use Log in.",
+        "Confirm your email to open your free dashboard. Research and updates arrive after a minimum 30-minute delay. You can upgrade through Stripe and connect Telegram from your dashboard.",
       );
     } catch (e) {
       setError(e.message || "Could not create your account. Please try again.");
@@ -71,9 +71,9 @@ export default function Signup() {
           <span>clarity.</span>
         </h1>
         <p>
-          Follow available sports research from captured odds to paper results.
-          Start with a brief guide, then open a member record when one is
-          available.
+          Create your free account, confirm your email, and open your dashboard.
+          Browse research with a minimum 30-minute delay. Upgrade through Stripe
+          whenever you’re ready for real-time access and Telegram alerts.
         </p>
         <div className="auth-note">
           Free account · Paper research · No card required
@@ -90,8 +90,8 @@ export default function Signup() {
             <div className="success-message" role="status">
               {message}
             </div>
-            <Link className="button-primary" href="/signin">
-              Go to log in
+            <Link className="button-primary" href={next}>
+              I confirmed my email — open my dashboard →
             </Link>
           </>
         ) : (
