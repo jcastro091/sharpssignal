@@ -38,8 +38,8 @@ export default function Billing({offer,qaEnabled}){
  const router=useRouter(),verified=useRef('');
  const [status,setStatus]=useState(null),[busy,setBusy]=useState(''),[message,setMessage]=useState(''),[error,setError]=useState(''),[command,setCommand]=useState(''),[invite,setInvite]=useState('');
  const refresh=useCallback(async()=>{const data=await request('/api/billing-status');setStatus(data);return data;},[]);
- useEffect(()=>{refresh().catch(e=>setError(e.message));},[refresh]);
  const session=typeof router.query.session_id==='string'?router.query.session_id:'';
+ useEffect(()=>{if(!session)refresh().catch(e=>setError(e.message));},[refresh,session]);
  const verify=useCallback(async()=>{
   setBusy('verify');setError('');setMessage('Confirming your payment with Stripe…');
   try{await request(qaEnabled?'/api/stripe/qa-verify':'/api/stripe/verify-success',{session_id:session});await refresh();setMessage('Payment confirmed. Continue below to connect Telegram.');}
@@ -50,7 +50,7 @@ export default function Billing({offer,qaEnabled}){
  const paid=status?.paid===true,linked=status?.telegram_linked===true;
  return <main className="billing-shell">
   <Link className="record-link" href="/dashboard">← Back to your dashboard</Link>
-  <header className="billing-heading"><span className="eyebrow">YOUR NEXT STEP</span><h1>{paid?'Connect your Telegram alerts.':'From free research to real-time access.'}</h1><p>Your free dashboard is ready now. Upgrade through Stripe, then connect Telegram to receive eligible alerts in the private channel. Research only; alert frequency varies and returns are not guaranteed.</p></header>
+  <header className="billing-heading"><span className="eyebrow">YOUR NEXT STEP</span><h1>{paid?'Connect your Telegram alerts.':'From free research to real-time access.'}</h1><p>Your free dashboard is ready now. Upgrade through Stripe, then connect Telegram to receive eligible alerts in the private channel. Research only; alert frequency varies and returns are not guaranteed.</p>{!paid&&offer&&<a className="button-primary billing-jump" href="#paid-plan">View {priceLabel(offer)} plan ↓</a>}</header>
   <ol className="journey-steps" aria-label="Your access steps">
    <li data-complete="true"><span>1</span><div><b>Free dashboard</b><small>Account confirmed · 30-minute minimum delay</small></div></li>
    <li data-complete={paid} aria-current={!paid?'step':undefined}><span>2</span><div><b>Pay on Stripe</b><small>{paid?'Payment verified':'Secure checkout · review before paying'}</small></div></li>
