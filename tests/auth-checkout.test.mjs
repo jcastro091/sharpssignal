@@ -155,7 +155,7 @@ assert.equal((await request("GET", ["cs_test_owned"])).status, 400);
 console.log(
   "PASS auth timeout/retry/late result, redirect context, verifier ownership/payment/subscription/configuration, disabled fulfillment",
 );
-// Exercise the actual checkout creation route with inert dependencies; nothing may be called.
+// Authenticate an account, then verify disabled purchasing never calls Stripe.
 let createSource = await fs.readFile(
   "pages/api/stripe/create-checkout-session.js",
   "utf8",
@@ -165,7 +165,7 @@ createSource = createSource.replace(
   "",
 );
 createSource =
-  'const crypto = {}; const Stripe = class { constructor(){throw Error("Unexpected Stripe initialization");} }; const createSupabaseServiceClient=()=>{throw Error("Unexpected database access");}; const hasSupabaseServiceConfig=()=>false; const cleanEnvToken=x=>x;\n' +
+  'const billingUser=async()=>({user:{id:"owner",email:"owner@example.invalid"},stripe:{checkout:{sessions:{create(){throw Error("Unexpected Stripe checkout");}}}}});\n' +
   createSource;
 const create = await import(
   "data:text/javascript," + encodeURIComponent(createSource)
@@ -181,11 +181,18 @@ const createResponse = {
     createResult.body = body;
   },
 };
+const previousPaidCheckout = process.env.PAID_CHECKOUT_ENABLED;
+delete process.env.PAID_CHECKOUT_ENABLED;
+try {
 await create.default({ method: "POST", body: {} }, createResponse);
 assert.deepEqual(createResult, {
-  status: 503,
-  body: { ok: false, error: "paid_purchasing_not_activated" },
+  status: 403,
+  body: { ok: false, error: "paid_checkout_not_enabled" },
 });
+} finally {
+  if (previousPaidCheckout === undefined) delete process.env.PAID_CHECKOUT_ENABLED;
+  else process.env.PAID_CHECKOUT_ENABLED = previousPaidCheckout;
+}
 console.log(
   "PASS actual checkout creation route refuses purchase before external calls",
 );

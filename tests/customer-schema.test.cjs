@@ -32,6 +32,8 @@ test('publication versions delay changes, keep the earlier visible result, dedup
  const capture=rows=>db.query('select capture_customer_research($1,$2::jsonb)',['sports',JSON.stringify(rows)]);
  const read=()=>db.query("select * from customer_delayed_research('sports',30)");
  await capture([row]);assert.equal((await read()).rows.length,0);
+ await db.exec("update customer_research_versions set seen_at=now()-interval '2 minutes';update customer_research_heads set active_since=now()-interval '3 minutes'");
+ assert.equal((await db.query("select * from customer_delayed_research('sports',1)")).rows.length,0);
  await db.exec("update customer_research_versions set seen_at=now()-interval '31 minutes';update customer_research_heads set active_since=now()-interval '32 minutes'");
  await capture([{...row,payload_hash:'new',payload:{entry_id:'entry1',result:'win'}}]);
  assert.equal((await read()).rows[0].payload.result,'pending');
