@@ -27,8 +27,8 @@ export default function Contact() {
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 Best for account access, billing, Telegram invite issues, or reporting incorrect grading.
               </p>
-              <a href="mailto:SharpSignal@gmail.com" className="mt-5 inline-flex font-semibold text-slate-950 hover:underline">
-                SharpSignal@gmail.com
+              <a href="mailto:SharpsSignal@gmail.com" className="mt-5 inline-flex font-semibold text-slate-950 hover:underline">
+                SharpsSignal@gmail.com
               </a>
             </div>
 

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useRouter } from "next/router";
+import { trackMemberEvent } from "../lib/memberAnalytics";
 import { trackFunnelEvent } from "../lib/funnelClient";
 
 function eventNameForPath(path) {
@@ -9,7 +10,8 @@ function eventNameForPath(path) {
   if (path.startsWith("/reports/weekly")) return "weekly_report_view";
   if (path.startsWith("/signup")) return "signup_view";
   if (path.startsWith("/subscribe")) return "subscribe_view";
-  if (path.startsWith("/picks")) return "dashboard_view";
+  if (path === "/dashboard" || path.startsWith("/picks"))
+    return "dashboard_view";
   return "page_view";
 }
 
@@ -19,9 +21,10 @@ export default function FunnelTracker() {
   useEffect(() => {
     function track(url) {
       const path = String(url || window.location.pathname).split("?")[0];
-      trackFunnelEvent(eventNameForPath(path), { path });
-      if (path.startsWith("/picks-preview")) {
-        trackFunnelEvent("signup_view", { path, location: "picks_preview" });
+      if (path === "/signup" || path === "/dashboard") {
+        trackMemberEvent(eventNameForPath(path));
+      } else {
+        trackFunnelEvent(eventNameForPath(path), { path });
       }
     }
 
