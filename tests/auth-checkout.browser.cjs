@@ -56,8 +56,8 @@ const session = {
               ? { ok: false, error: "checkout_not_eligible" }
               : {
                   ok: true,
-                  paymentVerified: true,
-                  fulfillment: "not_activated",
+                  paid: true,
+                  telegramUrl: null,
                 },
         });
       if (
@@ -132,12 +132,13 @@ const session = {
     await page.waitForURL(
       "**/dashboard?checkout=success&session_id=cs_test_owned",
     );
-    await page
-      .getByRole("alert")
-      .filter({ hasText: "could not verify" })
-      .waitFor();
+    await page.getByRole('heading', {name:'Your sports signal.'}).waitFor();
+    await page.goto(base + '/billing?session_id=cs_test_owned');
+    const verifyPayment = () => page.getByRole('button', {name:'Verify completed payment'});
+    await verifyPayment().click();
+    await page.getByRole('status').filter({hasText:'checkout not eligible'}).waitFor();
     verification = "verified";
-    await page.getByRole("button", { name: "Retry verification" }).click();
+    await verifyPayment().click();
     await page
       .getByRole("status")
       .filter({ hasText: "Payment verified" })
