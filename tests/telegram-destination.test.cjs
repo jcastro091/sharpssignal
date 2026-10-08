@@ -5,6 +5,8 @@ test('identity verification resolves the configured private Pro channel administ
  const calls=[];const send=async(method,body)=>{calls.push([method,body]);return replies[method];};
  assert.deepEqual(await telegramDestination('pro-channel',send),{channel_name:'SharpsSignal Pro',bot_username:'ConfiguredProAdmin'});
  assert.equal(calls[0][1].chat_id,'pro-channel');assert.deepEqual(calls[2][1],{chat_id:'pro-channel',user_id:42});
+ replies.getMe.id=7928890551;await assert.rejects(()=>telegramDestination('pro-channel',send));replies.getMe.id=42;
+ replies.getMe.username='SportsBettingDataBot';await assert.rejects(()=>telegramDestination('pro-channel',send));replies.getMe.username='ConfiguredProAdmin';
  for(const [field,value] of [['status','member'],['can_invite_users',false],['can_restrict_members',false]]){const prior=replies.getChatMember[field];replies.getChatMember[field]=value;await assert.rejects(()=>telegramDestination('pro-channel',send));replies.getChatMember[field]=prior;}
  replies.getChat.username='public';await assert.rejects(()=>telegramDestination('pro-channel',send));
  await assert.rejects(()=>telegramDestination('',send));
