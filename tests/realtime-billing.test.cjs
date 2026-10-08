@@ -26,6 +26,7 @@ test('Telegram invite requires payment and a private channel; failed persistence
  assert.deepEqual(sent,['getChat','createChatInviteLink','revokeChatInviteLink']);
 });
 const {verifiedSubscriptionGrant}=require('../lib/realtimeBilling.cjs');
+const {refreshCustomerAccess}=require('../lib/realtimeBilling.cjs');
 function subscriptionFixture(){
  const checkout={id:'cs_live_paid',metadata:{user_id:'owner',plan:'pro_telegram'},livemode:true,mode:'subscription',status:'complete',payment_status:'paid',customer:'cus_owner',subscription:'sub_owner'};
  const invoice={id:'in_owner',livemode:true,status:'paid',amount_paid:2000,currency:'usd',customer:'cus_owner',parent:{subscription_details:{subscription:'sub_owner'}}};
@@ -39,6 +40,20 @@ test('normal paid subscriptions require the invoice payment and captured unrefun
  const f=subscriptionFixture();let written;const supabase={rpc:async(name,args)=>{written=args.payment;return {data:written};}};
  const grant=await verifiedSubscriptionGrant(f.stripe,supabase,'cs_live_paid','owner',now);
  assert.equal(grant.qa_test,false);assert.equal(grant.stripe_subscription_id,'sub_owner');assert.equal(written.amount_cents,2000);
+});
+test('expired cached subscriptions recheck a real renewal; expired QA grants and unpaid renewals grant nothing',async()=>{
+ const row={stripe_session_id:'cs_live_paid',qa_test:false,valid_until:new Date(now-1).toISOString()};
+ let writes=0;
+ const query={select(){return this;},eq(){return this;},is(){return Promise.resolve({data:[row]});}};
+ const supabase={from:()=>query,rpc:async(name,args)=>{writes++;return {data:args.payment};}};
+ const f=subscriptionFixture();
+ const grant=await refreshCustomerAccess(f.stripe,supabase,'owner',now);
+ assert.equal(Date.parse(grant.valid_until),now+3600000);assert.equal(writes,1);
+ row.qa_test=true;assert.equal(await refreshCustomerAccess({},supabase,'owner',now),null);
+ row.qa_test=false;f.invoice.status='open';
+ let revoked=false;query.update=()=>({eq:async()=>{revoked=true;return {};}});
+ assert.equal(await refreshCustomerAccess(f.stripe,supabase,'owner',now),null);
+ assert.equal(revoked,true);assert.equal(writes,1);
 });
 test('trial, fake or refunded invoice payments and mismatched subscription periods cannot grant paid access',async()=>{
  const mutations=[f=>f.subscription.status='trialing',f=>f.checkout.metadata={user_id:'other',plan:'pro_telegram'},f=>f.invoice.amount_paid=0,f=>f.invoice.status='open',f=>f.payment.invoice='in_other',f=>f.intent.latest_charge.amount_refunded=1,f=>f.intent.latest_charge.disputed=true,f=>f.subscription.items.has_more=true,f=>f.subscription.items.data[0].subscription='sub_other',f=>f.subscription.items.data[0].current_period_end=now/1000];
