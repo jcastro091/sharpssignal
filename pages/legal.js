@@ -46,7 +46,7 @@ export default function LegalPage() {
         </div>
 
         <p className="mt-10 text-sm text-slate-500">
-          Questions: <a href="mailto:SharpSignal@gmail.com" className="font-semibold text-slate-950 hover:underline">SharpSignal@gmail.com</a>
+          Questions: <a href="mailto:SharpsSignal@gmail.com" className="font-semibold text-slate-950 hover:underline">SharpsSignal@gmail.com</a>
         </p>
       </section>
     </main>

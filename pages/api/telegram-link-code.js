@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   }
 
   const user = await getServerUser(req, res);
-  if (!user?.email) {
+  if (!user?.email_confirmed_at) {
     return res.status(401).json({ ok: false, error: "auth_required" });
   }
   if (!hasSupabaseServiceConfig()) {

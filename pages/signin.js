@@ -1,153 +1,167 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { createPagesBrowserClient } from "@supabase/auth-helpers-nextjs";
-import { buildAuthCallbackUrl, getSafeNext } from "../lib/authRedirect";
-
-export default function SignInPage() {
+import { supabase } from "../lib/supabaseClient";
+import { getSafeNext, buildAuthCallbackUrl } from "../lib/authRedirect";
+import { withAuthTimeout, createAuthAttempt } from "../lib/authWait";
+export default function Signin() {
   const router = useRouter();
-  const supabase = useMemo(() => createPagesBrowserClient(), []);
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [magicLoading, setMagicLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [status, setStatus] = useState("");
-
-  const next = getSafeNext(router.query.next);
-
+  const [email, setEmail] = useState(""),
+    [password, setPassword] = useState(""),
+    [mode, setMode] = useState("password"),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [message, setMessage] = useState("");
+  const [next, setNext] = useState("/dashboard");
+  const [ready, setReady] = useState(false);
+  const attempts = useRef(null);
+  if (!attempts.current) attempts.current = createAuthAttempt();
   useEffect(() => {
-    let mounted = true;
-
-    async function redirectIfSignedIn() {
-      const { data } = await supabase.auth.getSession();
-      if (mounted && data?.session) {
-        router.replace(next);
-      }
-    }
-
-    redirectIfSignedIn();
-
-    return () => {
-      mounted = false;
-    };
-  }, [next, router, supabase]);
-
-  const handleLogin = async (event) => {
-    event.preventDefault();
-    setLoading(true);
-    setErrorMsg("");
-    setStatus("");
-
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-      if (error) {
-        setErrorMsg(error.message);
-        return;
-      }
-
-      if (!data?.session) {
-        setErrorMsg("Sign in succeeded, but no session was returned. Try again.");
-        return;
-      }
-
-      await router.replace(next);
-    } catch (err) {
-      setErrorMsg(err?.message || "Could not sign in. Try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleMagicLink = async () => {
-    setMagicLoading(true);
-    setErrorMsg("");
-    setStatus("");
-
-    try {
-      const emailRedirectTo = buildAuthCallbackUrl(window.location.origin, next);
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo,
-        },
+    // Read the browser URL after hydration, including on static routes without a query.
+    const destination = getSafeNext(
+      new URLSearchParams(window.location.search).get("next"),
+    );
+    setNext(destination);
+    setReady(true);
+    const current = attempts.current.begin();
+    withAuthTimeout(() => supabase.auth.getSession())
+      .then(async ({ data, error }) => {
+        if (!current()) return;
+        if (error) throw error;
+        if (data?.session) {
+          const navigated = await withAuthTimeout(() =>
+            router.replace(destination),
+          );
+          if (navigated === false)
+            throw Error("Navigation did not finish. Please try again.");
+        }
+      })
+      .catch((e) => {
+        if (current())
+          setError(
+            e.message || "Unable to check your session. Please try again.",
+          );
       });
-
-      if (error) {
-        setErrorMsg(error.message);
-        return;
+    return () => attempts.current.invalidate();
+  }, [router.asPath, router]);
+  async function submit(e) {
+    e.preventDefault();
+    if (busy || !ready) return;
+    const current = attempts.current.begin();
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const result = await withAuthTimeout(() =>
+        mode === "link"
+          ? supabase.auth.signInWithOtp({
+              email: email.trim(),
+              options: {
+                shouldCreateUser: false,
+                emailRedirectTo: buildAuthCallbackUrl(
+                  window.location.origin,
+                  next,
+                ),
+              },
+            })
+          : supabase.auth.signInWithPassword({ email: email.trim(), password }),
+      );
+      if (!current()) return;
+      if (result.error) throw result.error;
+      if (mode === "link")
+        setMessage(
+          "Check your inbox for a secure sign-in link. Open it in this browser to finish signing in.",
+        );
+      else {
+        const navigated = await withAuthTimeout(() => router.replace(next));
+        if (navigated === false)
+          throw Error("Navigation did not finish. Please try again.");
       }
-
-      setStatus("Check your email for a sign-in link.");
-    } catch (err) {
-      setErrorMsg(err?.message || "Could not send sign-in link. Try again.");
+    } catch (e) {
+      if (current())
+        setError(e.message || "Unable to sign in. Please try again.");
     } finally {
-      setMagicLoading(false);
+      if (current()) setBusy(false);
     }
-  };
-
+  }
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-6 text-center">Welcome Back</h2>
-
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              className="w-full border border-gray-300 px-4 py-2 rounded focus:outline-none focus:ring focus:border-blue-500"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              disabled={loading || magicLoading}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Password</label>
-            <input
-              type="password"
-              className="w-full border border-gray-300 px-4 py-2 rounded focus:outline-none focus:ring focus:border-blue-500"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              disabled={loading || magicLoading}
-            />
-          </div>
-
-          {errorMsg && <div className="text-red-600 text-sm text-center">{errorMsg}</div>}
-          {status && <div className="text-green-700 text-sm text-center">{status}</div>}
-
+    <main className="auth-layout">
+      <div className="auth-intro">
+        <span className="eyebrow">WELCOME BACK</span>
+        <h1>
+          Back to
+          <br />
+          <span>your signal.</span>
+        </h1>
+        <p>Your sports and market research, right where you left it.</p>
+      </div>
+      <section className="auth-card">
+        <h2>Log in to SharpsSignal</h2>
+        <div className="segmented">
+          {["password", "link"].map((x) => (
+            <button
+              key={x}
+              disabled={busy}
+              aria-pressed={mode === x}
+              onClick={() => {
+                setMode(x);
+                setError("");
+                setMessage("");
+              }}
+            >
+              {x === "password" ? "Password" : "Email me a link"}
+            </button>
+          ))}
+        </div>
+        <form onSubmit={submit}>
+          <label htmlFor="email">Email</label>
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          {mode === "password" && (
+            <>
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </>
+          )}
+          {error && (
+            <p role="alert" className="error-message">
+              {error}
+            </p>
+          )}
+          {message && (
+            <p role="status" className="success-message">
+              {message}
+            </p>
+          )}
           <button
-            type="submit"
-            disabled={loading || magicLoading}
-            className="w-full bg-indigo-600 text-white py-2 rounded font-semibold hover:bg-indigo-700 transition disabled:opacity-60"
+            className="button-primary full-width"
+            disabled={busy || !ready}
           >
-            {loading ? "Signing in..." : "Log In"}
+            {busy
+              ? "Please wait…"
+              : mode === "password"
+                ? "Log in ↗"
+                : "Send secure sign-in link"}
           </button>
         </form>
-
-        <button
-          type="button"
-          onClick={handleMagicLink}
-          disabled={!email || loading || magicLoading}
-          className="mt-3 w-full border border-indigo-200 text-indigo-700 py-2 rounded font-semibold hover:bg-indigo-50 transition disabled:opacity-60"
-        >
-          {magicLoading ? "Sending link..." : "Email me a sign-in link"}
-        </button>
-
-        <div className="mt-4 flex items-center justify-between text-sm">
-          <Link href="/reset-password" className="text-indigo-600 hover:underline">
-            Forgot password?
-          </Link>
-          <Link href={`/signup?next=${encodeURIComponent(next)}`} className="text-indigo-600 hover:underline">
-            Create account
-          </Link>
+        <div className="auth-links">
+          <Link href="/reset-password">Forgot password?</Link>
+          <Link href="/signup">Create account</Link>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

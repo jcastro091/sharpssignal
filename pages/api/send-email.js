@@ -1,8 +1,13 @@
 import { Resend } from 'resend';
+import { getCeoAccess } from '../../lib/ceoAccess';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export default async function handler(req, res) {
+  if(req.method!=="POST") return res.status(405).json({ok:false});
+  const access=await getCeoAccess(req,res);
+  if(!access.allowed) return res.status(403).json({ok:false});
+  if(req.headers.origin!==`https://${req.headers.host}`) return res.status(403).json({ok:false});
   try {
     const data = await resend.emails.send({
       from: 'noreply@sharps-signal.com', // domain must match Resend verified domain
