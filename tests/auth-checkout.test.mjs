@@ -161,7 +161,7 @@ let createSource = await fs.readFile(
   "utf8",
 );
 createSource = createSource.replace(
-  /^import[\s\S]*?from ["'][^"']+["'];\n/gm,
+  /^import[\s\S]*?from ["'][^"']+["'];\r?\n/gm,
   "",
 );
 createSource =
