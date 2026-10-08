@@ -1,0 +1,93 @@
+{
+  "title": "Marlins at Diamondbacks: archived decision observations",
+  "source": "September 17, 2026 MLB window audit of archived production cycles",
+  "source_sha256": "87937c341434e35ba7c651d8ff2d2a183d0812b8580ebba4e8b48a63cb4678a4",
+  "extracted_at": "2026-10-08T22:18:38.995Z",
+  "scope": "Seven saved observations for one event; not a full tick history, independent bets, execution receipts or proof of profitability. Selected side and exact offered odds are not included in this audit extract.",
+  "observations": [
+    {
+      "event_id": "e9344aee4810e4127e69c73c13c781d7",
+      "away_team": "Miami Marlins",
+      "home_team": "Arizona Diamondbacks",
+      "reason": "price_below_bet_to",
+      "action": "WATCH",
+      "estimated_ev": -0.019458694498496243,
+      "observed_at": "2026-09-15T23:52:13.481481+00:00",
+      "minutes_to_start": 107.775,
+      "paper_play_id": null,
+      "cycle_id": "cycle-20260915T235212035100Z-05df4dec"
+    },
+    {
+      "event_id": "e9344aee4810e4127e69c73c13c781d7",
+      "away_team": "Miami Marlins",
+      "home_team": "Arizona Diamondbacks",
+      "reason": "price_below_bet_to",
+      "action": "WATCH",
+      "estimated_ev": -0.019458694498496243,
+      "observed_at": "2026-09-16T00:07:14.149767+00:00",
+      "minutes_to_start": 92.764,
+      "paper_play_id": null,
+      "cycle_id": "cycle-20260916T000713075697Z-a5a12f98"
+    },
+    {
+      "event_id": "e9344aee4810e4127e69c73c13c781d7",
+      "away_team": "Miami Marlins",
+      "home_team": "Arizona Diamondbacks",
+      "reason": "price_below_bet_to",
+      "action": "WATCH",
+      "estimated_ev": -0.019458694498496243,
+      "observed_at": "2026-09-16T00:22:15.181916+00:00",
+      "minutes_to_start": 77.747,
+      "paper_play_id": null,
+      "cycle_id": "cycle-20260916T002213837543Z-98410353"
+    },
+    {
+      "event_id": "e9344aee4810e4127e69c73c13c781d7",
+      "away_team": "Miami Marlins",
+      "home_team": "Arizona Diamondbacks",
+      "reason": "price_below_bet_to",
+      "action": "WATCH",
+      "estimated_ev": -0.019458694498496243,
+      "observed_at": "2026-09-16T00:37:16.055653+00:00",
+      "minutes_to_start": 62.732,
+      "paper_play_id": null,
+      "cycle_id": "cycle-20260916T003715118560Z-80276ff0"
+    },
+    {
+      "event_id": "e9344aee4810e4127e69c73c13c781d7",
+      "away_team": "Miami Marlins",
+      "home_team": "Arizona Diamondbacks",
+      "reason": "price_qualified_waiting_confirmation",
+      "action": "WATCH",
+      "estimated_ev": 0.023173536175482123,
+      "observed_at": "2026-09-16T00:52:19.888573+00:00",
+      "minutes_to_start": 47.669,
+      "paper_play_id": null,
+      "cycle_id": "cycle-20260916T005216257707Z-0cb12040"
+    },
+    {
+      "event_id": "e9344aee4810e4127e69c73c13c781d7",
+      "away_team": "Miami Marlins",
+      "home_team": "Arizona Diamondbacks",
+      "reason": "price_below_bet_to",
+      "action": "WATCH",
+      "estimated_ev": -0.015509323571230138,
+      "observed_at": "2026-09-16T00:57:52.289586+00:00",
+      "minutes_to_start": 42.129,
+      "paper_play_id": null,
+      "cycle_id": "cycle-20260916T005750847873Z-db262084"
+    },
+    {
+      "event_id": "e9344aee4810e4127e69c73c13c781d7",
+      "away_team": "Miami Marlins",
+      "home_team": "Arizona Diamondbacks",
+      "reason": "price_below_bet_to",
+      "action": "WATCH",
+      "estimated_ev": -0.01945525291828787,
+      "observed_at": "2026-09-16T01:12:52.405377+00:00",
+      "minutes_to_start": 27.127,
+      "paper_play_id": null,
+      "cycle_id": "cycle-20260916T011251356111Z-e35a0d0a"
+    }
+  ]
+}

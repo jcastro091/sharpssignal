@@ -85,6 +85,22 @@ export default function Home() {
             </article>
           </div>
         </section>
+        <section className="feature-section">
+          <span className="eyebrow">FROM THE RESEARCH NOTES</span>
+          <h2>Why we passed on Marlins–Diamondbacks.</h2>
+          <p>
+            A positive estimate still needed confirmation. Five and a half
+            minutes later, the next saved check no longer qualified. Follow the
+            actual record.
+          </p>
+          <Link
+            className="button-secondary"
+            data-track="home_article"
+            href="/blog/why-we-passed-marlins-diamondbacks"
+          >
+            Read the decision →
+          </Link>
+        </section>
         <section className="brand-callout">
           <div>
             <span className="eyebrow">EVIDENCE OVER HYPE</span>

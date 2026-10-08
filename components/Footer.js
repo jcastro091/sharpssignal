@@ -14,29 +14,61 @@ export default function Footer() {
         <div>
           <div className="font-bold text-slate-950">SharpsSignal</div>
           <p className="mt-2 max-w-md leading-6">
-            Private sports and currency-market intelligence with aggregate attestation.
-            Research only. No guarantees.
+            Private sports and currency-market intelligence with aggregate
+            attestation. Research only. No guarantees.
           </p>
-          <p className="mt-4 text-xs text-slate-500">Copyright {year} SharpsSignal. All rights reserved.</p>
+          <p className="mt-4 text-xs text-slate-500">
+            Copyright {year} SharpsSignal. All rights reserved.
+          </p>
         </div>
 
         <div>
           <div className="font-semibold text-slate-950">Product</div>
           <div className="mt-3 flex flex-col gap-2">
-            <Link href="/about" className="hover:text-slate-950">Sports + Markets</Link>
-            <Link href="/verification" className="hover:text-slate-950">Verification</Link>
-            <Link href="/billing" className="hover:text-slate-950">Plans + Telegram access</Link>
+            <Link href="/about" className="hover:text-slate-950">
+              Sports + Markets
+            </Link>
+            <Link href="/verification" className="hover:text-slate-950">
+              Verification
+            </Link>
+            <Link href="/billing" className="hover:text-slate-950">
+              Plans + Telegram access
+            </Link>
           </div>
         </div>
 
         <div>
           <div className="font-semibold text-slate-950">Company</div>
           <div className="mt-3 flex flex-col gap-2">
-            <Link href="/about" className="hover:text-slate-950">About</Link>
-            <Link href="/contact" className="hover:text-slate-950">Contact</Link>
-            <Link href="/legal#terms" className="hover:text-slate-950">Terms</Link>
-            <Link href="/legal#privacy" className="hover:text-slate-950">Privacy</Link>
-            <a href="mailto:SharpsSignal@gmail.com" className="hover:text-slate-950">SharpsSignal@gmail.com</a>
+            <Link href="/about" className="hover:text-slate-950">
+              About
+            </Link>
+            <Link href="/blog" className="hover:text-slate-950">
+              Research notes
+            </Link>
+            <Link href="/contact" className="hover:text-slate-950">
+              Contact
+            </Link>
+            <Link href="/legal#terms" className="hover:text-slate-950">
+              Terms
+            </Link>
+            <Link href="/privacy" className="hover:text-slate-950">
+              Privacy
+            </Link>
+            <button
+              className="text-left"
+              onClick={() =>
+                window.dispatchEvent(new Event("ss-privacy-settings"))
+              }
+            >
+              Analytics choices
+            </button>
+            <a
+              href="mailto:SharpsSignal@gmail.com"
+              className="hover:text-slate-950"
+            >
+              SharpsSignal@gmail.com
+            </a>
           </div>
         </div>
       </div>
