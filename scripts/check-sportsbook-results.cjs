@@ -99,3 +99,26 @@ test('disconnect for a customer with no provider account returns not found', asy
     {fetchImpl:async()=>{calls++;return {ok:false,status:404};}});
   assert.equal(res.code,404); assert.equal(calls,1);
 });
+
+test('receipts preserve sportsbook references, zero lines, parlay odds and adjusted stakes', () => {
+  const slip = normalizeSlip({id:'SLIP_receipt',bookRef:'000123',type:'parlay',oddsAmerican:425,
+    atRisk:2500,toWin:10625,status:'completed',outcome:'cashout',netProfit:-300,
+    dateClosed:'2026-10-07',adjusted:{atRisk:0},bets:[
+      {id:'BET_leg1',bookDescription:'Home team spread',event:{name:'Away @ Home'},line:0,oddsAmerican:-110,outcome:'push'},
+      {id:'BET_leg2',bookDescription:'Over 2.5',line:2.5,oddsAmerican:120,status:'pending',incomplete:true}
+    ]});
+  assert.equal(slip.bookReference,'000123'); assert.equal(slip.oddsAmerican,425);
+  assert.equal(slip.toWinCents,10625); assert.equal(slip.netProfitCents,-300);
+  assert.equal(slip.adjustedStakeCents,0); assert.equal(slip.closedAt,null);
+  assert.equal(slip.closedDate,'2026-10-07'); assert.equal(slip.legs.length,2);
+  assert.equal(slip.legs[0].line,0); assert.equal(slip.legs[1].incomplete,true);
+  assert.equal(summary([slip]).count,1);
+});
+test('missing or malformed receipt fields stay unknown and raw provider secrets are omitted', () => {
+  const slip=normalizeSlip({bookRef:{secret:'private'},oddsAmerican:'110',toWin:'500',
+    timeClosed:{secret:'private'},bets:[{line:'0',oddsAmerican:Infinity,bookDescription:{secret:'private'},password:'private'}]});
+  assert.equal(slip.bookReference,null); assert.equal(slip.oddsAmerican,null);
+  assert.equal(slip.toWinCents,null); assert.equal(slip.closedAt,null);
+  assert.equal(slip.legs[0].line,null); assert.equal(slip.legs[0].description,null);
+  assert.doesNotMatch(JSON.stringify(slip),/private/);
+});

@@ -108,3 +108,40 @@ real sandbox sessions. Live mode requires a separately reviewed implementation.
 The quickstart and detailed reference disagree on some example data shapes and
 currency units; the detailed BetSlip reference supplies the integer-cent schema
 used here. Validation must use actual sandbox responses before enabling access.
+
+## Continuation — October 8, 2026
+
+Recovered the existing draft PR #9 after discovering that the main checkout did
+not contain the sandbox work. The previously deployed preview remains READY;
+an unauthenticated fetch of /results redirects to the website sign-in page.
+
+Added expandable imported receipts with sportsbook reference, provider slip ID,
+wager odds, original potential profit, promotion-adjusted stake, settlement
+timestamp/date and individual parlay legs. These are provider-reported records,
+not original sportsbook receipt images. Missing values remain unavailable;
+cashout net profit remains separate from original potential profit. Parlay legs
+are never added as separate wagers to the totals.
+
+Added a consent-gated Reconnect control. Withdrawing consent invalidates the
+prepared linking URL. Reload clears prior result data before session/provider
+checks, and failures offer a retry so expired sessions do not retain an old
+receipt view.
+
+Fourteen API/security/accounting checks passed locally before the cloud
+environment restarted, including receipt fields, zero-valued lines and stakes,
+cashouts, missing values, customer isolation and disconnect. Existing member
+redirect/admin checks also passed. Interactive browser fixture verification was
+blocked by the sandbox's local network permission and interrupted; it did not
+pass. Actual website-session linking, provider reconnection and SDK-required
+sportsbooks remain unverified. No new provider account was linked during this
+continuation, and no real sportsbook account or live credential was used.
+
+Validation commands:
+- node scripts/check-sportsbook-results.cjs
+- node scripts/check-member-access.cjs
+- npm run build
+
+Continue sandbox-only verification through the protected Preview. A signed-in
+customer session and provider extension support are needed to complete the
+remaining interactive checks. This continuation does not authorize a live-mode
+rollout.
