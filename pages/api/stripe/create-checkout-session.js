@@ -51,7 +51,7 @@ export default async function (req, res) {
       customer_email: ctx.user.email,
       client_reference_id: ctx.user.id,
       line_items: [{ price, quantity: selected.length }],
-      custom_text: {submit: {message: 'Products: '+selected.map(p=>p==='sports'?'Sports (Pro Telegram)':'Markets (Markets Telegram)').join(' + ')+'. Each product is billed at the displayed unit price.'}},
+      custom_text: {submit: {message: 'Products: '+selected.map(p=>p==='sports'?'Sports (Sports Telegram)':'Markets (Markets Telegram)').join(' + ')+'. Each product is billed at the displayed unit price.'}},
       metadata,
       subscription_data: { metadata },
       success_url: origin + "/billing?session_id={CHECKOUT_SESSION_ID}",

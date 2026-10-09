@@ -185,7 +185,7 @@ export default function Billing({ offer, qaEnabled, initialProducts }) {
         </h1>
         <p>
           Your free dashboard is ready now. Upgrade through Stripe, then join
-          the private channel for each purchased product: Pro for Sports, Markets
+          the private channel for each purchased product: Sports for sports picks, Markets
           for market trades. Research only; alert frequency varies and returns are not
           guaranteed.
         </p>
@@ -280,7 +280,7 @@ export default function Billing({ offer, qaEnabled, initialProducts }) {
           {offer && <p className="billing-price">{priceLabel(offer && {...offer,amount:offer.amount*Math.max(1,purchaseProducts.length)})}</p>}
           <ul>
             <li>Real-time access to available paper research</li>
-            <li>Sports in SharpsSignal Pro; market trades in SharpsSignal Markets</li>
+            <li>Sports in SharpsSignal | Sports; market trades in SharpsSignal | Markets</li>
             <li>One account for your dashboard and Telegram access</li>
           </ul>
           {paid && !purchaseProducts.length ? (
@@ -353,7 +353,7 @@ export default function Billing({ offer, qaEnabled, initialProducts }) {
         <span className="eyebrow">STEP 3 · AFTER PAYMENT</span>
         <h2 id="telegram-title">Join your paid Telegram channels.</h2>
         <p>
-          Sports subscribers join SharpsSignal Pro. Markets subscribers join SharpsSignal Markets.
+          Sports subscribers join SharpsSignal | Sports. Markets subscribers join SharpsSignal | Markets.
           Subscribers to both receive an invitation to each channel.
         </p>
         {!paid ? (
@@ -453,7 +453,7 @@ export default function Billing({ offer, qaEnabled, initialProducts }) {
                   Your Telegram account is verified for paid-channel access.
                 </p>
                 {paidProducts.map(product=><div key={product} className="billing-notice">
-                  <h3>{product==='sports'?'SharpsSignal | Pro':'SharpsSignal | Markets'}</h3>
+                  <h3>{product==='sports'?'SharpsSignal | Sports':'SharpsSignal | Markets'}</h3>
                   <button className="button-primary" disabled={Boolean(busy)} onClick={()=>action('invite-'+product,async()=>{const d=await request('/api/telegram-invite',{product});setInvites(old=>({...old,[product]:d.url}));})}>{busy==='invite-'+product?'Creating invitation…':`Get my ${LABELS[product]} invitation`}</button>
                   {invites[product]&&<a className="button-secondary" href={invites[product]} target="_blank" rel="noopener noreferrer">Open {LABELS[product]} channel ↗</a>}
                   <p className="small">Personal invitations expire within 10 minutes. Your linked Telegram account and payment for this product are checked again when you request to join.</p>
