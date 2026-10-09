@@ -17,7 +17,7 @@ export default function ResearchGuide({ section = "sports", open = false }) {
         <ol>
           <li>
             <b>Captured price.</b> American odds when the paper entry was
-            recorded, not a price you can necessarily get now. At 2.00, a
+            recorded, not a price you can necessarily get now. At +100, a
             winning 1-unit paper stake returns 2 units including the stake.
           </li>
           <li>
