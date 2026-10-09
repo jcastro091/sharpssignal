@@ -1,3 +1,4 @@
+import {signalKey} from '../lib/signalChanges.cjs';
 import {sportsbookName} from '../lib/sportsbookDisplay.cjs';
 import {decimalToAmericanLabel} from '../lib/oddsDisplay.cjs';
 import {formatMarketPrice} from '../lib/marketPriceDisplay.cjs';
@@ -10,13 +11,13 @@ const stamp=value=>{
 const human=value=>String(value||'Pending').replaceAll('_',' ');
 const captured=play=>new Date(typeof (play.entry_at??play.entry_time)==='number'?(play.entry_at??play.entry_time)*1000:(play.entry_at??play.entry_time)).getTime();
 
-export default function LatestSignals({section,feed,error}) {
+export default function LatestSignals({section,feed,error,updated=[]}) {
   const sports=section==='sports';
   const plays=[...(feed?.plays||[])].sort((a,b)=>(captured(b)||0)-(captured(a)||0)).slice(0,3);
   return <section className="latest-signals" aria-labelledby="latest-signals-title">
     <div className="panel-title"><h2 id="latest-signals-title">Latest signals</h2><span className="status-pill">Paper research</span></div>
     <p className="small muted">Latest released records. Prices are captured values, not live quotes. Check current prices before acting.</p>
-    {error?<p role="status">Signals are unavailable. Please refresh to try again.</p>:!feed?<p role="status">Loading signals…</p>:!plays.length?<div className="signal-empty"><h3>{feed.publishing_paused?'Publishing paused':'No released signals yet'}</h3><p>{feed.publishing_paused?'New signals will appear when publishing resumes.':'Released signals will appear here when available. Browse the guide below to learn how to read them.'}</p></div>:<div className="latest-signal-grid">{plays.map((play,index)=><article className="latest-signal-card" key={play.entry_id||play.trade_id||index}>
+    {error?<p role="status">Signals are unavailable. Please refresh to try again.</p>:!feed?<p role="status">Loading signals…</p>:!plays.length?<div className="signal-empty"><h3>{feed.publishing_paused?'Publishing paused':'No released signals yet'}</h3><p>{feed.publishing_paused?'New signals will appear when publishing resumes.':'Released signals will appear here when available. Browse the guide below to learn how to read them.'}</p></div>:<div className="latest-signal-grid">{plays.map((play,index)=><article className="latest-signal-card" key={signalKey(play)} data-updated={updated.includes(signalKey(play))||undefined} style={{'--signal-delay':index*70+'ms'}}>
       <div className="signal-card-top"><span className="eyebrow">{sports?human(play.market):play.direction>0?'Long':play.direction<0?'Short':'Direction unavailable'}</span><span className="status-pill">{human(sports?play.result:play.status)}</span></div>
       <h3>{sports?<>{play.side}{play.point!=null?' '+play.point:play.line!=null?' '+play.line:''}</>:play.symbol}</h3>
       {sports&&<p className="signal-matchup">{play.away} @ {play.home}</p>}

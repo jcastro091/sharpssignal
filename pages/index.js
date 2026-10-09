@@ -1,3 +1,4 @@
+import SignalProcess from '../components/SignalProcess';
 import Head from "next/head";
 import Link from "next/link";
 import SignalPreview from "../components/SignalPreview";
@@ -46,6 +47,7 @@ export default function Home() {
           <span>SPORTS + MARKETS</span>
           <span>RESULTS WITH CONTEXT</span>
         </div>
+        <SignalProcess />
         <section className="feature-section">
           <span className="eyebrow">BUILT AROUND YOU</span>
           <h2>
