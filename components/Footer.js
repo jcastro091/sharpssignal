@@ -14,8 +14,8 @@ export default function Footer() {
         <div>
           <div className="font-bold text-slate-950">SharpsSignal</div>
           <p className="mt-2 max-w-md leading-6">
-            Private sports and currency-market intelligence with aggregate
-            attestation. Research only. No guarantees.
+            Sports selections, captured prices and tracked results. Simulated
+            records are labeled. Outcomes and returns are never guaranteed.
           </p>
           <p className="mt-4 text-xs text-slate-500">
             Copyright {year} SharpsSignal. All rights reserved.

@@ -30,7 +30,7 @@ export default function Alerts({interests}){
  return <main className="member-shell alerts-shell"><div className="member-content alerts-content">
   <div className="member-top"><Link className="alerts-back" href="/dashboard">← Back to dashboard</Link><button className="button-secondary" onClick={()=>setRefresh(value=>value+1)}>Refresh</button></div>
   <header className="alerts-heading"><span className="eyebrow">YOUR ALERTS</span><h1>Your signal inbox.</h1><p className="muted">Released sports picks and market trades, together in one place.</p></header>
-  <div className="alerts-delivery"><div><b>Paper research · captured prices</b><p>Free updates arrive after a minimum 30-minute delay. Prices may have changed since capture.</p></div><Link className="button-secondary" href="/billing">Telegram setup →</Link></div>
+  <div className="alerts-delivery"><div><b>Simulated selections · captured prices</b><p>Free updates arrive after a minimum 30-minute delay. Prices may have changed since capture.</p></div><Link className="button-secondary" href="/billing">Telegram setup →</Link></div>
   {error?<div role="alert" className="error-message">{error}. Refresh to try again.</div>:!feeds?<p className="alerts-loading" role="status">Loading alerts…</p>:feeds.map(feed=>{
    const sports=feed.section==='sports';
    return <section className="member-panel alerts-panel" key={feed.section} aria-labelledby={'alerts-'+feed.section}>
@@ -39,7 +39,7 @@ export default function Alerts({interests}){
     {!feed.plays.length?<div className="alerts-empty"><h3>{feed.publishing_paused?'No alerts while publishing is paused':'No released alerts yet'}</h3><p>New entries and updates appear here after their release delay.</p></div>:<div className="alerts-list">{feed.plays.map(play=><article className="inbox-record" key={JSON.stringify([play.cohort,play.entry_id||play.trade_id,play.point])}>
      <div className="inbox-selection"><h3>{sports?play.side:play.symbol}{sports&&play.point!=null?' '+play.point:''}</h3><p>{sports?<>{play.away} @ {play.home}</>:play.direction>0?'Long':play.direction<0?'Short':'Direction unavailable'}{sports&&play.market?' · '+marketLabel(play.market):''}</p></div>
      <div className="inbox-price"><small>{sports?'Captured odds':'Captured entry'}</small><b>{sports?decimalToAmericanLabel(play.decimal):formatMarketPrice(play.entry_price)}</b><p>{sports?sportsbookName(play.book):'Stop '+formatMarketPrice(play.stop)+' · Target '+formatMarketPrice(play.target)}</p></div>
-     <div className="inbox-result"><small>{sports?'Paper result':'Trade status'}</small><span className="status-pill">{human(sports?play.result:play.status)}</span></div>
+     <div className="inbox-result"><small>{sports?'Result':'Trade status'}</small><span className="status-pill">{human(sports?play.result:play.status)}</span></div>
      <div className="inbox-time"><small>Recorded</small><time>{stamp(play.entry_at??play.entry_time)}</time>{sports&&<p>Game: {stamp(play.start)}</p>}</div>
     </article>)}</div>}
    </section>;

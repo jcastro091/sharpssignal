@@ -268,3 +268,21 @@
 @keyframes process-travel-down{0%{opacity:0;transform:translateY(0)}15%,85%{opacity:1}100%{opacity:0;transform:translateY(22px)}}
 @media(max-width:640px){.signal-process{padding:22px 18px;margin-top:32px}.process-heading{flex-direction:column;gap:16px}.process-heading h2{font-size:26px}.process-steps{margin-top:24px}}
 @media(prefers-reduced-motion:reduce){.signal-view,.latest-signal-card,.latest-signal-card[data-updated=true],.member-table tr[data-updated=true],.signal-refresh[aria-busy=true] .refresh-icon,.process-steps[data-animate=true] li,.process-steps[data-animate=true] .process-connector i{animation:none!important;transform:none!important}.latest-signal-card,.workspace-nav .workspace-item{transition:none!important}.latest-signal-card[data-updated=true],.member-table tr[data-updated=true]{background:#e6f1dc}.process-connector i{display:none}}
+
+/* Play lifecycle illustration */
+.lifecycle-preview{transform:none;min-width:0}
+.lifecycle-preview .preview-top,.lifecycle-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.lifecycle-pause,.lifecycle-outcomes button{font-size:12px;text-decoration:underline;text-underline-offset:3px;padding:8px}
+.lifecycle-window{overflow:hidden;min-height:360px}
+.lifecycle-card{animation:play-slide .5s ease-out both}
+.lifecycle-heading h3{margin:16px 0!important}
+.lifecycle-pick{display:block;font-size:22px;margin:15px 0}
+.lifecycle-preview .preview-metrics{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.lifecycle-preview .preview-metrics b{font-size:20px;overflow-wrap:anywhere}
+.lifecycle-receipt{border-top:1px solid var(--ss-line);padding-top:16px;margin-top:18px;display:flex;justify-content:space-between;gap:12px;font-size:11px;color:var(--ss-muted)}
+.lifecycle-outcomes{display:flex;gap:10px;margin:8px 0}
+.lifecycle-outcomes button[aria-pressed=true]{font-weight:800}
+.result-win{background:#d9edcf;color:#234a24}.result-loss{background:#fae4de;color:#813c31}
+@keyframes play-slide{from{opacity:0;transform:translateX(36px)}to{opacity:1;transform:translateX(0)}}
+@media(max-width:640px){.lifecycle-window{min-height:385px}.lifecycle-preview .preview-metrics b{font-size:17px}}
+@media(prefers-reduced-motion:reduce){.lifecycle-card{animation:none}}

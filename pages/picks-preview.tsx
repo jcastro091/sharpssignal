@@ -13,9 +13,9 @@ export default function Preview() {
             <span>Read the result.</span>
           </h1>
           <p>
-            A free sports-research workspace for available member records. See
-            captured odds, paper results, and closing-price evidence when it is
-            recorded.
+            See how a selection arrives and how its result is recorded.
+            Each play connects the captured odds, game time and outcome.
+            Closing-price comparisons appear when available.
           </p>
           <p>
             This example explains the format. It is not a historical selection
@@ -28,7 +28,7 @@ export default function Preview() {
             </Link>
           </div>
           <small className="muted">
-            No card required. No automatic email, SMS, or push play alerts.
+            No card required. Upgrade for real-time access and Telegram.
           </small>
         </div>
         <SignalPreview />

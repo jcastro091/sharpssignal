@@ -59,7 +59,7 @@ export default function Signup() {
       }
       setDone(true);
       setMessage(
-        "Confirm your email to open your free dashboard. Research and updates arrive after a minimum 30-minute delay. You can upgrade through Stripe and connect Telegram from your dashboard.",
+        "Confirm your email to open your free dashboard. Selections and updates arrive after a minimum 30-minute delay. You can upgrade through Stripe and connect Telegram from your dashboard.",
       );
     } catch (e) {
       setError(e.message || "Could not create your account. Please try again.");
@@ -77,11 +77,11 @@ export default function Signup() {
         </h1>
         <p>
           Create your free account, confirm your email, and open your dashboard.
-          Browse research with a minimum 30-minute delay. Upgrade through Stripe
+          Follow selections and results with a minimum 30-minute delay. Upgrade through Stripe
           whenever you’re ready for real-time access and Telegram alerts.
         </p>
         <div className="auth-note">
-          Free account · Paper research · No card required
+          Free account · No card required
         </div>
       </div>
       <section className="auth-card">

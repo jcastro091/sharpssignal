@@ -93,7 +93,7 @@ export default function Signin() {
           <br />
           <span>your signal.</span>
         </h1>
-        <p>Your sports and market research, right where you left it.</p>
+        <p>Your plays, prices and results, right where you left them.</p>
       </div>
       <section className="auth-card">
         <h2>Log in to SharpsSignal</h2>

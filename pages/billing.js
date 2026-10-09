@@ -181,12 +181,12 @@ export default function Billing({ offer, qaEnabled, initialProducts }) {
         <h1>
           {paid
             ? "Join your paid Telegram channels."
-            : "From free research to real-time access."}
+            : "Your next play, delivered."}
         </h1>
         <p>
           Your free dashboard is ready now. Upgrade through Stripe, then join
           the private channel for each purchased product: Sports for sports picks, Markets
-          for market trades. Research only; alert frequency varies and returns are not
+          for market trades. Simulated records are labeled; alert frequency varies and returns are not
           guaranteed.
         </p>
         {!paid && offer && (
@@ -262,9 +262,9 @@ export default function Billing({ offer, qaEnabled, initialProducts }) {
             $0 <small>no card required</small>
           </p>
           <ul>
-            <li>Sports and market paper research</li>
+            <li>Sports selections and market records</li>
             <li>New records and updates after at least 30 minutes</li>
-            <li>Captured prices, results and research context</li>
+            <li>Captured prices, results and selection context</li>
           </ul>
           <Link className="button-secondary" href="/dashboard">
             Open free dashboard
@@ -279,7 +279,7 @@ export default function Billing({ offer, qaEnabled, initialProducts }) {
           <p>{selectedLabel || 'Select at least one product.'} · Each product has the same subscription price. Both costs the sum.</p>
           {offer && <p className="billing-price">{priceLabel(offer && {...offer,amount:offer.amount*Math.max(1,purchaseProducts.length)})}</p>}
           <ul>
-            <li>Real-time access to available paper research</li>
+            <li>Real-time access to available selections</li>
             <li>Sports in SharpsSignal | Sports; market trades in SharpsSignal | Markets</li>
             <li>One account for your dashboard and Telegram access</li>
           </ul>
