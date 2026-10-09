@@ -63,7 +63,8 @@ function loadRoute(file, ctx, grant = null, enabled = true) {
               checkoutOffer: (s) => checkoutOffer(s, env),
               checkoutOrigin: () => checkoutOrigin(env),
             }
-          : { refreshCustomerAccess: async () => grant },
+          : name.includes('productAccess') ? require('../lib/productAccess.cjs')
+          : { refreshCustomerGrants: async () => grant ? [{plan:'pro_telegram',products:['sports'],...grant}] : [] },
   };
   vm.runInNewContext(source, sandbox);
   return sandbox.module.exports;
