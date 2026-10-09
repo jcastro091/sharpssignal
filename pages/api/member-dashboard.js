@@ -475,7 +475,7 @@ function buildDailyBettingReadiness({ operatorCard, lanes, laneDecisionContext, 
     },
     what_changed: changes.slice(0, 4),
     manual_review: {
-      beachhead: "MLB H2H underdogs",
+      beachhead: "MLB Moneyline underdogs",
       status: manualMlb.status || "WATCHLIST_NOT_PROFITABLE_CLAIM",
       triggered: Boolean(manualMlb.did_trigger),
       persistent: Boolean(manualMlb.was_gap_persistent),
@@ -551,7 +551,7 @@ function buildMlbLaneTruth(lanes) {
   if (mlb.frozen) blockers.push("same-game conflicts must resolve");
   const isReal = blockers.length === 0 && Boolean(mlb.lane_key);
   return {
-    label: "MLB H2H underdogs",
+    label: "MLB Moneyline underdogs",
     source_sample: "clean_non_conflicted_groups_only",
     verdict: isReal ? "REAL_CANDIDATE_READY_FOR_BET_REVIEW" : "NOT_PROVEN_YET",
     is_real: isReal,
@@ -679,14 +679,14 @@ function buildBeachhead(lanes) {
   );
   if (!lane) {
     return {
-      label: "MLB H2H underdogs",
+      label: "MLB Moneyline underdogs",
       status: "watchlist_only",
       message: "No lane sample available yet. Keep collecting shadow data.",
     };
   }
   return {
     ...lane,
-    label: "MLB H2H underdogs",
+    label: "MLB Moneyline underdogs",
     status: lane.frozen ? "frozen_watchlist" : "watchlist_only",
     message: "This is the current beachhead candidate, but it is not promoted as profitable until sample, CLV, and conflict gates clear.",
   };
@@ -709,7 +709,7 @@ function buildManualMlbReview({ todayRows, lanes }) {
   const clvs = closed.map((row) => row.clv_pct).filter(Number.isFinite);
   const persistent = items.filter((row) => Number(row.persistence_polls || 0) >= BETTING_RULEBOOK.minimum_retail_gap_persistence_polls);
   return {
-    label: "MLB H2H underdogs",
+    label: "MLB Moneyline underdogs",
     status: "WATCHLIST_NOT_PROFITABLE_CLAIM",
     did_trigger: items.length > 0,
     trigger_count: items.length,

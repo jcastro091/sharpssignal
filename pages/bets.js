@@ -1,3 +1,4 @@
+import {marketLabel} from '../lib/marketDisplay.cjs';
 import {sportsbookName} from '../lib/sportsbookDisplay.cjs';
 import { useEffect, useMemo, useState } from "react";
 import { requireServerUser } from "../lib/authServer";
@@ -195,7 +196,7 @@ export default function BetsPage({ userEmail = "" }) {
                     <td className="whitespace-nowrap px-4 py-3 text-slate-600">{dateLabel(bet.placed_at)}</td>
                     <td className="px-4 py-3">
                       <div className="font-semibold">{bet.game || "Game not linked"}</div>
-                      <div className="text-xs text-slate-500">{bet.market || "-"}</div>
+                      <div className="text-xs text-slate-500">{marketLabel(bet.market) || "-"}</div>
                     </td>
                     <td className="px-4 py-3 font-semibold">{bet.pick_side || "-"}</td>
                     <td className="whitespace-nowrap px-4 py-3">

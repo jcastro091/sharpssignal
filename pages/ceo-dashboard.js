@@ -117,7 +117,7 @@ export default function CeoDashboardPage({ userEmail = "", allowlistConfigured =
             <div className="text-xs font-bold uppercase tracking-wide text-cyan-300">SharpsSignal CEO control center</div>
             <h1 className="mt-2 text-3xl font-black tracking-normal sm:text-4xl">Daily Betting Readiness</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-300">
-              One operator view for betting readiness, MLB H2H underdog probation, funnel conversion, API burn, and the next bottleneck.
+              One operator view for betting readiness, MLB Moneyline underdog probation, funnel conversion, API burn, and the next bottleneck.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -159,7 +159,7 @@ export default function CeoDashboardPage({ userEmail = "", allowlistConfigured =
         </section>
 
         <div className="mb-5 grid gap-4 lg:grid-cols-3">
-          <Panel title="MLB H2H Underdog Probation" subtitle="First beachhead, not a profitability claim">
+          <Panel title="MLB Moneyline Underdog Probation" subtitle="First beachhead, not a profitability claim">
             <div className="grid grid-cols-2 gap-3">
               <Metric label="Lane Status" value={mlb.status || "-"} />
               <Metric label="Action" value={mlb.bet_action || "-"} />

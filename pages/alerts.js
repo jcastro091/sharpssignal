@@ -1,3 +1,4 @@
+import {marketLabel} from '../lib/marketDisplay.cjs';
 import {fetchMemberFeed} from '../lib/feedRequest.cjs';
 import {formatMarketPrice} from '../lib/marketPriceDisplay.cjs';
 import {decimalToAmericanLabel} from '../lib/oddsDisplay.cjs';
@@ -36,7 +37,7 @@ export default function Alerts({interests}){
     <div className="panel-title"><div className="alerts-section-title"><h2 id={'alerts-'+feed.section}>{sports?'Sports':'Markets'}</h2><span className="alerts-count">{feed.plays.length} {feed.plays.length===1?'record':'records'}</span></div><span className="status-pill">{feed.feed_mode==='realtime'?'Real-time access':'Free · minimum 30-minute delay'}</span></div>
     {feed.publishing_paused&&<p className="small muted">Publishing paused.</p>}
     {!feed.plays.length?<div className="alerts-empty"><h3>{feed.publishing_paused?'No alerts while publishing is paused':'No released alerts yet'}</h3><p>New entries and updates appear here after their release delay.</p></div>:<div className="alerts-list">{feed.plays.map(play=><article className="inbox-record" key={JSON.stringify([play.cohort,play.entry_id||play.trade_id,play.point])}>
-     <div className="inbox-selection"><h3>{sports?play.side:play.symbol}{sports&&play.point!=null?' '+play.point:''}</h3><p>{sports?<>{play.away} @ {play.home}</>:play.direction>0?'Long':play.direction<0?'Short':'Direction unavailable'}{sports&&play.market?' · '+human(play.market):''}</p></div>
+     <div className="inbox-selection"><h3>{sports?play.side:play.symbol}{sports&&play.point!=null?' '+play.point:''}</h3><p>{sports?<>{play.away} @ {play.home}</>:play.direction>0?'Long':play.direction<0?'Short':'Direction unavailable'}{sports&&play.market?' · '+marketLabel(play.market):''}</p></div>
      <div className="inbox-price"><small>{sports?'Captured odds':'Captured entry'}</small><b>{sports?decimalToAmericanLabel(play.decimal):formatMarketPrice(play.entry_price)}</b><p>{sports?sportsbookName(play.book):'Stop '+formatMarketPrice(play.stop)+' · Target '+formatMarketPrice(play.target)}</p></div>
      <div className="inbox-result"><small>{sports?'Paper result':'Trade status'}</small><span className="status-pill">{human(sports?play.result:play.status)}</span></div>
      <div className="inbox-time"><small>Recorded</small><time>{stamp(play.entry_at??play.entry_time)}</time>{sports&&<p>Game: {stamp(play.start)}</p>}</div>
