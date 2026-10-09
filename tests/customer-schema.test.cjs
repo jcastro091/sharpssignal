@@ -7,6 +7,7 @@ test.before(async()=>{
  const linkSchema=fs.readFileSync('supabase/migrations/202607070003_telegram_account_mapping.sql','utf8');
  await db.exec(linkSchema);
  await db.exec(fs.readFileSync('schema/customer-realtime-access.sql','utf8'));
+ await db.exec(fs.readFileSync('supabase/migrations/20261009213303_product_entitlements.sql','utf8'));
  await db.exec(fs.readFileSync(process.env.BACKEND_SCHEMA_PATH||'../sports/schema/customer-delayed-research.sql','utf8'));
 });
 test.after(async()=>{await db?.close();});
@@ -17,6 +18,13 @@ test('payment replay preserves expiry and ownership; revoked grants cannot react
  await assert.rejects(()=>apply({...p,valid_until:new Date(Date.parse(p.valid_until)+1000).toISOString()}));
  await assert.rejects(()=>apply({...p,user_id:other}));
  await db.exec("update customer_entitlements set status='revoked',revoked_at=now()");await assert.rejects(()=>apply(p));
+});
+
+test('product entitlements default legacy Sports and reject changed or invalid products',async()=>{
+ const p={...grant(),stripe_session_id:'cs_live_products',stripe_payment_intent_id:'pi_products',products:['markets']};
+ const result=await apply(p);assert.deepEqual(result.rows[0].payment_grant.products,['markets']);
+ await assert.rejects(()=>apply({...p,products:['sports','markets']}));
+ for(const products of [[],['operations'],['sports','sports']])await assert.rejects(()=>apply({...p,stripe_session_id:'cs_live_invalid',products}));
 });
 test('untrusted roles cannot read grants, source snapshots or execute payment/publication RPCs',async()=>{
  for(const role of ['anon','authenticated']){

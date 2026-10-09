@@ -1,3 +1,4 @@
+const {productChat}=require('../../lib/productAccess.cjs');
 import crypto from "crypto";
 import { getServerUser } from "../../lib/authServer";
 import { createSupabaseServiceClient, hasSupabaseServiceConfig } from "../../lib/supabaseServer";
@@ -18,7 +19,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const destination = await telegramDestination();
+    const destination = await telegramDestination(productChat(req.body?.product||req.query.product||user.user_metadata?.interests?.[0]||'sports'));
     const supabase = createSupabaseServiceClient();
     if (req.method === "GET") {
       const { data } = await supabase

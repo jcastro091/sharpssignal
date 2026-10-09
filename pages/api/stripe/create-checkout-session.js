@@ -1,10 +1,11 @@
+const {products,grantProducts}=require('../../../lib/productAccess.cjs');
 const { token, safeUrl } = require("../../../lib/measurement.cjs");
 import { billingUser } from "../../../lib/billingServer";
 const {
   checkoutOffer,
   checkoutOrigin,
 } = require("../../../lib/checkoutOffer.cjs");
-const { refreshCustomerAccess } = require("../../../lib/realtimeBilling.cjs");
+const { refreshCustomerGrants } = require("../../../lib/realtimeBilling.cjs");
 export default async function (req, res) {
   res.setHeader("Cache-Control", "no-store");
   if (req.method !== "POST") return res.status(405).json({ ok: false });
@@ -20,17 +21,18 @@ export default async function (req, res) {
       new URL(req.headers.origin).host !== req.headers.host
     )
       return res.status(403).json({ ok: false, error: "invalid_origin" });
-    const existing = await refreshCustomerAccess(
+    const selected = products(req.body?.products ?? ctx.user.user_metadata?.interests ?? ['sports']);
+    const existing = await refreshCustomerGrants(
       ctx.stripe,
       ctx.supabase,
       ctx.user.id,
     );
-    if (existing && !existing.qa_test)
+    if (existing.some(g=>!g.qa_test && selected.some(p=>grantProducts(g).includes(p))))
       return res.status(409).json({ ok: false, error: "already_paid" });
     const offer = await checkoutOffer(ctx.stripe),
       price = offer.price_id,
       origin = checkoutOrigin();
-    const metadata = { user_id: ctx.user.id, plan: "pro_telegram" };
+    const metadata = { user_id: ctx.user.id, plan: "pro_telegram", products: selected.join(","), price_id: price };
     for (const key of [
       "visitor_id",
       "session_id",
@@ -48,7 +50,8 @@ export default async function (req, res) {
       mode: "subscription",
       customer_email: ctx.user.email,
       client_reference_id: ctx.user.id,
-      line_items: [{ price, quantity: 1 }],
+      line_items: [{ price, quantity: selected.length }],
+      custom_text: {submit: {message: 'Products: '+selected.map(p=>p==='sports'?'Sports (Pro Telegram)':'Markets (Markets Telegram)').join(' + ')+'. Each product is billed at the displayed unit price.'}},
       metadata,
       subscription_data: { metadata },
       success_url: origin + "/billing?session_id={CHECKOUT_SESSION_ID}",

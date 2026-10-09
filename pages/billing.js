@@ -1,3 +1,4 @@
+const {LABELS}=require('../lib/productAccess.cjs');
 import {
   getFirstTouch,
   getVisitorId,
@@ -43,6 +44,7 @@ export async function getServerSideProps(ctx) {
   return {
     props: {
       offer,
+      initialProducts: (user.user_metadata?.interests || ["sports","markets"]).filter(p=>["sports","markets"].includes(p)),
       qaEnabled:
         process.env.QA_CHECKOUT_ENABLED === "true" &&
         user.id === process.env.QA_CHECKOUT_USER_ID,
@@ -61,7 +63,7 @@ const errors = {
   already_paid:
     "You already have paid access. Refresh your status below to connect Telegram.",
   telegram_link_required:
-    "Verify the Telegram account you will use for SharpsSignal Pro, then return here.",
+    "Verify the Telegram account you will use for your paid channels, then return here.",
   telegram_destination_unavailable:
     "Telegram verification is temporarily unavailable. Please retry; you do not need to pay again.",
   telegram_invite_unavailable:
@@ -95,7 +97,7 @@ function priceLabel(offer) {
   }).format(offer.amount / 100);
   return `${price} / ${offer.interval_count === 1 ? offer.interval : offer.interval_count + " " + offer.interval + "s"}`;
 }
-export default function Billing({ offer, qaEnabled }) {
+export default function Billing({ offer, qaEnabled, initialProducts }) {
   const router = useRouter(),
     verified = useRef("");
   const [status, setStatus] = useState(null),
@@ -103,7 +105,8 @@ export default function Billing({ offer, qaEnabled }) {
     [message, setMessage] = useState(""),
     [error, setError] = useState(""),
     [connection, setConnection] = useState(null),
-    [invite, setInvite] = useState("");
+    [invites, setInvites] = useState({}),
+    [selected, setSelected] = useState(initialProducts);
   const refresh = useCallback(async () => {
     const data = await request("/api/billing-status");
     setStatus(data);
@@ -124,7 +127,7 @@ export default function Billing({ offer, qaEnabled }) {
         { session_id: session },
       );
       await refresh();
-      setMessage("Payment confirmed. Continue below to join SharpsSignal Pro.");
+      setMessage("Payment confirmed. Continue below to join your paid channels.");
     } catch (e) {
       await refresh().catch(() => {});
       setError(e.message);
@@ -151,6 +154,9 @@ export default function Billing({ offer, qaEnabled }) {
       setBusy("");
     }
   }
+  const paidProducts=status?.products||[];
+  const purchaseProducts=selected.filter(p=>!paidProducts.includes(p));
+  const selectedLabel=selected.map(p=>LABELS[p]).join(" + ");
   const paid = status?.paid === true,
     linked = status?.telegram_linked === true;
   useEffect(() => {
@@ -174,18 +180,18 @@ export default function Billing({ offer, qaEnabled }) {
         <span className="eyebrow">YOUR NEXT STEP</span>
         <h1>
           {paid
-            ? "Join SharpsSignal Pro."
+            ? "Join your paid Telegram channels."
             : "From free research to real-time access."}
         </h1>
         <p>
           Your free dashboard is ready now. Upgrade through Stripe, then join
-          SharpsSignal Pro — the private Telegram channel where eligible plays
-          are posted. Research only; alert frequency varies and returns are not
+          the private channel for each purchased product: Pro for Sports, Markets
+          for market trades. Research only; alert frequency varies and returns are not
           guaranteed.
         </p>
         {!paid && offer && (
           <a className="button-primary billing-jump" href="#paid-plan">
-            View {priceLabel(offer)} plan ↓
+            View {priceLabel(offer && {...offer,amount:offer.amount*Math.max(1,purchaseProducts.length)})} plan ↓
           </a>
         )}
       </header>
@@ -211,7 +217,7 @@ export default function Billing({ offer, qaEnabled }) {
         <li aria-current={paid ? "step" : undefined}>
           <span>3</span>
           <div>
-            <b>Join SharpsSignal Pro</b>
+            <b>Join your paid channels</b>
             <small>
               {linked
                 ? "Account verified · open your invitation"
@@ -269,13 +275,15 @@ export default function Billing({ offer, qaEnabled }) {
             {paid ? "Payment verified" : "Optional upgrade"}
           </span>
           <h2>Real-time + Telegram</h2>
-          {offer && <p className="billing-price">{priceLabel(offer)}</p>}
+          <fieldset><legend>Choose your products</legend>{['sports','markets'].map(product=><label key={product} style={{display:'block',margin:'0.5rem 0'}}><input type="checkbox" checked={selected.includes(product)} onChange={()=>setSelected(old=>old.includes(product)?old.filter(p=>p!==product):[...old,product])}/>{' '}{LABELS[product]}{paidProducts.includes(product)?' — already paid':''}</label>)}</fieldset>
+          <p>{selectedLabel || 'Select at least one product.'} · Each product has the same subscription price. Both costs the sum.</p>
+          {offer && <p className="billing-price">{priceLabel(offer && {...offer,amount:offer.amount*Math.max(1,purchaseProducts.length)})}</p>}
           <ul>
             <li>Real-time access to available paper research</li>
-            <li>Eligible plays in the SharpsSignal Pro Telegram channel</li>
+            <li>Sports in SharpsSignal Pro; market trades in SharpsSignal Markets</li>
             <li>One account for your dashboard and Telegram access</li>
           </ul>
-          {paid ? (
+          {paid && !purchaseProducts.length ? (
             <p className="success-message">
               Your paid access is active. Continue to step 3 below.
             </p>
@@ -290,7 +298,7 @@ export default function Billing({ offer, qaEnabled }) {
               </p>
               <button
                 className="button-primary full-width"
-                disabled={Boolean(busy) || !status || Boolean(session)}
+                disabled={Boolean(busy) || !status || !purchaseProducts.length}
                 onClick={() =>
                   action("checkout", async () => {
                     await trackFunnelEvent("checkout_click");
@@ -298,6 +306,7 @@ export default function Billing({ offer, qaEnabled }) {
                       const d = await request(
                         "/api/stripe/create-checkout-session",
                         {
+                          products: purchaseProducts,
                           visitor_id: getVisitorId(),
                           session_id: getSessionId(),
                           ...getFirstTouch(),
@@ -342,15 +351,15 @@ export default function Billing({ offer, qaEnabled }) {
         aria-labelledby="telegram-title"
       >
         <span className="eyebrow">STEP 3 · AFTER PAYMENT</span>
-        <h2 id="telegram-title">Join SharpsSignal Pro.</h2>
+        <h2 id="telegram-title">Join your paid Telegram channels.</h2>
         <p>
-          SharpsSignal Pro is the private Telegram channel where the plays are
-          posted.
+          Sports subscribers join SharpsSignal Pro. Markets subscribers join SharpsSignal Markets.
+          Subscribers to both receive an invitation to each channel.
         </p>
         {!paid ? (
           <p className="muted">
             Complete Stripe checkout first. Once your payment is verified, your
-            personal Pro-channel invitation will unlock here after a one-time
+            personal paid-channel invitation will unlock here after a one-time
             Telegram account check.
           </p>
         ) : (
@@ -359,7 +368,7 @@ export default function Billing({ offer, qaEnabled }) {
               <>
                 <p>
                   First, verify which Telegram account should receive your
-                  Pro-channel access.
+                  paid-channel access.
                 </p>
                 <button
                   className="button-primary"
@@ -367,16 +376,16 @@ export default function Billing({ offer, qaEnabled }) {
                   onClick={() =>
                     action("link", async () => {
                       setConnection(
-                        await request("/api/telegram-link-code", {}),
+                        await request("/api/telegram-link-code", {product:paidProducts[0]}),
                       );
                     })
                   }
                 >
                   {busy === "link"
-                    ? "Preparing Pro access…"
+                    ? "Preparing account verification…"
                     : connection
                       ? "Restart account verification"
-                      : "Join SharpsSignal Pro →"}
+                      : "Verify your Telegram account →"}
                 </button>
                 {connection && (
                   <div className="telegram-command">
@@ -384,7 +393,7 @@ export default function Billing({ offer, qaEnabled }) {
                     <p>
                       Open the verification assistant and tap <b>Start</b>, then
                       return here. This only links your account; your plays are
-                      in <b>{connection.channel_name}</b>.
+                      in the channel for each product you have paid for.
                     </p>
                     <a
                       className="button-primary"
@@ -396,7 +405,7 @@ export default function Billing({ offer, qaEnabled }) {
                     </a>
                     <p className="small">
                       The verification link expires in 15 minutes. Your
-                      Pro-channel invitation appears here once your account is
+                      paid-channel invitation appears here once your account is
                       linked.
                     </p>
                     <button
@@ -407,7 +416,7 @@ export default function Billing({ offer, qaEnabled }) {
                           const s = await refresh();
                           setMessage(
                             s.telegram_linked
-                              ? "Telegram verified. Open your Pro-channel invitation below."
+                              ? "Telegram verified. Open your paid-channel invitation below."
                               : "Not verified yet. Tap Start in the verification assistant, then return here.",
                           );
                         })
@@ -441,42 +450,14 @@ export default function Billing({ offer, qaEnabled }) {
             ) : (
               <>
                 <p className="success-message">
-                  Your Telegram account is verified for Pro-channel access.
+                  Your Telegram account is verified for paid-channel access.
                 </p>
-                <p>Use that same account to join SharpsSignal Pro.</p>
-                <button
-                  className="button-primary"
-                  disabled={Boolean(busy)}
-                  onClick={() =>
-                    action("invite", async () => {
-                      const d = await request("/api/telegram-invite", {});
-                      setInvite(d.url);
-                    })
-                  }
-                >
-                  {busy === "invite"
-                    ? "Creating Pro invitation…"
-                    : invite
-                      ? "Refresh my Pro invitation"
-                      : "Get my SharpsSignal Pro invitation"}
-                </button>
-                {invite && (
-                  <div className="billing-notice">
-                    <a
-                      className="button-primary"
-                      href={invite}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Open SharpsSignal Pro channel ↗
-                    </a>
-                    <p className="small">
-                      This personal invitation expires in up to 10 minutes. Tap
-                      Request to Join in Telegram; your current payment and
-                      linked account are checked automatically.
-                    </p>
-                  </div>
-                )}
+                {paidProducts.map(product=><div key={product} className="billing-notice">
+                  <h3>{product==='sports'?'SharpsSignal | Pro':'SharpsSignal | Markets'}</h3>
+                  <button className="button-primary" disabled={Boolean(busy)} onClick={()=>action('invite-'+product,async()=>{const d=await request('/api/telegram-invite',{product});setInvites(old=>({...old,[product]:d.url}));})}>{busy==='invite-'+product?'Creating invitation…':`Get my ${LABELS[product]} invitation`}</button>
+                  {invites[product]&&<a className="button-secondary" href={invites[product]} target="_blank" rel="noopener noreferrer">Open {LABELS[product]} channel ↗</a>}
+                  <p className="small">Personal invitations expire within 10 minutes. Your linked Telegram account and payment for this product are checked again when you request to join.</p>
+                </div>)}
               </>
             )}
           </>
