@@ -1,3 +1,4 @@
+import {fetchMemberFeed} from '../lib/feedRequest.cjs';
 import {formatMarketPrice} from '../lib/marketPriceDisplay.cjs';
 import {decimalToAmericanLabel} from '../lib/oddsDisplay.cjs';
 import {sportsbookName} from '../lib/sportsbookDisplay.cjs';
@@ -22,7 +23,7 @@ const human=value=>String(value||'Pending').replaceAll('_',' ');
 export default function Alerts({interests}){
  const [feeds,setFeeds]=useState(null),[error,setError]=useState(''),[refresh,setRefresh]=useState(0);
  useEffect(()=>{const controller=new AbortController();setFeeds(null);setError('');
-  Promise.all(interests.map(async section=>{const response=await fetch('/api/member-feed?section='+section,{signal:controller.signal,cache:'no-store'});const data=await response.json();if(!response.ok)throw Error(data.error||'Alert feed unavailable');return {...data,section};})).then(data=>{if(!controller.signal.aborted)setFeeds(data);}).catch(e=>{if(!controller.signal.aborted)setError(e.message);});
+  Promise.all(interests.map(async section=>{const data=await fetchMemberFeed(section,{signal:controller.signal});return {...data,section};})).then(data=>{if(!controller.signal.aborted)setFeeds(data);}).catch(e=>{if(!controller.signal.aborted)setError(e.message);});
   return()=>controller.abort();
  },[interests,refresh]);
  return <main className="member-shell alerts-shell"><div className="member-content alerts-content">
