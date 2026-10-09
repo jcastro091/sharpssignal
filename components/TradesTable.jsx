@@ -1,3 +1,4 @@
+import { formatMarketPrice } from '../lib/marketPriceDisplay.cjs';
 import { useState } from "react";
 
 export default function TradesTable({ trades }) {
@@ -57,7 +58,7 @@ export default function TradesTable({ trades }) {
             <tr key={i} className="border-b hover:bg-gray-50">
               {columns.map(col => (
                 <td key={col.key} className="p-2 whitespace-nowrap">
-                  {trade[col.key] || "-"}
+                  {['Entry Price', 'Exit Price', 'SL', 'TP'].includes(col.key) ? formatMarketPrice(trade[col.key]) : (trade[col.key] || "-")}
                 </td>
               ))}
             </tr>
