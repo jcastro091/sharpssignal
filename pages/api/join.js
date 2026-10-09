@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail } from "../../utils/email";
-import { tgSendMessage } from "../../utils/tg";
+import { sendBusiness } from "../../lib/businessTelegram.cjs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -91,9 +91,9 @@ export default async function handler(req, res) {
       .filter(Boolean)
       .join("\n");
 
-    await tgSendMessage(process.env.FOUNDER_TG_CHAT_ID, lines);
+    await sendBusiness(lines);
   } catch (err) {
-    console.error("Telegram notify error:", err);
+    console.error("Business notification unavailable");
   }
 
   return res.status(200).json({ success: true });
