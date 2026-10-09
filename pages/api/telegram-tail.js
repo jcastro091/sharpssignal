@@ -1,3 +1,4 @@
+import {sportsbookName} from '../../lib/sportsbookDisplay.cjs';
 import crypto from "crypto";
 
 const BOOK_ALIASES = [
@@ -482,7 +483,7 @@ function confirmationText(result, tail) {
     const pick = tail.pick_side || [tail.away_team, tail.home_team].filter(Boolean).join(" @ ") || "tail";
     const stake = tail.stake ? `$${tail.stake}` : "1 unit";
     const grade = result.grade?.status === "closed" ? ` Result: ${result.grade.result}; P&L ${moneyText(result.grade.pnl)}.` : " Auto-grading after final and CLV settle.";
-    return `Logged ${pick} ${tail.odds_taken} ${tail.sportsbook} ${stake}. Current status: ${status}.${grade}`;
+    return `Logged ${pick} ${tail.odds_taken} ${sportsbookName(tail.sportsbook)} ${stake}. Current status: ${status}.${grade}`;
   }
   return `I could not log that tail: ${(result || {}).error || "unknown_error"}.`;
 }
