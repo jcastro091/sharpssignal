@@ -1,3 +1,4 @@
+import {sportsbookName} from '../../lib/sportsbookDisplay.cjs';
 // pages/api/odds-shop.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { sportsbookOfferUrl } from "../../lib/sportsbookOffers";
@@ -128,21 +129,7 @@ function pickBest(rows: OddsRow[]): OddsRow[] {
   return sorted;
 }
 
-// Map TheOddsAPI bookmaker keys to neat names
-const BOOK_NAME: Record<string, string> = {
-  draftkings: "DraftKings",
-  fanduel: "FanDuel",
-  betmgm: "BetMGM",
-  caesars: "Caesars",
-  pointsbetus: "PointsBet",
-  fanatics: "Fanatics",
-  espnbet: "ESPN BET",
-  ballybet: "Bally Bet",
-};
-
-function prettyBook(id: string) {
-  return BOOK_NAME[id] || id.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
-}
+const prettyBook = (id: string) => sportsbookName(id);
 
 async function fetchOdds(sportKey: string) {
   const base = "https://api.the-odds-api.com/v4/sports";

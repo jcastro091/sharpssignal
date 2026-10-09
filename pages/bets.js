@@ -1,3 +1,4 @@
+import {sportsbookName} from '../lib/sportsbookDisplay.cjs';
 import { useEffect, useMemo, useState } from "react";
 import { requireServerUser } from "../lib/authServer";
 
@@ -198,7 +199,7 @@ export default function BetsPage({ userEmail = "" }) {
                     </td>
                     <td className="px-4 py-3 font-semibold">{bet.pick_side || "-"}</td>
                     <td className="whitespace-nowrap px-4 py-3">
-                      {bet.sportsbook || "-"} <span className="font-semibold">{odds(bet.odds_american)}</span>
+                      {sportsbookName(bet.sportsbook, "-")} <span className="font-semibold">{odds(bet.odds_american)}</span>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">{money(bet.stake)}</td>
                     <td className="whitespace-nowrap px-4 py-3">
