@@ -49,6 +49,9 @@ export default function Header() {
           )}
         </div>
       </nav>
+      <div className="mobile-research-nav">
+        <Link href="/blog" data-track="mobile_research_notes">Research notes <span aria-hidden="true">↗</span></Link>
+      </div>
     </header>
   );
 }

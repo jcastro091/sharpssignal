@@ -141,3 +141,16 @@
     padding: 24px;
   }
 }
+
+.mobile-research-nav { display: none; }
+.decision-chart { margin: 36px 0; padding: 24px; background: #edf2e7; border: 1px solid var(--ss-line); border-radius: 20px; }
+.decision-chart h2 { margin: 12px 0 24px; }
+.decision-steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+.decision-steps > div { padding: 18px; background: #fff; border: 1px solid #d5dfcd; border-radius: 14px; }
+.decision-steps > div:nth-child(2) { background: #fff6e4; border-color: #dcc58e; }
+.decision-steps span { font-size: 12px; color: var(--ss-muted); }
+.decision-steps strong { display: block; font-size: 32px; margin: 12px 0; }
+.decision-steps p,.decision-chart figcaption { font-size: 14px; line-height: 1.6; color: var(--ss-muted); }
+.decision-chart figcaption { margin-top: 18px; }
+@media(max-width:900px){.mobile-research-nav { display:flex; justify-content:center; padding:9px 18px; border-top:1px solid var(--ss-line); font-size:13px; font-weight:650; }}
+@media(max-width:640px){.decision-chart { padding:20px; }.decision-steps { grid-template-columns:1fr; }.decision-steps strong { margin:6px 0; }}
