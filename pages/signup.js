@@ -44,6 +44,11 @@ export default function Signup() {
         },
       });
       if (error) throw error;
+      // A notification failure must never undo a successful account creation.
+      if(data?.user?.id)void fetch('/api/notify-signup',{
+        method:'POST',headers:{'content-type':'application/json'},keepalive:true,
+        body:JSON.stringify({user_id:data.user.id,email:email.trim().toLowerCase()}),
+      }).catch(()=>{});
       trackMemberEvent("signup_success", {
         location: "member_signup",
         email_confirmation_required: !data?.session,
