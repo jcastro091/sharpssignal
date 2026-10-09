@@ -28,17 +28,17 @@ export default function Admin() {
         </Link>
         <a
           className="feature-card"
-          href="https://sharpssignal-sports-backend.vercel.app/api/dashboard"
+          href="/api/admin-launch"
         >
           <h2>Operations & business ↗</h2>
           <p>
-            Open the existing private command center. Its administrator sign-in
-            remains required.
+            Open the private command center with your verified administrator
+            sign-in.
           </p>
         </a>
         <a
           className="feature-card"
-          href="https://sharpssignal-sports-backend.vercel.app/api/audience"
+          href="/api/admin-launch?target=audience"
         >
           <h2>Audience & registrations ↗</h2>
           <p>Manage the signup proof of concept in the private workspace.</p>
