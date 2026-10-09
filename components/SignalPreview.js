@@ -42,8 +42,8 @@ export default function SignalPreview() {
           <>
             <div className="preview-metrics">
               <div>
-                <small>Captured odds</small>
-                <b>2.00 decimal</b>
+                <small>American odds</small>
+                <b>+100</b>
               </div>
               <div>
                 <small>Paper result</small>

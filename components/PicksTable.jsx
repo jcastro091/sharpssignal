@@ -1,3 +1,4 @@
+import {formatAmerican, decimalToAmericanLabel} from '../lib/oddsDisplay.cjs';
 import { useEffect, useMemo, useState } from "react";
 
 export default function PicksTable({ picks = [] }) {
@@ -141,9 +142,7 @@ export default function PicksTable({ picks = [] }) {
 
     if (key === "Odds (Am)") {
       const raw = pick[key] ?? pick["American Odds"] ?? pick.american_odds ?? pick.odds_american;
-      const n = Number(String(raw ?? "").replace(/[^0-9.-]/g, ""));
-      if (!Number.isFinite(n)) return "-";
-      return n > 0 ? `+${Math.round(n)}` : String(Math.round(n));
+      return raw != null ? formatAmerican(raw) : decimalToAmericanLabel(pick.odds_decimal);
     }
 
     if (key === "Prediction Result") {

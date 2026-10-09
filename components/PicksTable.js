@@ -1,3 +1,4 @@
+import {formatAmerican, decimalToAmericanLabel} from '../lib/oddsDisplay.cjs';
 
 import { useState } from "react";
 
@@ -62,7 +63,7 @@ export default function PicksTable({ picks }) {
             <tr key={i} className="border-b hover:bg-gray-50">
               {columns.map(col => (
                 <td key={col.key} className="p-2 whitespace-nowrap">
-                  {pick[col.key] || "-"}
+                  {col.key === "Odds Taken" ? (pick.odds_american != null ? formatAmerican(pick.odds_american) : decimalToAmericanLabel(pick["Odds Taken"])) : (pick[col.key] || "-")}
                 </td>
               ))}
             </tr>

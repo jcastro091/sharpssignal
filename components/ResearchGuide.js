@@ -16,7 +16,7 @@ export default function ResearchGuide({ section = "sports", open = false }) {
       {section === "sports" ? (
         <ol>
           <li>
-            <b>Captured price.</b> Decimal odds when the paper entry was
+            <b>Captured price.</b> American odds when the paper entry was
             recorded, not a price you can necessarily get now. At 2.00, a
             winning 1-unit paper stake returns 2 units including the stake.
           </li>
