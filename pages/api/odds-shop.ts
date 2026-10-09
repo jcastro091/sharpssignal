@@ -231,7 +231,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     // Only h2h for now (that’s what you asked about)
     if (market !== "h2h") {
-      res.status(200).json({ error: "Only H2H supported for now.", slots: { market } as any });
+      res.status(200).json({ error: "Only Moneyline supported for now.", slots: { market } as any });
       return;
     }
 

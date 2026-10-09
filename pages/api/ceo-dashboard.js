@@ -79,7 +79,7 @@ export default async function handler(req, res) {
     },
     betting: {
       action,
-      lane_closest: "MLB H2H underdogs",
+      lane_closest: "MLB Moneyline underdogs",
       explanation: actionExplanation(action, { schema, mlb, runner }),
       mlb_h2h_underdogs: mlb,
       preview_counts: preview.body?.counts || {},
@@ -108,7 +108,7 @@ function emptyPayload(error, access) {
     error,
     generated_at: new Date().toISOString(),
     access: { email: access.email, owner_allowlist_configured: access.allowlistConfigured },
-    betting: { action: "SKIP", lane_closest: "MLB H2H underdogs", explanation: "Supabase is unavailable." },
+    betting: { action: "SKIP", lane_closest: "MLB Moneyline underdogs", explanation: "Supabase is unavailable." },
     growth: {},
     tail_bets: {},
     api_usage: {},
@@ -250,7 +250,7 @@ function actionExplanation(action, { schema, mlb, runner }) {
   if (action === "BET") return "BET only if the current book price is still inside the minimum bettable window.";
   if (action === "WATCH") return "WATCH because the lane is interesting but still below one or more hard gates.";
   if (clean(runner.latest_status).toLowerCase().includes("fail")) return "SKIP because the latest runner status is failing.";
-  return clean(mlb.status || mlb.bet_action) ? `SKIP because MLB H2H underdogs is ${mlb.status || mlb.bet_action}.` : "SKIP because no lane clears the rulebook.";
+  return clean(mlb.status || mlb.bet_action) ? `SKIP because MLB Moneyline underdogs is ${mlb.status || mlb.bet_action}.` : "SKIP because no lane clears the rulebook.";
 }
 
 function nextBottleneck({ schema, mlb, growth, tail, api }) {
@@ -259,13 +259,13 @@ function nextBottleneck({ schema, mlb, growth, tail, api }) {
   if ((growth.checkout_clicks || 0) < 3) return "Checkout intent is still too thin; keep tightening signup-to-checkout handoff.";
   if ((tail.closed || 0) < 10) return "Personal tail sample is still too small to infer betting behavior.";
   if (api.status === "risk") return "Odds API usage is getting hot; reduce polling waste before scaling.";
-  return "Keep collecting clean MLB H2H underdog closes and attribution data.";
+  return "Keep collecting clean MLB Moneyline underdog closes and attribution data.";
 }
 
 function nextActions({ schema, mlb, growth, tail, api }) {
   const actions = [];
   if (schema.status !== "ready") actions.push("Apply the CEO dashboard Supabase SQL bundle so attribution and lane bettable-window fields persist.");
-  if (!clean(mlb.current_best_retail_book)) actions.push("Confirm the live runner writes current_best_retail_book for MLB H2H underdog candidates.");
+  if (!clean(mlb.current_best_retail_book)) actions.push("Confirm the live runner writes current_best_retail_book for MLB Moneyline underdog candidates.");
   if (!clean(mlb.minimum_bettable_odds)) actions.push("Confirm the live runner writes minimum_bettable_odds before sending bettable-window alerts.");
   if ((growth.checkout_clicks || 0) < 3) actions.push("Run a tagged founder-beta test link and verify signup, plan_view, checkout_click, and Stripe metadata join.");
   if ((tail.closed || 0) < 10) actions.push("Keep logging personal tails from Telegram so the ledger reaches a usable sample.");
