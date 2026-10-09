@@ -43,7 +43,7 @@ export default function Footer() {
             <Link href="/about" className="hover:text-slate-950">
               About
             </Link>
-            <Link href="/blog" className="hover:text-slate-950">
+            <Link href="/blog" data-track="footer_research_notes" className="font-semibold text-slate-950 underline underline-offset-4">
               Research notes
             </Link>
             <Link href="/contact" className="hover:text-slate-950">

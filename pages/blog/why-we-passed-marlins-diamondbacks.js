@@ -31,7 +31,7 @@ export default function Article() {
               "@type": "BlogPosting",
               headline: title,
               datePublished: "2026-10-08",
-              dateModified: "2026-10-08",
+              dateModified: "2026-10-09",
               author: { "@type": "Organization", name: "SharpsSignal" },
               description,
               mainEntityOfPage:
@@ -55,7 +55,7 @@ export default function Article() {
               play.
             </p>
             <p className="muted">
-              By SharpsSignal · Published October 8, 2026 · 4-minute read
+              By SharpsSignal · Published October 8, 2026 · Updated October 9 · 5-minute read
             </p>
           </header>
           <p>
@@ -73,6 +73,16 @@ export default function Article() {
             positive. Confirmation was still pending. At the next saved check,
             the price no longer qualified.
           </p>
+          <figure className="decision-chart">
+            <span className="eyebrow">THE SAVED ESTIMATES</span>
+            <h2>A positive estimate. Still waiting.</h2>
+            <div className="decision-steps">
+              <div><span>8:37 p.m. EDT</span><strong>−1.95%</strong><p>Price below the required level</p></div>
+              <div><span>8:52 p.m. EDT</span><strong>+2.32%</strong><p>Price qualified. Confirmation pending.</p></div>
+              <div><span>8:57 p.m. EDT</span><strong>−1.55%</strong><p>Price below the required level again</p></div>
+            </div>
+            <figcaption>Three consecutive saved checks. Estimated EV, not actual returns. All three stayed WATCH. The full seven observations appear below.</figcaption>
+          </figure>
           <h2>What we actually recorded</h2>
           <p>
             These times are Eastern Daylight Time on September 15. The source
@@ -148,7 +158,7 @@ export default function Article() {
             requirement. We didn’t have a confirmed play in the records shown
             here.
           </p>
-          <h2>What this example can—and can’t—tell us</h2>
+          <h2>What this example tells us</h2>
           <p>
             This is a look at one historical decision sequence. The seven rows
             are repeated checks of one game, not seven independent
@@ -166,6 +176,29 @@ export default function Article() {
             profitable strategy. It shows why a promising number didn’t become a
             confirmed play in this sequence.
           </p>
+          <h2>So what happened in the game?</h2>
+          <p>
+            Miami won 4–2 in 11 innings. <a className="record-link" href="https://www.mlb.com/stories/game/825030">MLB’s game recap</a> records the result.
+          </p>
+          <p>
+            We also found a separate paper experiment for this game: Miami at +130,
+            captured at 8:07:14 p.m. EDT. That record was graded a win, with a paper
+            profit of 1.3 units. The experiment was called “Priced control: no edge
+            floor.” It did not require a minimum estimated edge.
+          </p>
+          <p>
+            That matters. The experimental bet won, while the monitored sequence
+            shown above stayed unconfirmed. These are different research records.
+            We can’t turn the experimental result into a claim that our monitored
+            setup was a confirmed winner, or that passing avoided a loss.
+          </p>
+          <p>
+            Would a losing bet make this a cleaner story? Sure. But choosing only
+            losing examples would tell you less about how we work. A bet can win
+            without meeting our rules. The useful question is whether we followed
+            those rules with the information available at the time.
+          </p>
+          <p><a className="record-link" data-track="article_experiment_evidence" href="/evidence/marlins-diamondbacks-control-result.json">Read the separate experimental record →</a></p>
           <h2>What you should expect from us</h2>
           <p>
             If we’re asking you to trust the process, we should be able to
