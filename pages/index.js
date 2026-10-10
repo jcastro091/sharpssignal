@@ -9,23 +9,23 @@ export default function Home() {
         <title>SharpsSignal | Find your signal.</title>
         <meta
           name="description"
-          content="Follow sports research from captured price to paper result. Free access to available member records, with Markets research alongside."
+          content="Sports picks with captured odds, clear timing and tracked results. Explore SharpsSignal free, then add real-time access and Telegram."
         />
       </Head>
       <main className="brand-page">
         <section className="brand-hero">
           <div className="hero-copy">
-            <span className="eyebrow">SPORTS RESEARCH · FREE TO FOLLOW</span>
+            <span className="eyebrow">SPORTS PICKS. CLEAR PRICES. TRACKED RESULTS.</span>
             <h1>
               Less noise.
               <br />
               <span>More signal.</span>
             </h1>
             <p>
-              Follow sports research from captured price to paper result. Your
-              free dashboard brings together available member records, captured
-              odds, and results as they are recorded. See what happened, what is
-              pending, and what is not yet measured.
+              Know the play. See the price. Follow the result.
+              SharpsSignal brings sports selections, sportsbook odds and
+              graded outcomes into one clear view. Start free, then upgrade
+              for real-time access and Sports alerts on Telegram.
             </p>
             <div className="hero-actions">
               <Link className="button-primary" href="/signup">
@@ -36,15 +36,14 @@ export default function Home() {
               </Link>
             </div>
             <small className="muted">
-              Free account. No card required. Paper research, not a promise of
-              profit.
+              Free account. No card required. Free feeds have a minimum 30-minute delay.
             </small>
           </div>
           <SignalPreview />
         </section>
         <div className="brand-strip">
-          <span>CAPTURED, NOT INVENTED</span>
-          <span>SPORTS + MARKETS</span>
+          <span>PRICE & TIME RECORDED</span>
+          <span>ALERT TO RESULT</span>
           <span>RESULTS WITH CONTEXT</span>
         </div>
         <SignalProcess />
@@ -60,10 +59,10 @@ export default function Home() {
               <span className="feature-icon">↗</span>
               <h3>Sports, in focus.</h3>
               <p>
-                Start with an available sports record. Compare the captured odds
-                with the paper result and closing-price evidence, when
-                available. No qualifying entry or no published record can mean
-                an empty feed.
+                See the selection, sportsbook, captured odds and game time.
+                Follow each released play through grading, with closing-price
+                comparisons when available. Alert frequency depends on
+                qualifying opportunities.
               </p>
             </article>
             <article className="feature-card">
@@ -79,10 +78,9 @@ export default function Home() {
               <span className="feature-icon">◎</span>
               <h3>Your space. Your pace.</h3>
               <p>
-                Start with Sports and change your interests anytime. A brief
-                guide helps you read your first record. Check the dashboard for
-                updates; automatic email, SMS, and push play alerts are not
-                active.
+                Start with the free dashboard. Upgrade for real-time access
+                and connect your Sports Telegram channel from billing.
+                Check results on the dashboard as plays are graded.
               </p>
             </article>
           </div>
@@ -108,9 +106,10 @@ export default function Home() {
             <span className="eyebrow">EVIDENCE OVER HYPE</span>
             <h2>A good signal deserves an honest record.</h2>
             <p>
-              Private verification and aggregate attestation protect the
-              research while keeping its limitations visible. A winning streak
-              is not proof of an edge.
+              Wins, losses and pending results each have a place. Simulated
+              selections are identified in the feed and kept distinct from
+              verified wagers. Explore our private verification and aggregate
+              attestation standards.
             </p>
           </div>
           <Link className="button-secondary" href="/verification">

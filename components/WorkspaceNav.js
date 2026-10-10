@@ -26,6 +26,6 @@ export default function WorkspaceNav({interests, section, onSectionChange, onPre
       </details>
       {isAdmin&&<Link className="workspace-item" href="/admin"><Icon name="admin"/><span>Admin workspace</span></Link>}
     </div>
-    <small>Paper research only.<br/>No live orders.</small>
+    <small>Simulated records labeled.<br/>No automatic wagers.</small>
   </aside>;
 }
