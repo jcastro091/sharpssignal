@@ -24,11 +24,12 @@ async function main(){
  const chunks=[];for(let i=0;i<value.length;i+=3180)chunks.push(value.slice(i,i+3180));
  await context.addCookies(chunks.map((value,i)=>({name:chunks.length===1?name:name+'.'+i,value,url:origin,secure:true,sameSite:'Lax'})));
  page=await context.newPage();await page.goto(origin+'/admin/refunds');await page.getByRole('heading',{name:'Pick fee refunds',exact:true}).waitFor();report.checks.push('verified admin screen loads');
+ const modeResponse=page.waitForResponse(r=>r.url().includes('/api/admin/pick-refunds?mode=test'));
  await page.getByRole('combobox').selectOption('test');
- const response=await page.waitForResponse(r=>r.url().includes('/api/admin/pick-refunds?mode=test'));
+ const response=await modeResponse;
  const data=await response.json();assert.equal(response.status(),200);report.checks.push('authenticated browser API reads live database');
  const forged=await context.request.post(origin+'/api/admin/pick-refunds',{headers:{Origin:'https://untrusted.example'},data:{mode:'test',action:'test_purchase'}});assert.equal(forged.status(),403);report.checks.push('cross-origin mutation denied');
- if(!data.configured){await page.getByRole('alert').waitFor();report.blocker='STRIPE_TEST_SECRET_KEY missing';report.checks.push('sandbox creation disabled without separate test key');}
+ if(!data.configured){report.blocker='STRIPE_TEST_SECRET_KEY missing';await page.getByRole('alert').filter({hasText:'Configure STRIPE_TEST_SECRET_KEY'}).waitFor();report.checks.push('sandbox creation disabled without separate test key');}
  else {
  const resultPromise=page.waitForResponse(r=>r.url().endsWith('/api/admin/pick-refunds')&&r.request().method()==='POST');
  await page.getByRole('button',{name:'Create sandbox purchase',exact:true}).click();const result=await(await resultPromise).json();assert(result.purchase_id);report.purchase_id=result.purchase_id;
