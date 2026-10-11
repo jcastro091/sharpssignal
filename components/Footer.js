@@ -15,7 +15,7 @@ export default function Footer() {
           <div className="font-bold text-slate-950">SharpsSignal</div>
           <p className="mt-2 max-w-md leading-6">
             Sports selections, captured prices and tracked results. Simulated
-            records are labeled. Outcomes and returns are never guaranteed.
+            records are labeled. Winning outcomes and wagering returns are never guaranteed.
           </p>
           <p className="mt-4 text-xs text-slate-500">
             Copyright {year} SharpsSignal. All rights reserved.
@@ -51,6 +51,9 @@ export default function Footer() {
             </Link>
             <Link href="/legal#terms" className="hover:text-slate-950">
               Terms
+            </Link>
+            <Link href="/legal#pick-refunds" className="hover:text-slate-950">
+              Pick-fee refunds
             </Link>
             <Link href="/privacy" className="hover:text-slate-950">
               Privacy
