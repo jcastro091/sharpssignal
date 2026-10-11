@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const source = fs.readFileSync('pages/api/pick-waitlist.js','utf8').replace(/^import .*;\r?\n/, '').replace('export const config', 'const config').replace('export default async function handler', 'async function handler');
+let saved, failure = false;
+const sandbox = { console: { error() {} }, createSupabaseServiceClient: () => ({ from: (table) => { assert.equal(table, 'pick_waitlist'); return { upsert: async (row, options) => { saved={row,options}; return { error: failure ? new Error('offline') : null }; } }; } }) };
+vm.createContext(sandbox);
+vm.runInContext(source+'\nthis.handler=handler;',sandbox);
+async function run(method, body) { let code, result; const headers={}; await sandbox.handler({method,body}, {setHeader(k,v){headers[k]=v;},status(c){code=c;return this;},json(v){result=v;return this;}});return {code,result,headers}; }
+assert.equal((await run('GET',{})).code,405);
+assert.equal((await run('POST',{email:'invalid',consent:true})).code,400);
+assert.equal((await run('POST',{email:'a@example.com'})).code,400);
+assert.equal((await run('POST',{email:'a@example.com',consent:true,website:'bot'})).code,400);
+assert.equal((await run('POST',{email:' Test+Pick@Example.com ',consent:true,utm_source:'x'})).code,200);
+assert.equal(saved.row.email,'test+pick@example.com');
+assert.equal(saved.row.utm_source,'x');
+assert.equal(saved.options.ignoreDuplicates,true);
+failure=true;
+assert.equal((await run('POST',{email:'a@example.com',consent:true})).code,503);
+console.log('waitlist: method, validation, consent, honeypot, normalization, attribution, duplicate handling and storage failure passed');
