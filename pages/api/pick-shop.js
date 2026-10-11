@@ -29,7 +29,7 @@ export default async function handler(req,res){
  if(req.body.action!=='checkout')return res.status(400).json({error:'unknown_action'});
  const offer=await dbResult(db.from('pick_fee_offers').select('*').eq('id',req.body.offer_id).eq('billing_mode',mode).maybeSingle());
  if(!offer?.active||Date.parse(offer.game_time)<=Date.now())throw Error('offer_closed');
- if(offer.owner_verification){if(!access.allowed||offer.created_by!==user.id)throw Error('admin_required');}
+ if(offer.owner_verification){if(mode!=='test')throw Error('verification_requires_sandbox');if(!access.allowed||offer.created_by!==user.id)throw Error('admin_required');}
  else if(mode==='live'&&!(process.env.PICK_CHECKOUT_ENABLED==='true'&&process.env.PICK_PROCESSOR_APPROVED==='true'&&process.env.PICK_TAX_READY==='true'&&Boolean(process.env.PICK_STRIPE_TAX_CODE)))throw Error('per_pick_sales_not_open');
  let order=await dbResult(db.from('pick_fee_orders').select('*').eq('offer_id',offer.id).eq('user_id',user.id).maybeSingle());
  if(!order){const r=await db.from('pick_fee_orders').insert({offer_id:offer.id,user_id:user.id}).select().single();if(r.error?.code==='23505')order=await dbResult(db.from('pick_fee_orders').select('*').eq('offer_id',offer.id).eq('user_id',user.id).single());else if(r.error)throw Error('commerce_storage_unavailable');else order=r.data;}
@@ -44,5 +44,5 @@ export default async function handler(req,res){
  if(session.livemode!==(mode==='live'))throw Error('payment_mode_mismatch');
  await dbResult(db.from('pick_fee_orders').update({checkout_session_id:session.id}).eq('id',order.id));
  return res.json({url:session.url,order_id:order.id});
- }catch(error){const allowed=['stripe_test_key_required','stripe_live_key_required','offer_closed','per_pick_sales_not_open','already_purchased','checkout_expired_contact_support','order_requires_review','payment_not_complete','payment_binding_mismatch','admin_required'];return res.status(400).json({error:allowed.includes(error.message)?error.message:'pick_checkout_unavailable'});}
+ }catch(error){const allowed=['stripe_test_key_required','stripe_live_key_required','offer_closed','per_pick_sales_not_open','already_purchased','checkout_expired_contact_support','order_requires_review','payment_not_complete','payment_binding_mismatch','admin_required','verification_requires_sandbox'];return res.status(400).json({error:allowed.includes(error.message)?error.message:'pick_checkout_unavailable'});}
 }

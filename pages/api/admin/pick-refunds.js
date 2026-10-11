@@ -24,6 +24,7 @@ export default async function handler(req,res) {
   if(!configured) return res.status(503).json({error:mode==='test'?'stripe_test_key_required':'stripe_live_key_required'});
   const stripe=commerceStripe(mode);
   if(req.body.action==='create_verification_offer') {
+   if(mode!=='test')return res.status(400).json({error:'verification_requires_sandbox'});
    let offer=await checked(db.from('pick_fee_offers').select('*').eq('created_by',access.user.id).eq('billing_mode',mode).eq('owner_verification',true).limit(1).maybeSingle());
    if(!offer){offer=await checked(db.from('pick_fee_offers').insert({home_team:'Verification home',away_team:'Verification away',sport:'verification',market:'moneyline',game_time:new Date(Date.now()+7*86400000).toISOString(),billing_mode:mode,owner_verification:true,selection:{side:'home',label:'Verification home moneyline',note:'Synthetic selection for the owner-only payment/reveal/refund test. Not a real wager.'},source:{synthetic:true},created_by:access.user.id}).select().single());}
    return res.json({offer_id:offer.id,url:'/pick-shop?mode='+mode,owner_verification:true});
