@@ -3,7 +3,7 @@ import {getCeoAccess} from '../../lib/ceoAccess';
 import {createSupabaseServiceClient} from '../../lib/supabaseServer';
 import {commerceStripe,dbResult,verifyPickSession,sameOrigin} from '../../lib/pickCommerceServer';
 import {teaser} from '../../lib/pickCommerce.cjs';
-import {recentPlayTeaser} from '../../lib/recentPlayTeasers.cjs';
+import {recentPlayTeaser,latestMatchups} from '../../lib/recentPlayTeasers.cjs';
 export default async function handler(req,res){
  res.setHeader('Cache-Control','private, no-store');
  if(!['GET','POST'].includes(req.method))return res.status(405).json({error:'method_not_allowed'});
@@ -18,10 +18,8 @@ export default async function handler(req,res){
   const offers=f.filter(x=>!x.owner_verification||(access.allowed&&x.created_by===user?.id)).map(teaser);
   const orders=user?.email_confirmed_at?await dbResult(db.from('pick_fee_purchases').select('id,pick_id,status,owner_verification').eq('user_id',user.id).eq('billing_mode',mode).order('created_at',{ascending:false}).limit(100)):[];
   let configured=true;try{commerceStripe(mode);}catch{configured=false;}
-  const receipts=await dbResult(db.from('telegram_delivery_receipts').select('source_id,sent_at').eq('pipeline','sports_pilot').eq('delivery_kind','natural_alert').eq('status','sent').not('sent_at','is',null).order('sent_at',{ascending:false}).limit(30));
-  const latest=[...new Map(receipts.map(r=>[r.source_id,r])).keys()].slice(0,3);
-  const records=latest.length?await dbResult(db.from('sports_pilot_alerts').select('pilot_alert_id,away_team,home_team,sport,market,game_time,sent_at').in('pilot_alert_id',latest)):[];
-  const recent=latest.map(id=>records.find(p=>p.pilot_alert_id===id)).filter(Boolean);
+  const records=await dbResult(db.from('paper_plays').select('paper_play_id,away_team,home_team,sport,market,game_time,selected_at').gte('selected_at',new Date(Date.now()-72*3600000).toISOString()).order('selected_at',{ascending:false}).limit(250));
+  const recent=latestMatchups(records);
   return res.json({offers,recent_plays:recent.map(recentPlayTeaser),orders,admin:access.allowed,authenticated:Boolean(user?.email_confirmed_at),configured,mode,live_sales_enabled:process.env.PICK_CHECKOUT_ENABLED==='true'&&process.env.PICK_PROCESSOR_APPROVED==='true'&&process.env.PICK_TAX_READY==='true'&&Boolean(process.env.PICK_STRIPE_TAX_CODE)});
  }
  if(!user?.email_confirmed_at)return res.status(401).json({error:'confirmed_account_required'});
