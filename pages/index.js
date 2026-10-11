@@ -1,3 +1,4 @@
+import PickPricing from "../components/PickPricing";
 import SignalProcess from '../components/SignalProcess';
 import Head from "next/head";
 import Link from "next/link";
@@ -116,6 +117,7 @@ export default function Home() {
             How verification works ↗
           </Link>
         </section>
+      <PickPricing />
       </main>
     </>
   );

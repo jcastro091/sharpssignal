@@ -1,3 +1,4 @@
+import PickPricing from "../components/PickPricing";
 const {LABELS}=require('../lib/productAccess.cjs');
 import {
   getFirstTouch,
@@ -491,6 +492,7 @@ export default function Billing({ offer, qaEnabled, initialProducts }) {
           </button>
         </details>
       )}
+    <PickPricing />
     </main>
   );
 }
