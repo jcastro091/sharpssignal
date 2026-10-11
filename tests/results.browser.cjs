@@ -49,7 +49,7 @@ const slips=[
  assert.equal(await page.getByText(/FanDuel has the lowest net result/).count(),0);
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'out/results-review/mobile.png',fullPage:true});
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
- fail=true;await page.getByRole('button',{name:'Reload history'}).click();await page.getByRole('alert').waitFor();
+ fail=true;await page.getByRole('button',{name:'Reload history'}).click();await page.getByRole('alert').filter({hasText:'Provider unavailable for test'}).waitFor();
  assert.equal(await page.getByRole('heading',{name:'Bet slips',exact:true}).count(),0);
  assert.deepEqual(errors,[]);console.log(JSON.stringify({desktop:true,mobile:true,receipts:true,filters:true,question:true,failedLoadClearsReceipts:true,browserErrors:errors}));
  } finally {await browser.close();}

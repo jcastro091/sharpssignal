@@ -201,3 +201,8 @@ Verification performed:
 Remaining production work: actual FanDuel linking, reconciliation against real
 slips, provider commercial/live entitlement, SDK flow, sync/reconnect behavior,
 and live multi-customer isolation. This is an owner pilot, not a general release.
+
+Desktop (1440px) and mobile (390px) browser fixture checks passed for receipts,
+filters, sample questions, no page overflow, and clearing receipts after a failed
+reload. No browser page errors. Fixtures are labeled sandbox and do not represent
+the owner's bets. The mobile table width issue found during verification is fixed.
