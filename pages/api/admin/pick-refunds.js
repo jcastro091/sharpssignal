@@ -1,14 +1,15 @@
-import Stripe from 'stripe';
 import { randomUUID, createHash } from 'crypto';
 import { getCeoAccess } from '../../../lib/ceoAccess';
 import { createSupabaseServiceClient } from '../../../lib/supabaseServer';
+import {runPickRefundWorker} from '../../../lib/pickRefundWorker';
+import {refundStore,sameOrigin,commerceStripe} from '../../../lib/pickCommerceServer';
 import { initiate } from '../../../lib/pickRefund.cjs';
 export default async function handler(req,res) {
  res.setHeader('Cache-Control','no-store');
  if(!['GET','POST'].includes(req.method)) return res.status(405).json({error:'method_not_allowed'});
  const access=await getCeoAccess(req,res);
  if(!access.allowed) return res.status(403).json({error:'admin_required'});
- if(req.method==='POST' && (!req.headers.origin || new URL(req.headers.origin).host!==req.headers.host)) return res.status(403).json({error:'same_origin_required'});
+ if(req.method==='POST' && !sameOrigin(req)) return res.status(403).json({error:'same_origin_required'});
  const mode=(req.method==='GET'?req.query.mode:req.body?.mode)==='test'?'test':'live';
  const key=mode==='test'?process.env.STRIPE_TEST_SECRET_KEY:process.env.STRIPE_SECRET_KEY;
  const configured=Boolean(key?.startsWith(mode==='test'?'sk_test_':'sk_live_'));
@@ -16,11 +17,25 @@ export default async function handler(req,res) {
  const checked=async promise=>{const r=await promise;if(r.error)throw Error('refund_storage_error');return r.data;};
  try {
   if(req.method==='GET') {
-   const purchases=await checked(db.from('pick_fee_purchases').select('id,pick_id,amount_paid_cents,currency,status,created_at').eq('billing_mode',mode).order('created_at',{ascending:false}).limit(100));
-   return res.json({purchases,configured,mode});
+   const purchases=await checked(db.rpc('admin_pick_refund_rows',{p_mode:mode,p_limit:100}));
+   const automation=await checked(db.from('pick_fee_automation_state').select('*').eq('billing_mode',mode).maybeSingle());
+   return res.json({purchases,configured,mode,automation});
   }
   if(!configured) return res.status(503).json({error:mode==='test'?'stripe_test_key_required':'stripe_live_key_required'});
-  const stripe=new Stripe(key);
+  const stripe=commerceStripe(mode);
+  if(req.body.action==='create_verification_offer') {
+   let offer=await checked(db.from('pick_fee_offers').select('*').eq('created_by',access.user.id).eq('billing_mode',mode).eq('owner_verification',true).limit(1).maybeSingle());
+   if(!offer){offer=await checked(db.from('pick_fee_offers').insert({home_team:'Verification home',away_team:'Verification away',sport:'verification',market:'moneyline',game_time:new Date(Date.now()+7*86400000).toISOString(),billing_mode:mode,owner_verification:true,selection:{side:'home',label:'Verification home moneyline',note:'Synthetic selection for the owner-only payment/reveal/refund test. Not a real wager.'},source:{synthetic:true},created_by:access.user.id}).select().single());}
+   return res.json({offer_id:offer.id,url:'/pick-shop?mode='+mode,owner_verification:true});
+  }
+  if(req.body.action==='settle_verification_loss') {
+   const p=await checked(db.from('pick_fee_purchases').select('*').eq('id',req.body.purchase_id).eq('user_id',access.user.id).eq('billing_mode',mode).eq('owner_verification',true).maybeSingle());
+   if(!p)throw Error('purchase_not_found');
+   const evidence={synthetic:true,scenario:'verified_loss_after_paid_reveal',purchase_id:p.id};
+   const saved=await db.from('pick_fee_settlements').insert({pick_id:p.pick_id,billing_mode:mode,result:'loss',verified:true,evidence_hash:createHash('sha256').update(JSON.stringify(evidence)).digest('hex'),source_url:'test://owner-verification',evidence,verified_by:access.user.id});
+   if(saved.error&&saved.error.code!=='23505')throw Error('refund_storage_error');
+   return res.json({status:'verification_loss_recorded',automation:await runPickRefundWorker(mode,p.pick_id)});
+  }
   if(req.body.action==='test_purchase') {
    if(mode!=='test') return res.status(400).json({error:'sandbox_only'});
    const id=randomUUID(),pickId='sandbox-loss:'+id;
@@ -32,12 +47,9 @@ export default async function handler(req,res) {
    return res.json({purchase_id:id,status:'paid',sandbox:true});
   }
   if(!['preview','refund','refresh'].includes(req.body.action)) return res.status(400).json({error:'unknown_action'});
-  const store={isAdmin:async id=>id===access.user.id,
-   purchase:async id=>checked(db.from('pick_fee_purchases').select('*').eq('id',id).eq('billing_mode',mode).maybeSingle()),
-   settlement:async(id,m)=>checked(db.from('pick_fee_settlements').select('*').eq('pick_id',id).eq('billing_mode',m).maybeSingle()),
-   existingClaim:async id=>checked(db.from('pick_fee_refund_claims').select('*').eq('purchase_id',id).maybeSingle()),
-   claim:async c=>checked(db.rpc('reserve_pick_fee_refund',{p_purchase_id:c.purchase_id,p_admin_id:c.admin_id,p_amount:c.amount_cents,p_evidence_hash:c.evidence_hash})),
-   complete:async(id,r)=>checked(db.rpc('complete_pick_fee_refund',{p_claim_id:id,p_refund_id:r.stripe_refund_id,p_status:r.status,p_amount:r.amount,p_total_refunded:r.total_refunded,p_currency:r.currency,p_failure_code:r.failure_code}))};
+  const purchase=await checked(db.from('pick_fee_purchases').select('id').eq('id',req.body.purchase_id).eq('billing_mode',mode).maybeSingle());
+  if(!purchase)throw Error('purchase_not_found');
+  const store=refundStore(db,access.user.id);
   return res.json(await initiate({purchaseId:req.body.purchase_id,adminId:access.user.id,store,stripe,previewOnly:req.body.action==='preview',refreshOnly:req.body.action==='refresh'}));
  } catch(error) {
   const safe=['purchase_not_found','verified_losing_pick_required','payment_binding_mismatch','captured_undisputed_payment_required','refund_requires_reconciliation','refund_claim_conflict','refund_storage_error','not_a_guaranteed_pick'];

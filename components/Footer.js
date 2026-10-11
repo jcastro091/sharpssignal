@@ -28,6 +28,9 @@ export default function Footer() {
             <Link href="/about" className="hover:text-slate-950">
               Sports + Markets
             </Link>
+            <Link href="/pick-shop" className="hover:text-slate-950">
+              Pick shop
+            </Link>
             <Link href="/verification" className="hover:text-slate-950">
               Verification
             </Link>

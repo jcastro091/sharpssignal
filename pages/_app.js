@@ -3,6 +3,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import "../styles/globals.css";
 import "../styles/brand.css";
+import "../styles/pick-commerce.css";
 import GA from "../components/GA";
 import FunnelTracker from "../components/FunnelTracker";
 import AnalyticsConsent from "../components/AnalyticsConsent";

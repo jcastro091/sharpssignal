@@ -1,0 +1,20 @@
+// Trusted production runner only. Does not enter card details or send email.
+const {chromium}=require('playwright');const assert=require('node:assert/strict');const fs=require('node:fs');
+const origin='https://www.sharps-signal.com';
+(async()=>{const report={origin,checks:[],real_payment_and_refund_verified:false};let browser,session;
+const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_SERVICE_ROLE;assert(url?.includes('npoanpbmkglupulcklcg')&&key);
+const auth=async(path,body)=>{const r=await fetch(url+'/auth/v1/'+path,{method:'POST',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(body)});assert(r.ok,'auth_failed');return r.json();};
+try{browser=await chromium.launch();let context=await browser.newContext(),page=await context.newPage();
+assert.equal((await context.request.get(origin+'/api/admin/pick-refunds')).status(),403);await page.goto(origin+'/admin/refunds');assert(page.url().includes('/signin'));report.checks.push('anonymous admin API and page denied');
+const publicShop=await(await context.request.get(origin+'/api/pick-shop')).json();assert(!JSON.stringify(publicShop).includes('selection'));assert.equal(publicShop.live_sales_enabled,false);report.checks.push('public teasers contain no selection and public sales remain gated');await context.close();
+const link=await auth('admin/generate_link',{type:'magiclink',email:'sharpssignal@gmail.com'});session=await auth('verify',{type:'magiclink',token_hash:link.hashed_token});for(const token of [session.access_token,session.refresh_token])console.log('::add-mask::'+token);
+context=await browser.newContext();const v=encodeURIComponent(JSON.stringify([session.access_token,session.refresh_token,null,null,null]));const chunks=[];for(let i=0;i<v.length;i+=3180)chunks.push(v.slice(i,i+3180));const name='sb-npoanpbmkglupulcklcg-auth-token';await context.addCookies(chunks.map((value,i)=>({name:chunks.length===1?name:name+'.'+i,value,url:origin,secure:true,sameSite:'Lax'})));
+page=await context.newPage();await page.goto(origin+'/admin/refunds');await page.getByRole('heading',{name:/Every order/}).waitFor();await page.getByRole('heading',{name:'Customers & orders'}).waitFor();const rows=await(await context.request.get(origin+'/api/admin/pick-refunds?mode=live')).json();assert.equal(rows.configured,true);report.checks.push('authenticated redesigned admin reads production customer ledger');
+assert.equal((await context.request.post(origin+'/api/admin/pick-refunds',{headers:{Origin:'https://untrusted.example'},data:{action:'create_verification_offer',mode:'live'}})).status(),403);report.checks.push('foreign-origin mutation rejected');
+const worker=await context.request.post(origin+'/api/admin/pick-refund-worker',{headers:{Origin:origin},data:{mode:'live'}});assert.equal(worker.status(),200);report.checks.push('authenticated live automation endpoint runs');
+await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert((await page.locator('.refund-page').evaluate(e=>getComputedStyle(e).fontFamily)).includes('Arial'));report.checks.push('mobile width and explicit typography verified');
+await page.goto(origin+'/pick-shop');await page.getByRole('heading',{name:/Choose the matchup/}).waitFor();report.checks.push('production matchup teaser shop renders');
+// The owner enters their own card in Stripe Checkout. No live charge is created by this harness.
+report.blocker='Owner card payment still required to verify actual $5 payment and refund';await context.close();
+}finally{if(session?.access_token)await fetch(url+'/auth/v1/logout?scope=local',{method:'POST',headers:{apikey:key,Authorization:'Bearer '+session.access_token}});if(browser)await browser.close();fs.mkdirSync('out',{recursive:true});fs.writeFileSync('out/deployed-pick-commerce-e2e.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));}
+})().catch(()=>{console.error('deployed_pick_commerce_e2e_failed');process.exitCode=1;});

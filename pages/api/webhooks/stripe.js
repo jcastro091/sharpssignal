@@ -79,6 +79,13 @@ export default async function handler(req,res){
  let event;
  try{req.verifiedRawBody=await buffer(req);event=stripe.webhooks.constructEvent(req.verifiedRawBody,req.headers['stripe-signature'],process.env.STRIPE_WEBHOOK_SECRET);}catch{return res.status(400).json({ok:false,error:'invalid_signature'});}
  const object=event.data?.object;
+ if(object?.metadata?.product_type==='pick'&&['checkout.session.completed','checkout.session.async_payment_succeeded'].includes(event.type)){
+  try{const {verifyPickSession}=await import('../../../lib/pickCommerceServer');await verifyPickSession(object.id,object.metadata.user_id,'live');return res.json({ok:true,product_type:'pick'});}catch{return res.status(503).json({ok:false,error:'pick_payment_not_verified'});}
+ }
+ if(['refund.updated','refund.failed','refund.created'].includes(event.type)&&object?.metadata?.purchase_id){
+  try{const db=createSupabaseServiceClient();const {data:p,error}=await db.from('pick_fee_purchases').select('billing_mode').eq('id',object.metadata.purchase_id).maybeSingle();if(error)throw error;if(p?.billing_mode==='live'){const {runPickRefundWorker}=await import('../../../lib/pickRefundWorker');await runPickRefundWorker('live');return res.json({ok:true,product_type:'pick'});}}catch{return res.status(503).json({ok:false,error:'pick_refund_reconciliation_failed'});}
+ }
+
  if(object?.metadata?.qa_test==='true'){
   if(object.metadata.user_id!==process.env.QA_CHECKOUT_USER_ID)return res.status(403).json({ok:false});
   if(['checkout.session.completed','checkout.session.async_payment_succeeded'].includes(event.type)){
