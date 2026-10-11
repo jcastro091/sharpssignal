@@ -57,7 +57,7 @@ test('results are identity-scoped, deduplicated and exclude foreign or disconnec
   const res=await run({...request,query:{internalId:'victim'}},{fetchImpl:async(url)=>{
     calls.push(url);
     if(url.endsWith('/bettorAccounts')) return fixture([{id:'BACT_me',verified:true},{id:'BACT_removed',access:false}]);
-    if(url.includes('/betSlips?')) return fixture([slip,slip,{...slip,id:'SLIP_other',bettor:'BTTR_other'},{...slip,id:'SLIP_removed',bettorAccount:'BACT_removed'}]);
+    if(url.includes('/betSlips?')) return fixture({objects:[slip,slip,{...slip,id:'SLIP_other',bettor:'BTTR_other'},{...slip,id:'SLIP_removed',bettorAccount:'BACT_removed'}],totalPages:1});
     return fixture({id:'BTTR_me',internalId:id});
   }});
   assert.equal(res.code,200); assert.equal(res.body.slips.length,1); assert.equal(res.body.accounts.length,1);

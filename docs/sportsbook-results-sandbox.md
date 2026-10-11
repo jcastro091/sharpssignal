@@ -145,3 +145,59 @@ Continue sandbox-only verification through the protected Preview. A signed-in
 customer session and provider extension support are needed to complete the
 remaining interactive checks. This continuation does not authorize a live-mode
 rollout.
+
+## October 11 — consolidated dashboard and live-pilot preparation
+
+The owner selected FanDuel for the first real-account test. `/results` now shows
+provider slips, open exposure, settled P&L, cash-stake ROI, sportsbook/market
+comparisons, date/book/market filters and expandable receipts. The workspace
+navigation links to it. Manual/Telegram bets remain a linked, separate ledger:
+no heuristic combines them with provider slips and double-counts a wager.
+
+History reads use the documented pageSize/pageNum response, up to 20 pages of
+100 records. A capped response is explicitly partial. Filters apply to imported
+placement dates in UTC; the Open/Settled selector only changes the receipt list.
+No background sync, original receipt images, or webhook persistence is claimed.
+Unknown accounting stays unknown; cashout and partial settlements use the
+provider netProfit. ROI uses settled rows with known profit and positive actual
+stake, using adjusted stake when supplied. Zero-stake promotions are excluded
+from ROI, but their reported profit remains in net P&L. Parlays have one P&L and
+a separate market group; leg stakes/results are never summed.
+
+The question endpoint authenticates again, retrieves that customer's provider
+history and computes its own numbers. The AI receives only the bounded question
+and classifies dimension, direction and metric. It receives no customer identity
+or imported bets and cannot execute SQL, make provider requests, change accounts,
+or choose another customer. Questions requesting new date or named-group
+constraints ask the customer to set dashboard filters. OPENAI_MODEL remains the
+existing configured default; BET_INSIGHTS_MODEL can override it. The original
+public signal assistant remains retired.
+
+Live configuration is separate from sandbox:
+- SHARPSPORTS_MODE=live
+- SHARPSPORTS_PUBLIC_KEY and SHARPSPORTS_PRIVATE_KEY: distinct live keys
+- SHARPSPORTS_IDENTITY_SECRET: retain a stable secret, never rotate casually
+- SHARPSPORTS_PILOT_USER_IDS: the verified owner's Supabase user ID
+
+The allowlist is mandatory and enforced server-side. Live provider identities
+use a different prefix, preventing sandbox records from entering live results.
+No live keys were found or provisioned during this work. The existing branch
+Preview remains sandbox. No plan purchase, FanDuel login, or real-account E2E
+success has occurred. Live enablement needs the provider's live developer
+configuration and the owner's Chrome extension/login flow. Never submit a real
+sportsbook password to the sandbox UI or to Sharp Signals.
+
+Verification performed:
+- 22 accounting/security/provider-handler tests passed.
+- Production build passed with isolated mock auth configuration.
+- Existing safe redirect/admin checks passed.
+- A real SharpSports sandbox read returned HTTP 200, zero accessible accounts
+  and zero imported slips, consistent with the earlier disconnect.
+- The configured OpenAI account advertised gpt-4.1-mini. Five live AI calls
+  correctly classified book losses, market profit and league ROI, and rejected
+  unsupported named-book/date and cross-customer requests.
+- Browser and deployed preview verification are recorded in the task report.
+
+Remaining production work: actual FanDuel linking, reconciliation against real
+slips, provider commercial/live entitlement, SDK flow, sync/reconnect behavior,
+and live multi-customer isolation. This is an owner pilot, not a general release.

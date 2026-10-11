@@ -18,6 +18,7 @@ export default function WorkspaceNav({interests, section, onSectionChange, onPre
     <nav className="workspace-links" aria-label="Workspace">
       {interests.map(item=><button className="workspace-item" key={item} aria-current={section===item?'page':undefined} onClick={()=>onSectionChange(item)}><Icon name={item}/><span>{item==='sports'?'Sports':'Markets'}</span></button>)}
       <Link className="workspace-item" href="/alerts"><Icon name="alerts"/><span>Alerts</span></Link>
+      <Link className="workspace-item" href="/results"><Icon name="admin"/><span>My sportsbooks</span></Link>
     </nav>
     <div className="workspace-tools">
       <Link className="workspace-item workspace-upgrade" href="/billing"><Icon name="upgrade"/><span>Upgrade + Telegram</span></Link>
