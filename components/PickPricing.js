@@ -54,7 +54,7 @@ export default function PickPricing() {
           {error && <p role="alert">{error}</p>}
         </form>
       )}
-      <p className="muted mt-4"><Link href="/privacy">Privacy</Link> · <Link href="/legal#pick-refunds">Pick-fee refund terms</Link></p>
+      <p className="muted mt-4"><Link href="/pick-shop">Preview the pick shop</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/legal#pick-refunds">Pick-fee refund terms</Link></p>
     </section>
   );
 }
