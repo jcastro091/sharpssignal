@@ -86,7 +86,9 @@ export default async function handler(req,res){
   try{const db=createSupabaseServiceClient();const {data:p,error}=await db.from('pick_fee_purchases').select('billing_mode').eq('id',object.metadata.purchase_id).maybeSingle();if(error)throw error;if(p?.billing_mode==='live'){const {runPickRefundWorker}=await import('../../../lib/pickRefundWorker');await runPickRefundWorker('live');return res.json({ok:true,product_type:'pick'});}}catch{return res.status(503).json({ok:false,error:'pick_refund_reconciliation_failed'});}
  }
 
- if(object?.metadata?.qa_test==='true'){
+ // QA refunds have no user_id and do not grant access. Apply the owner check
+ // only to checkout events; other signed events use the normal handler below.
+ if(object?.metadata?.qa_test==='true'&&['checkout.session.completed','checkout.session.async_payment_succeeded'].includes(event.type)){
   if(object.metadata.user_id!==process.env.QA_CHECKOUT_USER_ID)return res.status(403).json({ok:false});
   if(['checkout.session.completed','checkout.session.async_payment_succeeded'].includes(event.type)){
    try{const {verifiedQAGrant}=require('../../../lib/realtimeBilling.cjs');await verifiedQAGrant(stripe,createSupabaseServiceClient(),object.id,object.metadata.user_id);}
