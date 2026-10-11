@@ -1,3 +1,4 @@
+import TailPick from './TailPick';
 import {displayLabel as human} from '../lib/uiLabels.cjs';
 import TeamLogo from './TeamLogo';
 import {marketLabel} from '../lib/marketDisplay.cjs';
@@ -26,7 +27,7 @@ export default function LatestSignals({section,feed,error,updated=[]}) {
       {sports&&<p className="signal-matchup">{play.away} @ {play.home}</p>}
       <dl className="signal-levels">{sports?<><div><dt>Captured odds</dt><dd>{decimalToAmericanLabel(play.decimal)}</dd></div><div><dt>Sportsbook</dt><dd>{sportsbookName(play.book)}</dd></div></>:<><div><dt>Entry</dt><dd>{formatMarketPrice(play.entry_price)}</dd></div><div><dt>Stop</dt><dd>{formatMarketPrice(play.stop)}</dd></div><div><dt>Target</dt><dd>{formatMarketPrice(play.target)}</dd></div></>}</dl>
       <div className="signal-card-details"><p><span>{sports?'Game time':'Recorded'}</span><b>{stamp(sports?play.start:play.entry_time)}</b></p>{sports?<p><span>Recorded</span><b>{stamp(play.entry_at)}</b></p>:<p><span>Paper P&amp;L</span><b>{play.status==='closed'?(Number.isFinite(play.net_pnl)?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(play.net_pnl):'Not available'):'Pending'}</b></p>}</div>
-      <p className="signal-card-note">{sports?'Simulated selection · captured odds may have changed.':'Recorded paper trade; entry, stop and target are research levels.'}</p>
+      {sports&&<TailPick play={play}/>}<p className="signal-card-note">{sports?'Simulated selection · captured odds may have changed.':'Recorded paper trade; entry, stop and target are research levels.'}</p>
     </article>)}</div>}
   </section>;
 }
