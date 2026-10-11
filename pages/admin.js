@@ -22,6 +22,7 @@ export default function Admin() {
         experience.
       </p>
       <div className="feature-grid">
+        <Link className="feature-card" href="/admin/refunds"><h2>Pick fee refunds →</h2><p>Review eligible losing picks and refund their purchase price.</p></Link>
         <Link className="feature-card" href="/analytics">
           <h2>Website analytics →</h2>
           <p>Readership, engagement, heatmaps and the conversion funnel.</p>
