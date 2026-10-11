@@ -3,7 +3,7 @@ const {proposal,initiate}=require('../lib/pickRefund.cjs');
 function fixture(){
  const purchase={id:'order1',pick_id:'pick1',user_id:'buyer1',product_type:'pick',guarantee_version:'pick_fee_loss_v1',payment_intent_id:'pi_1',amount_paid_cents:500,currency:'usd',billing_mode:'live',qa_test:false};
  const settlement={pick_id:'pick1',billing_mode:'live',verified:true,status:'final',result:'loss',evidence_hash:'score-hash'};
- const payment={id:'pi_1',livemode:true,status:'succeeded',amount_received:500,currency:'usd',metadata:{purchase_id:'order1',pick_id:'pick1',user_id:'buyer1'},latest_charge:{captured:true,disputed:false,amount_refunded:0}};
+ const payment={id:'pi_1',livemode:true,status:'succeeded',amount_received:500,currency:'usd',metadata:{purchase_id:'order1',pick_id:'pick1',user_id:'buyer1'},latest_charge:{id:'ch_1',captured:true,disputed:false,amount_refunded:0}};
  return {purchase,settlement,payment};
 }
 test('refund equals actual pick purchase price, ignoring any wager stake',()=>{
@@ -23,7 +23,7 @@ test('subscriptions, QA purchases, absent guarantee, foreign payments and disput
 test('admin initiation reserves and audits refund and uses a durable idempotency key',async()=>{
  const f=fixture();let calls=0,complete=0;const keys=[];
  const store={isAdmin:async id=>id==='admin',purchase:async()=>f.purchase,settlement:async()=>f.settlement,existingClaim:async()=>null,claim:async()=>({id:'claim1',amount_cents:500,evidence_hash:'score-hash',created_at:new Date().toISOString()}),complete:async()=>complete++};
- const stripe={paymentIntents:{retrieve:async()=>f.payment},refunds:{list:async()=>({data:[]}),create:async(body,opts)=>{calls++;keys.push(opts.idempotencyKey);assert.equal(body.amount,500);return {id:'re_1',payment_intent:'pi_1',livemode:true,amount:500,currency:'usd',status:'succeeded'};}}};
+ const stripe={paymentIntents:{retrieve:async()=>f.payment},refunds:{list:async()=>({data:[]}),create:async(body,opts)=>{calls++;keys.push(opts.idempotencyKey);assert.equal(body.amount,500);return {id:'re_1',payment_intent:'pi_1',charge:'ch_1',amount:500,currency:'usd',status:'succeeded'};}}};
  await assert.rejects(initiate({purchaseId:'order1',adminId:'buyer',store,stripe}),/admin_required/);assert.equal(calls,0);
  await initiate({purchaseId:'order1',adminId:'admin',store,stripe});await initiate({purchaseId:'order1',adminId:'admin',store,stripe});
  assert.deepEqual(keys,['pick-fee-refund:claim1','pick-fee-refund:claim1']);assert.equal(complete,2);
@@ -35,14 +35,14 @@ test('failed audit reservation never reaches the payment provider',async()=>{
 test('retry after completion-write failure reuses the provider key and creates one refund',async()=>{
  const f=fixture();let writes=0,created=0;const refunds=new Map();
  const store={isAdmin:async()=>true,purchase:async()=>f.purchase,settlement:async()=>f.settlement,existingClaim:async()=>null,claim:async()=>({id:'claim1',amount_cents:500,evidence_hash:'score-hash',created_at:new Date().toISOString()}),complete:async()=>{if(++writes===1)throw Error('audit_offline')}};
- const stripe={paymentIntents:{retrieve:async()=>f.payment},refunds:{list:async()=>({data:[]}),create:async(body,opts)=>{if(!refunds.has(opts.idempotencyKey)){created++;refunds.set(opts.idempotencyKey,{id:'re_1',payment_intent:'pi_1',livemode:true,amount:500,currency:'usd',status:'pending'});}return refunds.get(opts.idempotencyKey);}}};
+ const stripe={paymentIntents:{retrieve:async()=>f.payment},refunds:{list:async()=>({data:[]}),create:async(body,opts)=>{if(!refunds.has(opts.idempotencyKey)){created++;refunds.set(opts.idempotencyKey,{id:'re_1',payment_intent:'pi_1',charge:'ch_1',amount:500,currency:'usd',status:'pending'});}return refunds.get(opts.idempotencyKey);}}};
  await assert.rejects(initiate({purchaseId:'order1',adminId:'admin',store,stripe}),/audit_offline/);
  const result=await initiate({purchaseId:'order1',adminId:'admin',store,stripe});assert.equal(result.status,'pending');assert.equal(created,1);
 });
 test('reconciles provider success after local write failure even when fully refunded',async()=>{
  const f=fixture();f.payment.latest_charge.amount_refunded=500;let created=0,written=0;
  const claim={id:'claim1',amount_cents:500,evidence_hash:'score-hash',created_at:new Date().toISOString()};
- const refund={id:'re_1',payment_intent:'pi_1',livemode:true,amount:500,currency:'usd',status:'succeeded',metadata:{claim_id:'claim1'}};
+ const refund={id:'re_1',payment_intent:'pi_1',charge:'ch_1',amount:500,currency:'usd',status:'succeeded',metadata:{claim_id:'claim1'}};
  const store={isAdmin:async()=>true,purchase:async()=>f.purchase,settlement:async()=>f.settlement,existingClaim:async()=>claim,complete:async()=>written++};
  const stripe={paymentIntents:{retrieve:async()=>f.payment},refunds:{list:async()=>({data:[refund]}),create:async()=>{created++}}};
  const r=await initiate({purchaseId:'order1',adminId:'admin',store,stripe});assert.equal(r.status,'succeeded');assert.equal(created,0);assert.equal(written,1);
@@ -63,4 +63,15 @@ test('test and live payments cannot cross billing modes',()=>{
  const f=fixture();f.payment.livemode=false;assert.throws(()=>proposal(...Object.values(f)),/payment_binding_mismatch/);
  f.purchase.billing_mode='test';f.purchase.qa_test=true;f.settlement.billing_mode='test';assert.equal(proposal(...Object.values(f)).amount_cents,500);
  f.settlement.billing_mode='live';assert.throws(()=>proposal(...Object.values(f)),/verified_losing_pick_required/);
+});
+test('real Stripe Refund shape without livemode completes in both modes and rejects a foreign charge',async()=>{
+ for(const mode of ['test','live'])for(const charge of ['ch_1','ch_other']){
+  const f=fixture();f.purchase.billing_mode=mode;f.purchase.qa_test=mode==='test';f.settlement.billing_mode=mode;f.payment.livemode=mode==='live';
+  let completed=0;
+  const claim={id:'claim1',amount_cents:500,evidence_hash:'score-hash',stripe_refund_id:'re_1'};
+  const store={isAdmin:async()=>true,purchase:async()=>f.purchase,settlement:async()=>f.settlement,existingClaim:async()=>claim,complete:async()=>completed++};
+  const stripe={paymentIntents:{retrieve:async()=>f.payment},refunds:{retrieve:async()=>({id:'re_1',object:'refund',payment_intent:'pi_1',charge,amount:500,currency:'usd',status:'succeeded'})}};
+  if(charge==='ch_1'){assert.equal((await initiate({purchaseId:'order1',adminId:'admin',store,stripe})).status,'succeeded');assert.equal(completed,1);}
+  else{await assert.rejects(initiate({purchaseId:'order1',adminId:'admin',store,stripe}),/refund_response_mismatch/);assert.equal(completed,0);}
+ }
 });
