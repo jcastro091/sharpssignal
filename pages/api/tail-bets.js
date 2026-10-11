@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { getServerUser } from "../../lib/authServer";
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'private, no-store');
   if (req.method === "GET") {
     const user = await getServerUser(req, res);
     if (!user?.email) return res.status(401).json({ ok: false, error: "auth_required", bets: [], summary: summarizeLedger([]) });
@@ -13,7 +14,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: "method_not_allowed" });
   }
 
-  const body = typeof req.body === "object" && req.body ? req.body : {};
+  const user = await getServerUser(req, res);
+  if (!user?.email_confirmed_at || !user?.email) return res.status(401).json({ok:false,error:'auth_required'});
+  try { if (new URL(req.headers.origin).host !== req.headers.host) throw Error(); }
+  catch { return res.status(403).json({ok:false,error:'same_origin_required'}); }
+  const input = typeof req.body === "object" && req.body ? req.body : {};
+  const body = { ...input, email:user.email, status:'open', placed_at:new Date().toISOString(),
+    tail_bet_id:stableId('member',user.id,input.bet_id,input.pick_id,input.sportsbook,input.odds_taken||input.odds_american,input.stake),
+    source:'member_dashboard', telegram_user_id:'', telegram_username:'', telegram_chat_id:'', raw_telegram_update_id:'', account_link_status:'not_telegram' };
   const result = await submitTailBet(body);
   return res.status(result.status).json(result.body);
 }
