@@ -13,7 +13,7 @@ page=await context.newPage();await page.goto(origin+'/admin/refunds');await page
 assert.equal((await context.request.post(origin+'/api/admin/pick-refunds',{headers:{Origin:'https://untrusted.example'},data:{action:'create_verification_offer',mode:'live'}})).status(),403);report.checks.push('foreign-origin mutation rejected');
 const worker=await context.request.post(origin+'/api/admin/pick-refund-worker',{headers:{Origin:origin},data:{mode:'live'}});assert.equal(worker.status(),200);report.checks.push('authenticated live automation endpoint runs');
 await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert((await page.locator('.refund-page').evaluate(e=>getComputedStyle(e).fontFamily)).includes('Arial'));report.checks.push('mobile width and explicit typography verified');
-await page.goto(origin+'/pick-shop');await page.getByRole('heading',{name:/Choose the matchup/}).waitFor();report.checks.push('production matchup teaser shop renders');
+await page.goto(origin+'/pick-shop');await page.getByRole('heading',{name:/See the matchup/}).waitFor();report.checks.push('production matchup teaser shop renders');
 // The owner enters their own card in Stripe Checkout. No live charge is created by this harness.
 report.blocker='Owner card payment still required to verify actual $5 payment and refund';await context.close();
 }finally{if(session?.access_token)await fetch(url+'/auth/v1/logout?scope=local',{method:'POST',headers:{apikey:key,Authorization:'Bearer '+session.access_token}});if(browser)await browser.close();fs.mkdirSync('out',{recursive:true});fs.writeFileSync('out/deployed-pick-commerce-e2e.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));}
