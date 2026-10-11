@@ -1,3 +1,4 @@
+import {displayLabel as human} from '../lib/uiLabels.cjs';
 import TeamLogo from './TeamLogo';
 import {marketLabel} from '../lib/marketDisplay.cjs';
 import {signalKey} from '../lib/signalChanges.cjs';
@@ -10,7 +11,6 @@ const stamp=value=>{
   const date=new Date(typeof value==='number'?value*1000:value);
   return Number.isFinite(date.getTime())?date.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'})+' ET':'Not available';
 };
-const human=value=>String(value||'Pending').replaceAll('_',' ');
 const captured=play=>new Date(typeof (play.entry_at??play.entry_time)==='number'?(play.entry_at??play.entry_time)*1000:(play.entry_at??play.entry_time)).getTime();
 
 export default function LatestSignals({section,feed,error,updated=[]}) {

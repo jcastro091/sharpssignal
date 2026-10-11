@@ -1,3 +1,4 @@
+import {displayLabel as human} from '../lib/uiLabels.cjs';
 import {marketLabel} from '../lib/marketDisplay.cjs';
 import {fetchMemberFeed} from '../lib/feedRequest.cjs';
 import {useRef} from 'react';
@@ -15,7 +16,6 @@ import {getCeoAccess} from '../lib/ceoAccess';
 import {supabase} from '../lib/supabaseClient';
 export async function getServerSideProps({req,res}){res.setHeader('Cache-Control','private, no-store');const auth=await requireServerUser(req,res);if(!auth.user)return {redirect:{destination:auth.redirect,permanent:false}};const access=await getCeoAccess(req,res);const interests=Array.isArray(auth.user.user_metadata?.interests)?auth.user.user_metadata.interests.filter(x=>['sports','markets'].includes(x)):['sports','markets'];return {props:{initialInterests:interests,isAdmin:access.allowed}};}
 const stamp=x=>{const d=new Date(typeof x==='number'?x*1000:x);return Number.isFinite(d.getTime())?d.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}):'Not available';};
-const human=x=>String(x||'Pending').replaceAll('_',' ');
 export default function Dashboard({initialInterests,isAdmin}){const [interests,setInterests]=useState(initialInterests),[section,setSection]=useState(initialInterests[0]||'sports'),[feed,setFeed]=useState(null),[error,setError]=useState(''),[refresh,setRefresh]=useState(0),[saving,setSaving]=useState(false),[notice,setNotice]=useState(''),[fetching,setFetching]=useState(true),[updated,setUpdated]=useState([]);const snapshots=useRef(new Map());const highlightTimer=useRef(null);
 useEffect(()=>()=>clearTimeout(highlightTimer.current),[]);
 useEffect(()=>{if(!interests.includes(section))return;let active=true;const controller=new AbortController();setFeed(null);setError('');setFetching(true);setUpdated([]);clearTimeout(highlightTimer.current);

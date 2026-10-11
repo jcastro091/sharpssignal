@@ -1,3 +1,4 @@
+import {displayLabel} from '../lib/uiLabels.cjs';
 import {formatAmerican, decimalToAmericanLabel} from '../lib/oddsDisplay.cjs';
 import { useEffect, useMemo, useState } from "react";
 
@@ -152,7 +153,7 @@ export default function PicksTable({ picks = [] }) {
         ["win", "won", "w", "1", "true"].includes(s) ? "Win" :
         ["loss", "lose", "lost", "l", "0", "false"].includes(s) ? "Loss" :
         ["push", "p", "void", "refund"].includes(s) ? "Push" :
-        raw ? String(raw) : "-";
+        raw ? displayLabel(raw) : "-";
       const cls =
         label === "Win" ? "bg-emerald-100 text-emerald-700" :
         label === "Loss" ? "bg-rose-100 text-rose-700" :

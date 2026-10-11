@@ -1,3 +1,4 @@
+import {displayLabel} from '../lib/uiLabels.cjs';
 import {marketLabel} from '../lib/marketDisplay.cjs';
 import {sportsbookName} from '../lib/sportsbookDisplay.cjs';
 import { useEffect, useMemo, useState } from "react";
@@ -205,7 +206,7 @@ export default function BetsPage({ userEmail = "" }) {
                     <td className="whitespace-nowrap px-4 py-3">{money(bet.stake)}</td>
                     <td className="whitespace-nowrap px-4 py-3">
                       <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-bold ${statusTone(bet)}`}>
-                        {bet.result || bet.status || "open"}
+                        {displayLabel(bet.result || bet.status, "Open")}
                       </span>
                     </td>
                     <td className={`whitespace-nowrap px-4 py-3 font-bold ${Number(bet.pnl) >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
