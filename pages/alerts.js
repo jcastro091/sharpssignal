@@ -1,3 +1,4 @@
+import {displayLabel as human} from '../lib/uiLabels.cjs';
 import {marketLabel} from '../lib/marketDisplay.cjs';
 import {fetchMemberFeed} from '../lib/feedRequest.cjs';
 import {formatMarketPrice} from '../lib/marketPriceDisplay.cjs';
@@ -19,7 +20,6 @@ const stamp=value=>{
  const date=new Date(typeof value==='number'?value*1000:value);
  return Number.isFinite(date.getTime())?date.toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' ET':'Not available';
 };
-const human=value=>String(value||'Pending').replaceAll('_',' ');
 
 export default function Alerts({interests}){
  const [feeds,setFeeds]=useState(null),[error,setError]=useState(''),[refresh,setRefresh]=useState(0);

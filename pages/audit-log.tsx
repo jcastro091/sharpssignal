@@ -1,3 +1,4 @@
+import {displayLabel} from '../lib/uiLabels.cjs';
 import { useState } from "react";
 
 export default function AuditLogPage() {
@@ -36,7 +37,7 @@ export default function AuditLogPage() {
               <td>{r.ts_utc}</td>
               <td>{r.user_id}</td>
               <td>{r.decision}</td>
-              <td>{r.status}</td>
+              <td>{displayLabel(r.status)}</td>
             </tr>
           ))}
         </tbody>
