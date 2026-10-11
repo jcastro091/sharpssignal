@@ -288,3 +288,6 @@
 @media(prefers-reduced-motion:reduce){.lifecycle-card{animation:none}}
 
 .signal-team-logos{display:flex;align-items:center;gap:16px;margin-top:20px}.signal-team-logos>span:not(.team-logo){font-size:11px;color:var(--ss-muted)}.team-logo{width:48px;height:48px;object-fit:contain;flex-shrink:0}.team-logo-fallback{display:inline-flex;align-items:center;justify-content:center;border-radius:12px;background:#edf3e6;color:var(--ss-ink);font-size:13px;font-weight:650}
+
+/* Market trades read as a vertical sequence at every viewport width. */
+.latest-signal-grid.market-signal-stack{grid-template-columns:minmax(0,1fr)}

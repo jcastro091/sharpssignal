@@ -53,4 +53,3 @@ test('real route saves only verified user and server snapshot; retries never cha
   const response=await r.call('GET');assert.equal(response.json.summary.total,1);assert.equal(response.json.rows[0].result,'pending');assert.ok(r.operations.some(x=>x.table==='customer_tracked_plays'&&x.user_id==='owner'));
 });
 test('database failure is not reported as saved',async()=>{assert.equal((await route({fail:true}).call('POST',{action:'tail',pick:core.signalKey(play),...input})).code,503);});
-

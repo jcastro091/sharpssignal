@@ -74,4 +74,4 @@ next-env.d.ts
 *credentials*.json
 *sa*.json
 telegrambetlogger-*.json
-`n/supabase/.temp/
+/supabase/.temp/
