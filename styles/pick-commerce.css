@@ -8,3 +8,5 @@
 .shop-teams{display:grid;grid-template-columns:1fr 30px 1fr;gap:14px;align-items:center;margin:27px 0 20px}.shop-teams>div{display:flex;align-items:center;gap:12px;min-width:0}.shop-teams img{object-fit:contain;flex-shrink:0}.shop-teams strong{font-size:22px;line-height:1.2;letter-spacing:-.6px}.shop-teams>span{text-align:center;color:var(--ss-muted);font-size:12px}.shop-card-bottom>div>strong{font-size:21px}.shop-matchup:has(.shop-teams){border-top:3px solid #b9d3a9}@media(max-width:560px){.shop-teams>div{flex-direction:column;align-items:flex-start;gap:9px}.shop-teams strong{font-size:18px}.shop-teams img{width:44px;height:44px}}
 
 .shop-guarantee,.shop-matchup{box-sizing:border-box}.shop-layout>section,.shop-layout>aside{min-width:0}
+
+.shop-start-time{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:9px}.shop-start-time strong{font-weight:600;color:var(--ss-ink)}
