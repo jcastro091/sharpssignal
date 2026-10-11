@@ -29,7 +29,7 @@ async function main(){
  const response=await modeResponse;
  const data=await response.json();assert.equal(response.status(),200);report.checks.push('authenticated browser API reads live database');
  const forged=await context.request.post(origin+'/api/admin/pick-refunds',{headers:{Origin:'https://untrusted.example'},data:{mode:'test',action:'test_purchase'}});assert.equal(forged.status(),403);report.checks.push('cross-origin mutation denied');
- if(!data.configured){report.blocker='STRIPE_TEST_SECRET_KEY missing';await page.getByRole('alert').filter({hasText:'Configure STRIPE_TEST_SECRET_KEY'}).waitFor();report.checks.push('sandbox creation disabled without separate test key');}
+ if(!data.configured){report.blocker='STRIPE_TEST_SECRET_KEY missing';await page.getByRole('alert').filter({hasText:'Configure STRIPE_TEST_SECRET_KEY'}).waitFor();assert(await page.getByRole('button',{name:'Create sandbox purchase',exact:true}).isDisabled());const missing=await context.request.post(origin+'/api/admin/pick-refunds',{headers:{Origin:origin},data:{mode:'test',action:'test_purchase'}});assert.equal(missing.status(),503);assert.equal((await missing.json()).error,'stripe_test_key_required');report.checks.push('sandbox creation disabled and API rejects missing test key');}
  else {
  const resultPromise=page.waitForResponse(r=>r.url().endsWith('/api/admin/pick-refunds')&&r.request().method()==='POST');
  await page.getByRole('button',{name:'Create sandbox purchase',exact:true}).click();const result=await(await resultPromise).json();assert(result.purchase_id);report.purchase_id=result.purchase_id;
