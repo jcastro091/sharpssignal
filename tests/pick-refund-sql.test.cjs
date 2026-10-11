@@ -1,0 +1,17 @@
+const {PGlite}=require(process.env.PGLITE_MODULE || '/tmp/sharpssignal-sql-test/node_modules/@electric-sql/pglite');
+const fs=require('fs');
+(async()=>{const db=new PGlite();await db.exec(`create schema auth;create table auth.users(id uuid primary key);create role anon;create role authenticated;create role service_role;`);await db.exec(fs.readFileSync(require('node:path').join(__dirname,'../supabase/migrations/202610110001_pick_fee_refunds.sql'),'utf8'));const assert=require('assert/strict');
+const u='00000000-0000-0000-0000-000000000001',p='00000000-0000-0000-0000-000000000002',hash='a'.repeat(64);
+await db.exec(`insert into auth.users values('${u}');insert into pick_fee_purchases(id,user_id,pick_id,payment_intent_id,amount_paid_cents,currency,billing_mode,qa_test,guarantee_version) values('${p}','${u}','pick','pi_1',500,'usd','test',true,'pick_fee_loss_v1');`);
+await assert.rejects(db.query(`select reserve_pick_fee_refund($1,$2,500,$3)`,[p,u,hash]));
+await db.query(`insert into pick_fee_settlements(pick_id,billing_mode,result,evidence_hash,source_url,evidence,verified_by) values('pick','test','loss',$1,'test://fixture','{}',$2)`,[hash,u]);
+const q=`select (reserve_pick_fee_refund($1,$2,500,$3)).*`;
+const a=(await db.query(q,[p,u,hash])).rows[0],b=(await db.query(q,[p,u,hash])).rows[0];assert.equal(a.id,b.id);
+await assert.rejects(db.query(`select complete_pick_fee_refund($1,'re_test','succeeded',501,500,'usd')`,[a.id]));
+await db.query(`select complete_pick_fee_refund($1,'re_test','succeeded',500,500,'usd')`,[a.id]);
+await db.query(`select complete_pick_fee_refund($1,'re_test','succeeded',500,500,'usd')`,[a.id]);
+assert.equal((await db.query(`select status from pick_fee_purchases`)).rows[0].status,'refunded');
+assert.equal((await db.query(`select count(*)::integer as n from pick_fee_refund_events`)).rows[0].n,2);
+await assert.rejects(db.query(`select complete_pick_fee_refund($1,'re_test','pending',500,500,'usd')`,[a.id]));
+await db.exec('set role authenticated');await assert.rejects(db.query('select * from pick_fee_purchases'));await assert.rejects(db.query(q,[p,u,hash]));await db.exec('reset role');
+console.log('SQL: eligibility, durable reservation, exact amount, duplicate completion, status regression, RLS/RPC isolation passed');await db.close()})().catch(e=>{console.error(e);process.exit(1)});
