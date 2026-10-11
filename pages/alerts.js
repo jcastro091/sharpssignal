@@ -1,3 +1,4 @@
+import {marketOutcome} from '../lib/marketOutcome.cjs';
 import {displayLabel as human} from '../lib/uiLabels.cjs';
 import {marketLabel} from '../lib/marketDisplay.cjs';
 import {fetchMemberFeed} from '../lib/feedRequest.cjs';
@@ -39,7 +40,7 @@ export default function Alerts({interests}){
     {!feed.plays.length?<div className="alerts-empty"><h3>{feed.publishing_paused?'No alerts while publishing is paused':'No released alerts yet'}</h3><p>New entries and updates appear here after their release delay.</p></div>:<div className="alerts-list">{feed.plays.map(play=><article className="inbox-record" key={JSON.stringify([play.cohort,play.entry_id||play.trade_id,play.point])}>
      <div className="inbox-selection"><h3>{sports?play.side:play.symbol}{sports&&play.point!=null?' '+play.point:''}</h3><p>{sports?<>{play.away} @ {play.home}</>:play.direction>0?'Long':play.direction<0?'Short':'Direction unavailable'}{sports&&play.market?' · '+marketLabel(play.market):''}</p></div>
      <div className="inbox-price"><small>{sports?'Captured odds':'Captured entry'}</small><b>{sports?decimalToAmericanLabel(play.decimal):formatMarketPrice(play.entry_price)}</b><p>{sports?sportsbookName(play.book):'Stop '+formatMarketPrice(play.stop)+' · Target '+formatMarketPrice(play.target)}</p></div>
-     <div className="inbox-result"><small>{sports?'Result':'Trade status'}</small><span className="status-pill">{human(sports?play.result:play.status)}</span></div>
+     <div className="inbox-result"><small>{sports?'Result':'Trade result'}</small><span className="status-pill">{sports?human(play.result):marketOutcome(play)}</span></div>
      <div className="inbox-time"><small>Recorded</small><time>{stamp(play.entry_at??play.entry_time)}</time>{sports&&<p>Game: {stamp(play.start)}</p>}</div>
     </article>)}</div>}
    </section>;
