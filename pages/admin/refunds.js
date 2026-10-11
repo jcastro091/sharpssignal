@@ -1,0 +1,16 @@
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { requireCeoPageAccess } from '../../lib/ceoAccess';
+export async function getServerSideProps({req,res}) {
+ const access=await requireCeoPageAccess(req,res);
+ if(!access.allowed)return {redirect:{destination:access.redirect||'/signin',permanent:false}};
+ return {props:{}};
+}
+export default function Refunds(){
+ const [mode,setMode]=useState('live'),[data,setData]=useState(null),[message,setMessage]=useState(''),[preview,setPreview]=useState(null),[busy,setBusy]=useState(false);
+ async function load(m=mode){const r=await fetch('/api/admin/pick-refunds?mode='+m);const d=await r.json();if(!r.ok)throw Error(d.error);setData(d);}
+ useEffect(()=>{setData(null);setPreview(null);load(mode).catch(e=>setMessage(e.message));},[mode]);
+ async function action(action,purchase_id){setBusy(true);setMessage('');try{const r=await fetch('/api/admin/pick-refunds',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,action,purchase_id})});const d=await r.json();if(!r.ok)throw Error(d.error);if(action==='preview')setPreview(d);else{setPreview(null);setMessage(action==='test_purchase'?'Sandbox purchase created. Preview and refund it below.':'Refund status: '+d.status);await load();}}catch(e){setMessage(e.message);}finally{setBusy(false);}}
+ const money=(c,currency)=>new Intl.NumberFormat('en-US',{style:'currency',currency}).format(c/100);
+ return <main style={{maxWidth:1000,margin:'40px auto',padding:24,color:'#eee',background:'#101827'}}><Link href="/admin">Admin workspace</Link><h1>Pick fee refunds</h1><p>Refund 100% of the price paid for an eligible losing pick. A final verified loss and matching payment are required.</p><label>Payments <select value={mode} disabled={busy} onChange={e=>setMode(e.target.value)}><option value="live">Live</option><option value="test">Stripe sandbox</option></select></label>{mode==='test'&&<p>Sandbox uses a $5 test purchase and a synthetic losing pick. No real money moves.</p>}{data&&!data.configured&&<p role="alert">{mode==='test'?'Configure STRIPE_TEST_SECRET_KEY in Vercel to run the sandbox test.':'Stripe live payments are not configured.'}</p>}{mode==='test'&&<button disabled={busy||!data?.configured} onClick={()=>action('test_purchase')}>Create sandbox purchase</button>}<p role="status">{message}</p>{data?.purchases.length===0&&<p>No {mode} per-pick purchases recorded.</p>}<ul>{data?.purchases.map(p=><li key={p.id} style={{margin:'20px 0'}}><strong>{p.pick_id}</strong><p>{money(p.amount_paid_cents,p.currency)} · {p.status}</p><button disabled={busy||!data.configured} onClick={()=>action('preview',p.id)}>Preview refund</button> <button disabled={busy||!data.configured} onClick={()=>action('refresh',p.id)}>Refresh refund status</button></li>)}</ul>{preview&&<section aria-label="Refund preview"><h2>Confirm pick fee refund</h2><p>{preview.pick_id}</p><p>Refund: {money(preview.amount_cents,preview.currency)}</p><p>Verified final loss. Previously refunded: {money(preview.already_refunded_cents,preview.currency)}.</p><button disabled={busy||!preview.amount_cents} onClick={()=>action('refund',preview.purchase_id)}>Confirm refund</button> <button disabled={busy} onClick={()=>setPreview(null)}>Cancel</button></section>}</main>;
+}
