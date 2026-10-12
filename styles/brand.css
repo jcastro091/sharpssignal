@@ -291,3 +291,10 @@
 
 /* Market trades read as a vertical sequence at every viewport width. */
 .latest-signal-grid.market-signal-stack{grid-template-columns:minmax(0,1fr)}
+
+/* Landing example uses the member feed card presentation. */
+.lifecycle-track{align-self:flex-start;margin-top:18px;cursor:default}
+.lifecycle-track:disabled{opacity:1;background:#94a8a3;color:white}
+.lifecycle-settlement{border-top:1px solid var(--ss-line);margin-top:18px;padding-top:10px}
+.lifecycle-settlement>p:not(.signal-card-note){display:flex;justify-content:space-between;gap:12px;font-size:12px;margin:8px 0}
+.lifecycle-settlement>p>span{color:var(--ss-muted)}
