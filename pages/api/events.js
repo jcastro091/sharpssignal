@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import {getServerUser} from "../../lib/authServer";
+const {verifyRecordProof} = require("../../lib/recordViewProof.cjs");
 const { cleanEvent } = require("../../lib/measurement.cjs");
 import {
   createSupabaseServiceClient,
@@ -42,6 +44,15 @@ export default async function handler(req, res) {
 
   try {
     const supabase = createSupabaseServiceClient();
+    if (row.event_name === "record_view") {
+      const user=await getServerUser(req,res);
+      const proof=user?.email_confirmed_at && verifyRecordProof(req.body?.metadata?.record_proof,user.id);
+      if(!proof)return res.status(400).json({ok:false,persisted:false,reason:"record_not_verified"});
+      row.user_id=user.id;
+      row.event_at=new Date().toISOString();
+      row.metadata={...row.metadata,authenticated_record:"v1",record_key:proof.record,section:proof.section};
+      if(user.id===process.env.QA_CHECKOUT_USER_ID || user.app_metadata?.qa_test===true)row.metadata.test=true;
+    }
     const { error } = await insertWithColumnFallback(
       supabase,
       "funnel_events",
@@ -75,6 +86,7 @@ async function insertWithColumnFallback(supabase, table, row) {
       removed.has(column) ||
       !(column in payload) ||
       [
+        "user_id",
         "event_id",
         "metadata",
         "visitor_id",

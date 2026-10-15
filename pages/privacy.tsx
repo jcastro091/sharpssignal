@@ -12,7 +12,7 @@ export default function PrivacyPage() {
     >
       <h1>SharpSignal Privacy Notice (AI + Automation)</h1>
       <p>
-        <em>Last updated: October 8, 2026</em>
+        <em>Last updated: October 15, 2026</em>
       </p>
       <h2>Optional website analytics</h2>
       <p>
@@ -20,12 +20,17 @@ export default function PrivacyPage() {
         to understand visits, referral sources, article reading, clicks, scroll
         depth, signup steps and checkout interest. Random browser and session
         identifiers connect these steps. They do not tell us who an anonymous
-        reader is. We do not use fingerprinting.
+        reader is. With analytics allowed, we also associate acquisition campaign
+        labels and released-record viewing events with your account to measure
+        activation and return visits. Account creation and email confirmation are
+        checked against our authentication provider. We do not use fingerprinting.
       </p>
       <p>
         Heatmaps combine coarse click positions and scroll milestones. We do not
         record screens, keystrokes, form values, passwords, authentication links
-        or private dashboard content. URLs are stripped of query strings and
+        or private dashboard content. For consented record-view measurement, we store
+        a non-readable record fingerprint, account identifier and viewing time;
+        not the selection or research content. URLs are stripped of query strings and
         fragments before analytics collection. Campaign labels are retained
         separately. Auth and administrator pages are excluded from optional page
         tracking.

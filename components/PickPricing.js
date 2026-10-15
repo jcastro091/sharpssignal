@@ -1,6 +1,18 @@
 import Link from "next/link";
+import {useEffect,useRef} from "react";
+import {trackFunnelEvent} from "../lib/funnelClient";
+import {analyticsAllowed} from "../lib/analyticsConsent";
 import { useState } from "react";
 export default function PickPricing() {
+  const sectionRef=useRef(null);
+  useEffect(()=>{
+    if(!window.IntersectionObserver)return;
+    let visible=false,sent=false;
+    const measure=()=>{if(visible&&!sent&&analyticsAllowed()){sent=true;trackFunnelEvent("pick_waitlist_view");}};
+    const observer=new IntersectionObserver(entries=>{visible=entries[0]?.isIntersecting;measure();});
+    observer.observe(sectionRef.current);window.addEventListener("ss-consent",measure);
+    return()=>{observer.disconnect();window.removeEventListener("ss-consent",measure);};
+  },[]);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   async function join(event) {
@@ -10,6 +22,7 @@ export default function PickPricing() {
     setStatus("saving");
     setError("");
     try {
+      trackFunnelEvent("pick_waitlist_submit");
       const query = new URLSearchParams(window.location.search);
       const response = await fetch("/api/pick-waitlist", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -28,7 +41,7 @@ export default function PickPricing() {
     }
   }
   return (
-    <section id="pick-waitlist" className="feature-section" aria-labelledby="pick-pricing-title">
+    <section ref={sectionRef} id="pick-waitlist" className="feature-section" aria-labelledby="pick-pricing-title">
       <span className="eyebrow">INTEREST WAITLIST · NOT AVAILABLE TO BUY</span>
       <h2 id="pick-pricing-title">Interested in $5 per pick?</h2>
       <p>We’re working on an option to buy individual sports picks. Join the waitlist

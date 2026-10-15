@@ -1,3 +1,4 @@
+import GrowthLifecycleReport from "../components/GrowthLifecycleReport";
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { requireCeoPageAccess } from "../lib/ceoAccess";
@@ -107,50 +108,7 @@ export default function Analytics() {
                 </p>
               </div>
             </section>
-            <h2>Ordered conversion funnel</h2>
-            <p>
-              Unique browser visitors completing each step in order within the
-              window. People who skip a step are excluded from later stages
-              here; see activity counts below.
-            </p>
-            <div className="story-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Step</th>
-                    <th>Visitors</th>
-                    <th>From prior step</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.funnel.map((s, i) => (
-                    <tr key={s.name}>
-                      <td>{s.name.replaceAll("_", " ")}</td>
-                      <td>{s.visitors ?? "Unavailable"}</td>
-                      <td>
-                        {i && data.funnel[i - 1].visitors && s.visitors !== null
-                          ? (
-                              (s.visitors / data.funnel[i - 1].visitors) *
-                              100
-                            ).toFixed(1) + "%"
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p>
-              Payment completion comes from Stripe’s live, paid subscription
-              checkouts, never browser success events. Test mode and labelled QA
-              are excluded. This measures initial checkout completion, not
-              retained revenue, refunds or current entitlement.
-            </p>
-            <p>
-              {data.payments
-                ? `${data.payments.completed_checkouts} completed paid checkouts; ${data.payments.unattributed_checkouts} lack a matching observed visitor.`
-                : "Stripe evidence unavailable. Payment counts are unknown."}
-            </p>
+            <GrowthLifecycleReport data={data.lifecycle}/>
             <h2>Where people spend attention</h2>
             <div className="story-table">
               <table>

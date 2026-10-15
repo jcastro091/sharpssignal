@@ -18,6 +18,7 @@ export default function FunnelTracker() {
       const send = (name, data = {}) =>
         trackFunnelEvent(name, { article, device, revision, ...data });
       send("page_view");
+      if(path === "/pick-shop") send("pick_shop_view");
       const stage =
         path === "/"
           ? "landing_view"
