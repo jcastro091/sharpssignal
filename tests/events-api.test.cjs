@@ -4,7 +4,7 @@ const test = require("node:test"),
   vm = require("node:vm"),
   crypto = require("node:crypto");
 const measurement = require("../lib/measurement.cjs");
-function handler(result = { error: null }) {
+function handler(result = { error: null }, user = null) {
   let sent;
   const source =
     fs
@@ -16,7 +16,8 @@ function handler(result = { error: null }) {
       ) + "\nmodule.exports=handler;";
   const box = {
     module: { exports: {} },
-    require: () => measurement,
+    require: path => path.includes('recordViewProof') ? require('../lib/recordViewProof.cjs') : measurement,
+    getServerUser: async () => user,
     crypto,
     process: { env: { NODE_ENV: "production" } },
     console: { warn() {} },
@@ -102,4 +103,25 @@ test("server stores safe idempotency identity and strips private payload", async
   assert.equal(h.sent().email, undefined);
   assert.equal(h.sent().metadata.password, undefined);
   assert.ok(!JSON.stringify(h.sent()).includes("secret"));
+});
+
+test("record views require an authenticated user and a matching signed feed receipt", async()=>{
+ const {issueRecordProof}=require('../lib/recordViewProof.cjs');
+ const previous=process.env.SUPABASE_SERVICE_ROLE_KEY;
+ process.env.SUPABASE_SERVICE_ROLE_KEY='test-only';
+ try {
+  const user={id:'00000000-0000-0000-0000-000000000001',email_confirmed_at:new Date().toISOString()};
+  const proof=issueRecordProof(user.id,'sports',{entry_id:'record-1'});
+  const body={event_name:'record_view',page_path:'/dashboard',metadata:{record_proof:proof,authenticated_record:'forged',record_key:'forged'}};
+  assert.equal((await call(handler(),body)).status,400);
+  assert.equal((await call(handler({error:null},{...user,id:'another'}),body)).status,400);
+  const h=handler({error:null},user);
+  assert.equal((await call(h,body)).status,200);
+  assert.equal(h.sent().user_id,user.id);
+  assert.equal(h.sent().metadata.authenticated_record,'v1');
+  assert.match(h.sent().metadata.record_key,/^[a-f0-9]{64}$/);
+  assert.equal(h.sent().metadata.record_proof,undefined);
+  const broken=handler({error:{message:"Could not find the 'user_id' column"}},user);
+  assert.equal((await call(broken,body)).status,503);
+ }finally{if(previous===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=previous;}
 });

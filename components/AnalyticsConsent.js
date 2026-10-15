@@ -20,7 +20,7 @@ export default function AnalyticsConsent() {
     <aside className="analytics-consent" aria-label="Analytics choices">
       <p>
         Help us improve SharpsSignal? Optional analytics measure page visits,
-        reading, clicks and signup steps. We don’t record your screen or form
+        reading, clicks, signup steps and account return visits. We don’t record your screen or form
         entries. <Link href="/privacy">Details</Link>
       </p>
       <div>

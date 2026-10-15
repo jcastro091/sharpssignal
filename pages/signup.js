@@ -3,6 +3,8 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { buildAuthCallbackUrl, getSafeNext } from "../lib/authRedirect";
+import {analyticsAllowed, analyticsTest} from "../lib/analyticsConsent";
+import { getVisitorId } from "../lib/funnelClient";
 import { getFirstTouch } from "../lib/funnelClient";
 import { trackMemberEvent } from "../lib/memberAnalytics";
 export default function Signup() {
@@ -38,6 +40,10 @@ export default function Signup() {
           emailRedirectTo: buildAuthCallbackUrl(window.location.origin, next),
           data: {
             interests,
+            ...(analyticsAllowed() && !analyticsTest() ? {growth_acquisition: {
+              version: "2026-10-15-v2", visitor_id: getVisitorId(),
+              ...Object.fromEntries(["utm_source","utm_medium","utm_campaign","utm_content"].map(k=>[k,attribution[k] || ""])),
+            }} : {}),
             utm_source: attribution.utm_source || null,
             utm_campaign: attribution.utm_campaign || null,
           },

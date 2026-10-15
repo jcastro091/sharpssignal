@@ -1,4 +1,6 @@
 import Stripe from "stripe";
+import {readGrowthEvidence} from "../../lib/growthEvidence";
+const {summarizeLifecycle} = require("../../lib/growthLifecycle.cjs");
 import { getCeoAccess } from "../../lib/ceoAccess";
 import { createSupabaseServiceClient } from "../../lib/supabaseServer";
 const { summarize } = require("../../lib/growthReport.cjs");
@@ -19,7 +21,7 @@ export default async function handler(req, res) {
       const r = await db
         .from("funnel_events")
         .select(
-          "event_id,event_name,event_type,event_at,created_at,visitor_id,session_id,source,page_path,utm_source,utm_campaign,metadata",
+          "event_id,event_name,event_type,event_at,created_at,visitor_id,session_id,source,page_path,user_id,utm_source,utm_medium,utm_campaign,utm_content,metadata",
         )
         .gte("created_at", since)
         .order("created_at", { ascending: true })
@@ -57,7 +59,12 @@ export default async function handler(req, res) {
         payments_available = false;
       }
     }
+    const evidence = await readGrowthEvidence(db, since);
+    evidence.payments = payments;
+    evidence.statuses.activity = truncated ? "partial" : "available";
+    evidence.statuses.payments = !payments_available ? "unavailable" : payments_truncated ? "partial" : "available";
     return res.json({
+      lifecycle: summarizeLifecycle(events, evidence, {since}),
       ok: true,
       ...summarize(events, payments, {
         days,
