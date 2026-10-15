@@ -298,3 +298,19 @@
 .lifecycle-settlement{border-top:1px solid var(--ss-line);margin-top:18px;padding-top:10px}
 .lifecycle-settlement>p:not(.signal-card-note){display:flex;justify-content:space-between;gap:12px;font-size:12px;margin:8px 0}
 .lifecycle-settlement>p>span{color:var(--ss-muted)}
+
+/* Original signal and selected sportsbook comparison. */
+.price-preferences{margin:1rem 0;padding:1rem;border:1px solid #dbe5dd;border-radius:16px;background:#f6f8f2}
+.price-preferences summary,.price-comparison summary{cursor:pointer;font-weight:650}
+.price-preferences label{display:flex;align-items:center;gap:.55rem;margin:.65rem 0}
+.price-preferences fieldset{border:0;padding:.5rem 0;display:flex;flex-wrap:wrap;gap:1rem}
+.price-preferences select{max-width:100%;padding:.5rem}
+.price-comparison{border-top:1px solid #dbe5dd;margin:1rem 0;padding-top:.7rem;font-size:.9rem;min-width:0}
+.price-comparison p{margin:.5rem 0;line-height:1.5}
+.price-comparison small{color:#557269}
+.price-comparison .best-price{padding:.7rem;border-radius:10px;background:#edf5e7;color:#234b31}
+.price-table{max-width:100%;overflow-x:auto;margin:.75rem 0}
+.price-table table{width:100%;border-collapse:collapse;font-size:.85rem}
+.price-table th,.price-table td{text-align:left;padding:.5rem;border-bottom:1px solid #dbe5dd;white-space:normal}
+.price-refresh{margin-top:.6rem;padding:.4rem .7rem;border:1px solid #94aaa0;border-radius:8px;background:white;color:#234b31;cursor:pointer}
+.price-closed{font-weight:650;color:#557269}

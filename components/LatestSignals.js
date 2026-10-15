@@ -1,3 +1,4 @@
+import PriceComparison from './PriceComparison';
 import MeasuredRecord from './MeasuredRecord';
 import TailPick from './TailPick';
 import {marketOutcome} from '../lib/marketOutcome.cjs';
@@ -5,8 +6,6 @@ import {displayLabel as human} from '../lib/uiLabels.cjs';
 import TeamLogo from './TeamLogo';
 import {marketLabel} from '../lib/marketDisplay.cjs';
 import {signalKey} from '../lib/signalChanges.cjs';
-import {sportsbookName} from '../lib/sportsbookDisplay.cjs';
-import {decimalToAmericanLabel} from '../lib/oddsDisplay.cjs';
 import {formatMarketPrice} from '../lib/marketPriceDisplay.cjs';
 
 const stamp=value=>{
@@ -27,9 +26,9 @@ export default function LatestSignals({section,feed,error,updated=[]}) {
       {sports&&<div className="signal-team-logos"><TeamLogo name={play.away} sport={play.sport}/><span>vs</span><TeamLogo name={play.home} sport={play.sport}/></div>}
       <h3>{sports?<>{play.side}{play.point!=null?' '+play.point:play.line!=null?' '+play.line:''}</>:play.symbol}</h3>
       {sports&&<p className="signal-matchup">{play.away} @ {play.home}</p>}
-      <dl className="signal-levels">{sports?<><div><dt>Captured odds</dt><dd>{decimalToAmericanLabel(play.decimal)}</dd></div><div><dt>Sportsbook</dt><dd>{sportsbookName(play.book)}</dd></div></>:<><div><dt>Entry</dt><dd>{formatMarketPrice(play.entry_price)}</dd></div><div><dt>Stop</dt><dd>{formatMarketPrice(play.stop)}</dd></div><div><dt>Target</dt><dd>{formatMarketPrice(play.target)}</dd></div></>}</dl>
-      <div className="signal-card-details"><p><span>{sports?'Game time':'Recorded'}</span><b>{stamp(sports?play.start:play.entry_time)}</b></p>{sports?<p><span>Recorded</span><b>{stamp(play.entry_at)}</b></p>:<p><span>Paper P&amp;L</span><b>{play.status==='closed'?(Number.isFinite(play.net_pnl)?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(play.net_pnl):'Not available'):'Pending'}</b></p>}</div>
-      {sports&&<TailPick play={play}/>}<p className="signal-card-note">{sports?'Simulated selection · captured odds may have changed.':'Recorded paper trade; entry, stop and target are research levels.'}</p>
+      {!sports&&<dl className="signal-levels"><div><dt>Entry</dt><dd>{formatMarketPrice(play.entry_price)}</dd></div><div><dt>Stop</dt><dd>{formatMarketPrice(play.stop)}</dd></div><div><dt>Target</dt><dd>{formatMarketPrice(play.target)}</dd></div></dl>}
+      <div className="signal-card-details"><p><span>{sports?'Game time':'Recorded'}</span><b>{stamp(sports?play.start:play.entry_time)}</b></p>{sports?null:<p><span>Paper P&amp;L</span><b>{play.status==='closed'?(Number.isFinite(play.net_pnl)?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(play.net_pnl):'Not available'):'Pending'}</b></p>}</div>
+      {sports&&<><PriceComparison play={play}/><TailPick play={play}/></>}<p className="signal-card-note">{sports?'Simulated selection · captured odds may have changed.':'Recorded paper trade; entry, stop and target are research levels.'}</p>
     </MeasuredRecord>)}</div>}
   </section>;
 }
