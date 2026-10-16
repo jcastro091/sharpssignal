@@ -1,0 +1,68 @@
+[
+  {
+    "scenario": "sports",
+    "session_id": "cs_test_a1mNNuEUrxJhdUdBps0QfjzVdcKcebWojLCoGOeQgF2mSNNPsnFt5vu0js",
+    "subscription_id": "sub_1UOzWV4TolAjW3OpXK1NqBw6",
+    "amount_cents": 2000,
+    "currency": "usd",
+    "billing_mode": "test",
+    "products": [
+      "sports"
+    ],
+    "expected_destinations": [
+      "-1002756836961"
+    ],
+    "sandbox_sql_persisted": true,
+    "production_test_payment_rejected": true,
+    "production_telegram_admission_rejected": true,
+    "telegram_sent": false,
+    "verified_at": "2026-10-10T12:40:37.070Z",
+    "cancelled_subscription_rejected": true,
+    "cleanup_status": "test_subscription_cancelled"
+  },
+  {
+    "scenario": "markets",
+    "session_id": "cs_test_a17q6zyKEZfPeYTh9N7CDuS3z055Rgzi1nGlmYTf5jCkfGty8dmtzWaZ7a",
+    "subscription_id": "sub_1UOzXD4TolAjW3Opasbde4Hl",
+    "amount_cents": 2000,
+    "currency": "usd",
+    "billing_mode": "test",
+    "products": [
+      "markets"
+    ],
+    "expected_destinations": [
+      "-1002635869925"
+    ],
+    "sandbox_sql_persisted": true,
+    "production_test_payment_rejected": true,
+    "production_telegram_admission_rejected": true,
+    "telegram_sent": false,
+    "verified_at": "2026-10-10T12:40:37.840Z",
+    "refunded_payment_rejected": true,
+    "cancelled_subscription_rejected": true,
+    "cleanup_status": "test_subscription_cancelled"
+  },
+  {
+    "scenario": "sports+markets",
+    "session_id": "cs_test_a1MYAmWY6yroICNjJzTbdQ7fNHIgn4SUJ9bHd8FbMZ8sJbvCFF5ObifTlU",
+    "subscription_id": "sub_1UOzXx4TolAjW3Op6Momnu6H",
+    "amount_cents": 4000,
+    "currency": "usd",
+    "billing_mode": "test",
+    "products": [
+      "sports",
+      "markets"
+    ],
+    "expected_destinations": [
+      "-1002756836961",
+      "-1002635869925"
+    ],
+    "sandbox_sql_persisted": true,
+    "production_test_payment_rejected": true,
+    "production_telegram_admission_rejected": true,
+    "telegram_sent": false,
+    "verified_at": "2026-10-10T12:40:38.593Z",
+    "cancelled_subscription_rejected": true,
+    "cleanup_status": "test_subscription_cancelled"
+  }
+]
