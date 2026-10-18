@@ -10,15 +10,16 @@ export default async function handler(req,res){
  const user=await getServerUser(req,res);
  const access=user?await getCeoAccess(req,res):{allowed:false};
  const mode=(req.method==='GET'?req.query.mode:req.body?.mode)==='test'?'test':'live';
- const db=createSupabaseServiceClient();
  try{
+ const db=createSupabaseServiceClient();
  if(req.method==='GET'){
+  const signal=AbortSignal.timeout(8000);
   if(mode==='test'&&!access.allowed)return res.status(403).json({error:'admin_required'});
-  const f=await dbResult(db.from('pick_fee_offers').select('*').eq('active',true).eq('billing_mode',mode).gte('game_time',new Date().toISOString()).order('game_time').limit(50));
+  const f=await dbResult(db.from('pick_fee_offers').select('*').eq('active',true).eq('billing_mode',mode).gte('game_time',new Date().toISOString()).order('game_time').limit(50).abortSignal(signal));
   const offers=f.filter(x=>!x.owner_verification||(access.allowed&&x.created_by===user?.id)).map(teaser);
-  const orders=user?.email_confirmed_at?await dbResult(db.from('pick_fee_purchases').select('id,pick_id,status,owner_verification').eq('user_id',user.id).eq('billing_mode',mode).order('created_at',{ascending:false}).limit(100)):[];
+  const orders=user?.email_confirmed_at?await dbResult(db.from('pick_fee_purchases').select('id,pick_id,status,owner_verification').eq('user_id',user.id).eq('billing_mode',mode).order('created_at',{ascending:false}).limit(100).abortSignal(signal)):[];
   let configured=true;try{commerceStripe(mode);}catch{configured=false;}
-  const records=await dbResult(db.from('paper_plays').select('paper_play_id,away_team,home_team,sport,market,game_time,selected_at').gte('selected_at',new Date(Date.now()-72*3600000).toISOString()).order('selected_at',{ascending:false}).limit(250));
+  const records=await dbResult(db.from('paper_plays').select('paper_play_id,away_team,home_team,sport,market,game_time,selected_at').gte('selected_at',new Date(Date.now()-72*3600000).toISOString()).order('selected_at',{ascending:false}).limit(250).abortSignal(signal));
   const recent=latestMatchups(records);
   return res.json({offers,recent_plays:recent.map(recentPlayTeaser),orders,admin:access.allowed,authenticated:Boolean(user?.email_confirmed_at),configured,mode,live_sales_enabled:process.env.PICK_CHECKOUT_ENABLED==='true'&&process.env.PICK_PROCESSOR_APPROVED==='true'&&process.env.PICK_TAX_READY==='true'&&Boolean(process.env.PICK_STRIPE_TAX_CODE)});
  }
@@ -47,5 +48,5 @@ export default async function handler(req,res){
  if(session.livemode!==(mode==='live'))throw Error('payment_mode_mismatch');
  await dbResult(db.from('pick_fee_orders').update({checkout_session_id:session.id}).eq('id',order.id));
  return res.json({url:session.url,order_id:order.id});
- }catch(error){const allowed=['stripe_test_key_required','stripe_live_key_required','offer_closed','per_pick_sales_not_open','already_purchased','checkout_expired_contact_support','order_requires_review','payment_not_complete','payment_binding_mismatch','admin_required','verification_requires_sandbox'];return res.status(400).json({error:allowed.includes(error.message)?error.message:'pick_checkout_unavailable'});}
+ }catch(error){if(req.method==='GET'){res.setHeader('Retry-After','30');return res.status(503).json({error:'pick_shop_unavailable'});}const allowed=['stripe_test_key_required','stripe_live_key_required','offer_closed','per_pick_sales_not_open','already_purchased','checkout_expired_contact_support','order_requires_review','payment_not_complete','payment_binding_mismatch','admin_required','verification_requires_sandbox'];return res.status(400).json({error:allowed.includes(error.message)?error.message:'pick_checkout_unavailable'});}
 }
