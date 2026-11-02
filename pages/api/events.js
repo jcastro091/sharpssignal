@@ -112,4 +112,3 @@ function missingColumn(message = "") {
   );
   return match?.[1] || match?.[2] || match?.[3] || "";
 }
-
