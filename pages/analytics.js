@@ -82,7 +82,7 @@ export default function Analytics() {
             )}
             <p className="small muted">
               Updated {data.generated_at} · {data.events} eligible events · QA
-              events excluded. Browser events are observations, not verified
+              and owner activity excluded when identifiable. Browser events are observations, not verified
               account creation.
             </p>
             <section className="feature-grid">
@@ -109,6 +109,11 @@ export default function Analytics() {
               </div>
             </section>
             <GrowthLifecycleReport data={data.lifecycle}/>
+            <h2>What signed-in customers use</h2>
+            <p>{data.lifecycle?.account_usage?.coverage}</p>
+            <p>{data.lifecycle?.account_usage?.observed_accounts ?? "Unavailable"} observed customer accounts</p>
+            <ul>{data.lifecycle?.account_usage?.pages?.map(p => <li key={p.path}>{p.path}: {p.accounts} accounts</li>)}</ul>
+            <ul>{data.lifecycle?.account_usage?.stages?.map(s => <li key={s.stage}>{s.stage.replaceAll("_", " ")}: {s.accounts} accounts</li>)}</ul>
             <h2>Where people spend attention</h2>
             <div className="story-table">
               <table>

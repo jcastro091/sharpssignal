@@ -1,3 +1,4 @@
+const {audienceForUser} = require("../../../lib/measurementAudience.cjs");
 const {products,grantProducts}=require('../../../lib/productAccess.cjs');
 const { token, safeUrl } = require("../../../lib/measurement.cjs");
 import { billingUser } from "../../../lib/billingServer";
@@ -33,6 +34,8 @@ export default async function (req, res) {
       price = offer.price_id,
       origin = checkoutOrigin();
     const metadata = { user_id: ctx.user.id, plan: "pro_telegram", products: selected.join(","), price_id: price };
+    const audience = audienceForUser(ctx.user);
+    if (["owner", "test"].includes(audience)) metadata.analytics_excluded = "true";
     for (const key of [
       "visitor_id",
       "session_id",

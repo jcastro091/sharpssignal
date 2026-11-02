@@ -56,7 +56,7 @@ function loadRoute(file, ctx, grant = null, enabled = true) {
     process: { env: { ...env, PAID_CHECKOUT_ENABLED: String(enabled) } },
     URL,
     require: (name) =>
-      name.includes("measurement.cjs")
+      name.includes("measurementAudience") ? require("../lib/measurementAudience.cjs") : name.includes("measurement.cjs")
         ? require("../lib/measurement.cjs")
         : name.includes("checkoutOffer")
           ? {
