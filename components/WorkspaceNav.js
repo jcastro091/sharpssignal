@@ -20,7 +20,7 @@ export default function WorkspaceNav({interests, section, onSectionChange, onPre
       <Link className="workspace-item" href="/my-plays"><Icon name="admin"/><span>My plays</span></Link><Link className="workspace-item" href="/alerts"><Icon name="alerts"/><span>Alerts</span></Link>
     </nav>
     <div className="workspace-tools">
-      <Link className="workspace-item workspace-upgrade" href="/billing"><Icon name="upgrade"/><span>Upgrade + Telegram</span></Link>
+      <Link className="workspace-item workspace-upgrade" href="/billing"><Icon name="upgrade"/><span>Billing & access</span></Link>
       <details className="workspace-interests"><summary className="workspace-item"><Icon name="interests"/><span>My interests</span><svg className="workspace-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></summary>
         <div className="workspace-preferences">{['sports','markets'].map(item=><label key={item}><input type="checkbox" checked={interests.includes(item)} disabled={saving} onChange={()=>onPreferenceChange(item)}/>{item==='sports'?'Sports':'Markets'}</label>)}<p role="status">{notice}</p></div>
       </details>

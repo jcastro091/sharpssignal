@@ -314,3 +314,9 @@
 .price-table th,.price-table td{text-align:left;padding:.5rem;border-bottom:1px solid #dbe5dd;white-space:normal}
 .price-refresh{margin-top:.6rem;padding:.4rem .7rem;border:1px solid #94aaa0;border-radius:8px;background:white;color:#234b31;cursor:pointer}
 .price-closed{font-weight:650;color:#557269}
+
+/* Keep the access comparison readable beside records and reachable on phones. */
+.access-journey-note{font-size:12px!important;margin-top:10px}.access-journey-compact{background:#f6f8f2;padding:20px;margin-top:12px}.access-journey a{min-height:48px;text-align:center;white-space:normal}.access-journey a:focus-visible{outline:3px solid #557747;outline-offset:4px}
+@media(max-width:640px){.access-journey{padding:18px;margin:18px 0}.access-journey h2{font-size:21px;line-height:1.25}.access-journey p{font-size:14px}.workspace-nav .workspace-upgrade{font-size:12px;white-space:normal}.access-journey-compact{padding:16px}}
+@media(max-width:640px){.workspace-nav{min-width:0}.workspace-links,.workspace-tools{width:100%}.price-preferences label{flex-wrap:wrap}.price-preferences select{min-width:0;width:100%}}
+@media(max-width:380px){.workspace-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.workspace-links .workspace-item{width:100%}}
