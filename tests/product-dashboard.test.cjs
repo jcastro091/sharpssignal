@@ -13,6 +13,8 @@ test('actual dashboard SSR preserves signup selection and renders only its produ
    '../lib/authServer':{requireServerUser:async()=>({user:{user_metadata:{interests:selected}}})},
    '../lib/ceoAccess':{getCeoAccess:async()=>({allowed:false})},
    '../lib/supabaseClient':{},'../components/WorkspaceNav':{default:Nav},
+   '../components/PriceComparison':{PriceComparisonProvider:({children})=>children,SportsbookPricePreferences:()=>null},
+   '../components/TailPick':{default:()=>null},
    '../components/LatestSignals':{default:()=>null},'../components/ResearchGuide':{default:()=>null},'../components/AccessJourney':{default:()=>null},
   });
   const result=await page.getServerSideProps({req:{},res:{setHeader(){}}});
