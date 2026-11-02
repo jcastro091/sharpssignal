@@ -12,7 +12,7 @@ export default function PrivacyPage() {
     >
       <h1>SharpSignal Privacy Notice (AI + Automation)</h1>
       <p>
-        <em>Last updated: October 15, 2026</em>
+        <em>Last updated: November 1, 2026</em>
       </p>
       <h2>Optional website analytics</h2>
       <p>
@@ -21,7 +21,7 @@ export default function PrivacyPage() {
         depth, signup steps and checkout interest. Random browser and session
         identifiers connect these steps. They do not tell us who an anonymous
         reader is. With analytics allowed, we also associate acquisition campaign
-        labels and released-record viewing events with your account to measure
+        labels, page visits, checkout steps and released-record viewing events with your signed-in account to measure
         activation and return visits. Account creation and email confirmation are
         checked against our authentication provider. We do not use fingerprinting.
       </p>

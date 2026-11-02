@@ -72,6 +72,7 @@ export default async function handler(req, res) {
         truncated,
         payments_available,
         payments_truncated,
+        excluded_user_ids: evidence.accounts.filter(a => a.qa_test).map(a => a.id),
       }),
     });
   } catch {

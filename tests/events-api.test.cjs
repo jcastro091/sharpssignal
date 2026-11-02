@@ -16,7 +16,7 @@ function handler(result = { error: null }, user = null) {
       ) + "\nmodule.exports=handler;";
   const box = {
     module: { exports: {} },
-    require: path => path.includes('recordViewProof') ? require('../lib/recordViewProof.cjs') : measurement,
+    require: path => path.includes('measurementAudience') ? require('../lib/measurementAudience.cjs') : path.includes('recordViewProof') ? require('../lib/recordViewProof.cjs') : measurement,
     getServerUser: async () => user,
     crypto,
     process: { env: { NODE_ENV: "production" } },
@@ -124,4 +124,24 @@ test("record views require an authenticated user and a matching signed feed rece
   const broken=handler({error:{message:"Could not find the 'user_id' column"}},user);
   assert.equal((await call(broken,body)).status,503);
  }finally{if(previous===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=previous;}
+});
+
+
+test("all consented events bind verified account identity, never the browser identity", async () => {
+ const user={id:"customer-verified",email:"customer@real.test",email_confirmed_at:"2026-11-01"};
+ for(const event_name of ["page_view","dashboard_view","plan_view","checkout_click","checkout_error"]){
+  const h=handler({error:null},user);
+  assert.equal((await call(h,{event_name,page_path:"/billing",user_id:"victim",metadata:{audience:"owner",authenticated_account:"forged"}})).status,200);
+  assert.equal(h.sent().user_id,user.id);
+  assert.equal(h.sent().metadata.authenticated_account,"v1");
+  assert.equal(h.sent().metadata.audience,"customer");
+ }
+ const anonymous=handler();await call(anonymous,{event_name:"page_view",user_id:"victim"});
+ assert.equal(anonymous.sent().user_id,undefined);
+ const owner=handler({error:null},{...user,email:"SharpsSignal@gmail.com"});
+ await call(owner,{event_name:"page_view"});assert.equal(owner.sent().metadata.test,true);
+ const qa=handler({error:null},{...user,app_metadata:{qa_test:true}});
+ await call(qa,{event_name:"page_view"});assert.equal(qa.sent().metadata.audience,"test");
+ const forged=handler({error:null},{...user,user_metadata:{qa_test:true}});
+ await call(forged,{event_name:"page_view"});assert.equal(forged.sent().metadata.audience,"customer");
 });

@@ -1,17 +1,12 @@
 import crypto from "crypto";
 import {getServerUser} from "../../lib/authServer";
 const {verifyRecordProof} = require("../../lib/recordViewProof.cjs");
+const {audienceForUser} = require("../../lib/measurementAudience.cjs");
 const { cleanEvent } = require("../../lib/measurement.cjs");
 import {
   createSupabaseServiceClient,
   hasSupabaseServiceConfig,
 } from "../../lib/supabaseServer";
-
-function cleanText(value, max = 500) {
-  return String(value || "")
-    .trim()
-    .slice(0, max);
-}
 
 export default async function handler(req, res) {
   if (req.method !== "POST")
@@ -44,8 +39,14 @@ export default async function handler(req, res) {
 
   try {
     const supabase = createSupabaseServiceClient();
+    const user = await getServerUser(req, res);
+    const audience = audienceForUser(user);
+    if (user?.email_confirmed_at) {
+      row.user_id = user.id;
+      row.metadata = {...row.metadata, authenticated_account: "v1", audience};
+      if (audience === "owner" || audience === "test") row.metadata.test = true;
+    }
     if (row.event_name === "record_view") {
-      const user=await getServerUser(req,res);
       const proof=user?.email_confirmed_at && verifyRecordProof(req.body?.metadata?.record_proof,user.id);
       if(!proof)return res.status(400).json({ok:false,persisted:false,reason:"record_not_verified"});
       row.user_id=user.id;
@@ -110,9 +111,4 @@ function missingColumn(message = "") {
     /'([^']+)' column|column '([^']+)'|Could not find the '([^']+)'/i,
   );
   return match?.[1] || match?.[2] || match?.[3] || "";
-}
-
-function stableId(...parts) {
-  const source = parts.map((part) => cleanText(part, 1000)).join("|");
-  return `${cleanText(parts[0], 40) || "id"}_${crypto.createHash("sha256").update(source).digest("hex").slice(0, 20)}`;
 }
