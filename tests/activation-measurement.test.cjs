@@ -3,6 +3,7 @@ const {audienceForUser,customerEvents}=require("../lib/measurementAudience.cjs")
 const {summarizeLifecycle}=require("../lib/growthLifecycle.cjs");
 const {summarize}=require("../lib/growthReport.cjs");
 test("owner and QA browser activity before login is excluded after account identification",()=>{
+ assert.equal(audienceForUser({id:"owner",email:"JCastro091@gmail.com",email_confirmed_at:"today"},{}),"owner");
  const rows=[{visitor_id:"v_owner",metadata:{}},{visitor_id:"v_owner",user_id:"owner",metadata:{audience:"owner",test:true}},{visitor_id:"v_customer",user_id:"customer",metadata:{audience:"customer"}}];
  assert.deepEqual(customerEvents(rows).map(e=>e.user_id),["customer"]);
  assert.deepEqual(customerEvents(rows,["customer"]),[]);
