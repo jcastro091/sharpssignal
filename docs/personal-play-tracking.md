@@ -63,3 +63,18 @@ November 10 automatic grading verification:
 - Nine focused ownership, accounting, exact-source and refresh tests passed.
 - Production build passed. A browser integration exercised the real page and API against a labelled local auth/database fixture: pending plays changed to win/loss on the minute timer without a click, P&L used entered odds, and a 390px viewport fit without overflow.
 - The broader local suite had pre-existing harness/environment failures (missing optional PGlite and a data-URL relative import in member-research tests); it is not claimed fully passed.
+
+Delete a tracked play by expanding its bet slip and choosing **Delete play**.
+Confirmation explains that the play will be removed from personal totals and
+cannot be undone. The server deletes only the supplied play ID scoped to the
+confirmed signed-in user's ID; a different user's ID in the request is ignored.
+Missing and unowned records return the same not-found response. Anonymous and
+cross-origin mutations are rejected. Saved research records and other customers'
+plays are unaffected. The page pauses automatic refresh while deletion is in
+progress, keeps the play on failure, and reloads personal totals after success.
+
+Delete verification (November 10): 12 focused ownership/accounting/refresh tests
+and the production build passed. Browser integration used only local fixture
+data to check cancellation, failure preservation, confirmed deletion, recomputed
+totals, persistence after reload and automatic refresh, and the delete action at
+390px width. No existing customer play was deleted during verification.
