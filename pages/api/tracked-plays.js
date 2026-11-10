@@ -17,6 +17,13 @@ export default async function handler(req,res) {
   try {
     const db=createSupabaseServiceClient();
     const body=req.body&&typeof req.body==='object'?req.body:{};
+    if(req.method==='POST' && body.action==='delete') {
+      if(typeof body.id!=='string' || !/^[A-Za-z0-9_-]{1,128}$/.test(body.id)) return res.status(400).json({ok:false,error:'Choose a valid play to delete.'});
+      const deleted=await db.from('customer_tracked_plays').delete().eq('id',body.id).eq('user_id',user.id).select('id');
+      if(deleted.error) throw deleted.error;
+      if(!deleted.data?.length) return res.status(404).json({ok:false,error:'Play not found.'});
+      return res.status(200).json({ok:true,id:body.id});
+    }
     if(body.action==='ask') {
       if(typeof body.question!=='string'||!body.question.trim()||body.question.length>500) return res.status(400).json({ok:false,error:'Ask a question of up to 500 characters.'});
       const now=Date.now();for(const [id,window] of questionWindows)if(window.until<now)questionWindows.delete(id);

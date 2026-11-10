@@ -33,7 +33,7 @@ test('ROI uses graded stake only; void excluded and pending excluded; correct lo
 });
 function route({auth=user,feed={status:200,body:{plays:[{...play,start:Date.now()/1000+3600}]}},fail=false}={}){
   const records=[],operations=[];
-  const db={rpc:async()=>({data:[],error:null}),from(table){const op={table};operations.push(op);const chain={select(){return chain},eq(k,v){op[k]=v;return chain},order(){return chain},limit(){return chain},lte(k,v){op[k]=v;return chain},upsert(value,options){op.options=options;if(!records.some(x=>x.id===value.id))records.push(value);return Promise.resolve({error:fail?Error('db down'):null})},then(resolve){return Promise.resolve({data:table==='customer_tracked_plays'?records.filter(x=>x.user_id===op.user_id):table==='member_publication_settings'?[{paused:false}]:[],error:fail?Error('db down'):null}).then(resolve)}};return chain;}};
+  const db={rpc:async()=>({data:[],error:null}),from(table){const op={table};operations.push(op);const chain={select(){return chain},eq(k,v){op[k]=v;return chain},order(){return chain},limit(){return chain},lte(k,v){op[k]=v;return chain},delete(){op.delete=true;return chain},upsert(value,options){op.options=options;if(!records.some(x=>x.id===value.id))records.push(value);return Promise.resolve({error:fail?Error('db down'):null})},then(resolve){if(op.delete){const matched=records.filter(x=>x.id===op.id&&x.user_id===op.user_id);if(!fail)for(const row of matched)records.splice(records.indexOf(row),1);return Promise.resolve({data:matched.map(x=>({id:x.id})),error:fail?Error('db down'):null}).then(resolve);}return Promise.resolve({data:table==='customer_tracked_plays'?records.filter(x=>x.user_id===op.user_id):table==='member_publication_settings'?[{paused:false}]:[],error:fail?Error('db down'):null}).then(resolve)}};return chain;}};
   const source=fs.readFileSync('pages/api/tracked-plays.js','utf8').replace(/^import[^\n]+\n/gm,'').replace('export default async function handler','async function handler');
   const context={require:()=>core,URL,Date,AbortSignal,process:{env:{}},getServerUser:async()=>auth,customerFeedContext:async()=>({user:auth}),customerFeed:async()=>feed,createSupabaseServiceClient:()=>db,module:{exports:{}}};
   vm.runInNewContext(source+'\nmodule.exports=handler;',context);
@@ -58,4 +58,26 @@ test('only verified exact source settlements grade, including a regrouped source
   for(const change of [{settlement_status:'no_unique_exact_match'},{settlement_status:null},{quarantined:'changed_score'},{entry_id:'unrelated'},{side:'Home'},{point:4.5}])assert.equal(core.gradeTrackedPlay(saved,{...final,...change}).result,'pending');
   assert.equal(core.gradeTrackedPlay(saved,{...final,entry_id:'other-strategy',source_entry_ids:[play.entry_id]}).result,'win');
   assert.equal(core.gradeTrackedPlay(saved,{...final,entry_id:'unrelated',source_entry_ids:['wrong']}).result,'pending');
+});
+
+test('delete removes only the authenticated owner row and fresh totals exclude it',async()=>{
+  const r=route();r.records.push(row(),{...row(),id:'foreign-play',user_id:'other'});
+  const removed=await r.call('POST',{action:'delete',id:row().id,user_id:'other'});
+  assert.equal(removed.code,200);assert.equal(r.records.length,1);assert.equal(r.records[0].id,'foreign-play');
+  const refreshed=await r.call('GET');assert.equal(refreshed.json.summary.total,0);assert.equal(refreshed.json.summary.open_stake_cents,0);
+  assert.equal((await r.call('POST',{action:'delete',id:row().id})).code,404);
+});
+test('delete cannot target another customer and denies invalid, anonymous or cross-origin requests',async()=>{
+  const r=route();r.records.push({...row(),id:'foreign-play',user_id:'other'});
+  assert.equal((await r.call('POST',{action:'delete',id:'foreign-play',user_id:'other'})).code,404);
+  assert.equal(r.records.length,1);
+  for(const id of ['',null,{},'bad.id','a'.repeat(129)])assert.equal((await r.call('POST',{action:'delete',id})).code,400);
+  assert.equal((await route({auth:null}).call('POST',{action:'delete',id:'valid'})).code,401);
+  assert.equal((await r.call('POST',{action:'delete',id:'foreign-play'},{origin:'https://evil.test',host:'app.test'})).code,403);
+  assert.equal(r.records.length,1);
+});
+test('failed deletion keeps the stored play and reports failure',async()=>{
+  const r=route({fail:true});r.records.push(row());
+  assert.equal((await r.call('POST',{action:'delete',id:row().id})).code,503);
+  assert.equal(r.records.length,1);
 });
