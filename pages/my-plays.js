@@ -5,6 +5,7 @@ import {getServerUser} from '../lib/authServer';
 import {marketLabel} from '../lib/marketDisplay.cjs';
 import {formatAmerican} from '../lib/oddsDisplay.cjs';
 import styles from '../styles/tracked.module.css';
+import {startTrackedPlayRefresh} from '../lib/trackedPlayRefresh.cjs';
 
 export async function getServerSideProps({req,res}) {
   res.setHeader('Cache-Control','private, no-store');const user=await getServerUser(req,res);
@@ -20,12 +21,13 @@ export default function MyPlays() {
     fetch('/api/tracked-plays?'+new URLSearchParams(filters),{signal:controller.signal,cache:'no-store'}).then(async response=>{const json=await response.json();if(!response.ok||!json.ok)throw Error(json.error||'Could not load your plays.');if(active)setData(json);}).catch(error=>{if(active){setData(null);setError(error.message);}}).finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;controller.abort();};
   },[filters,refresh]);
+  useEffect(()=>startTrackedPlayRefresh({refresh:()=>setRefresh(x=>x+1),enabled:()=>!loading&&!asking,document,window}),[loading,asking]);
   async function ask(event){event.preventDefault();setAsking(true);setAnswer('');try{const response=await fetch('/api/tracked-plays',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'ask',question,filters})});const json=await response.json();if(!response.ok)throw Error(json.error);setAnswer(json.answer);}catch(error){setAnswer(error.message||'Please try again.');}finally{setAsking(false);}}
   const summary=data?.summary;
   return <main className={styles.page}><Head><title>My plays · Sharp Signals</title></Head>
     <div className={styles.top}><Link href="/dashboard">← Sports dashboard</Link><Link href="/bets">Telegram ledger</Link></div>
     <header className={styles.header}><div><span className="eyebrow">YOUR PERSONAL TRACK RECORD</span><h1>My plays<span>.</span></h1><p>Every pick you tail, in one place. See your results by sportsbook and market.</p></div><button className="button-secondary" onClick={()=>setRefresh(x=>x+1)} disabled={loading||asking}>{loading?'Refreshing…':'Refresh results'}</button></header>
-    <p className={styles.notice}>User-recorded plays · No sportsbook connection or automatic wagers. Grades follow matching released results with a minimum 30-minute delay.</p>
+    <p className={styles.notice}>User-recorded plays · No sportsbook connection or automatic wagers. Grades update automatically after verified final results sync. This page checks for updates every minute.</p>
     <section className={styles.filters} aria-label="Filter tracked plays">{[['book','Sportsbook',data?.options.books||[]],['market','Market',data?.options.markets||[]],['status','Status',['pending','settled']]].map(([key,label,options])=><label key={key}>{label}<select value={filters[key]} disabled={asking} onChange={event=>setFilters({...filters,[key]:event.target.value})}><option value="">{key==='status'?'All statuses':'All '+label.toLowerCase()+'s'}</option>{options.map(value=><option key={value} value={value}>{key==='market'?marketLabel(value):value}</option>)}</select></label>)}</section>
     {error&&<p role="alert" className={styles.error}>{error}</p>}{data?.partial&&<p role="status">Showing your latest 1,000 tracked plays. Totals and insights cover only this history.</p>}{data?.publishing_paused&&<p role="status">Result publication is paused. Plays remain saved; grading is temporarily unavailable.</p>}
     <section className={styles.metrics} aria-label="Your performance">{[['Tracked plays',summary?.total],['Open plays',summary?.pending],['Record',summary?`${summary.wins}–${summary.losses}–${summary.pushes}`:null],['Net profit',money(summary?.pnl_cents)],['Settled ROI',pct(summary?.roi)],['Open stake',money(summary?.open_stake_cents)]].map(([label,value])=><article key={label}><small>{label}</small><strong>{loading?'…':value??'—'}</strong></article>)}</section>

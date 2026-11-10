@@ -17,11 +17,14 @@ with cascade deletion and denies browser-role access. Records are separate from
 `tail_bets`, funded pilot data and sportsbook imports. Telegram's older ledger
 remains linked separately; it is not added into these totals.
 
-Grading reads the newest released archived snapshot for the exact cohort,
-selection and line; it works beyond the current 100-row feed. Results have a
-minimum 30-minute publication delay for all tracking customers. Unknown outcomes
-remain pending. Publication pause suppresses grading. No webhook or scheduled
-job is needed: opening or refreshing My plays retrieves available grades.
+Grading reads the newest archived snapshot for the exact cohort, source entry,
+selection and line; it works beyond the current 100-row feed. Verified final
+results are available immediately for already-owned selection snapshots; new-pick discovery keeps its publication delay. The newest archived
+version is authoritative, so a correction cannot reuse an older final. Unknown
+outcomes remain pending. Publication pause suppresses grading. The existing
+background research sync supplies grades without requiring a page visit. My Plays
+checks every minute while visible, and when focus returns, without overlapping
+a load or question request. Reads also calculate grades automatically.
 Accounting uses integer cents, the user's odds, graded stake for ROI, and excludes
 void stake and all pending plays from ROI. The latest 1,000 tracked plays are
 shown; a limit notice scopes totals and questions when this history is exceeded.
@@ -52,3 +55,11 @@ Verification (October 11):
   intended service-only deny policy; pre-existing unrelated advisories were not changed.
 
 Production release verification is recorded in the PR after deployment.
+
+November 10 automatic grading verification:
+- Production result RPC returned both repaired NCAA grades before the former 30-minute cutoff.
+- Transactional database regression checks proved immediate verified finals, pending exclusion, and invalidation of an older final by a newer unresolved version; all fixtures rolled back.
+- Service-only function permissions remain enforced; no browser role can execute the lookup directly.
+- Nine focused ownership, accounting, exact-source and refresh tests passed.
+- Production build passed. A browser integration exercised the real page and API against a labelled local auth/database fixture: pending plays changed to win/loss on the minute timer without a click, P&L used entered odds, and a 390px viewport fit without overflow.
+- The broader local suite had pre-existing harness/environment failures (missing optional PGlite and a data-URL relative import in member-research tests); it is not claimed fully passed.

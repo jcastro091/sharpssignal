@@ -1,7 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const core=require('../lib/trackedPlays.cjs');
 const now=Date.parse('2026-10-11T19:00:00Z');
-const play={entry_id:'entry',play_key:'event:spread:away',cohort:'research',side:'Away',point:3.5,market:'spreads',start:(now+3600000)/1000,home:'Home',away:'Away',result:null};
+const play={entry_id:'entry',play_key:'event:spread:away',cohort:'research',side:'Away',point:3.5,market:'spreads',start:(now+3600000)/1000,home:'Home',away:'Away',result:null,settlement_status:'verified_final_score'};
 const user={id:'owner',email_confirmed_at:'2026-01-01'};
 const input={sportsbook:'FanDuel',odds:-110,stake:25};
 const row=()=>core.createTrackedPlay(user,play,input,now);
@@ -53,3 +53,9 @@ test('real route saves only verified user and server snapshot; retries never cha
   const response=await r.call('GET');assert.equal(response.json.summary.total,1);assert.equal(response.json.rows[0].result,'pending');assert.ok(r.operations.some(x=>x.table==='customer_tracked_plays'&&x.user_id==='owner'));
 });
 test('database failure is not reported as saved',async()=>{assert.equal((await route({fail:true}).call('POST',{action:'tail',pick:core.signalKey(play),...input})).code,503);});
+test('only verified exact source settlements grade, including a regrouped source receipt',()=>{
+  const saved=row(),final={...play,result:'win',settlement_status:'verified_final_score'};
+  for(const change of [{settlement_status:'no_unique_exact_match'},{settlement_status:null},{quarantined:'changed_score'},{entry_id:'unrelated'},{side:'Home'},{point:4.5}])assert.equal(core.gradeTrackedPlay(saved,{...final,...change}).result,'pending');
+  assert.equal(core.gradeTrackedPlay(saved,{...final,entry_id:'other-strategy',source_entry_ids:[play.entry_id]}).result,'win');
+  assert.equal(core.gradeTrackedPlay(saved,{...final,entry_id:'unrelated',source_entry_ids:['wrong']}).result,'pending');
+});

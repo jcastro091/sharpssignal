@@ -43,7 +43,8 @@ export default async function handler(req,res) {
     if(error) throw error;
     const partial=stored.length>1000, rows=stored.slice(0,1000), versions=new Map();
     // Read archived exact selections, including plays older than the 100-row feed.
-    // Use the free publication delay for all customers' grades; never expose an unreleased result.
+    // The RPC releases verified finals immediately for these owned selection keys.
+    // The discovery-feed delay remains the fallback for other snapshot versions.
     const cutoff=new Date(Date.now()-Math.max(30,Number(process.env.FREE_FEED_DELAY_MINUTES)||30)*60000).toISOString();
     const settings=await db.from('member_publication_settings').select('paused').limit(1);
     if(settings.error) throw settings.error;
