@@ -38,3 +38,13 @@ test("invalid, future and unavailable quotes never rank as best", () => {
   ])
     assert.equal(quoteState(play, { quotes: [q] }, now).best, null);
 });
+
+test("Caesars -164 outranks DraftKings -167 while recent; stale quotes cannot win", () => {
+  const data = {quotes:[
+    {book:"williamhill_us",name:"Caesars",decimal:1+100/164,observed_at:new Date(now-60000).toISOString()},
+    {book:"draftkings",name:"DraftKings",decimal:1+100/167,observed_at:new Date(now-20000).toISOString()},
+    {book:"betmgm",decimal:1+100/169,observed_at:new Date(now-20000).toISOString()},
+  ]};
+  assert.equal(quoteState(play,data,now).best.book,"williamhill_us");
+  assert.equal(quoteState(play,data,now+61000).best.book,"draftkings");
+});
