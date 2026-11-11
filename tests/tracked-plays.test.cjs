@@ -31,11 +31,11 @@ test('ROI uses graded stake only; void excluded and pending excluded; correct lo
   assert.match(core.answerQuestion(data,'What sportsbooks am I losing with the most?'),/FanDuel.*lowest.*3 graded/);
   assert.match(core.answerQuestion(core.dashboard([]),'What markets are we crushing?'),/no graded plays/);
 });
-function route({auth=user,feed={status:200,body:{plays:[{...play,start:Date.now()/1000+3600}]}},fail=false}={}){
+function route({auth=user,feed={status:200,body:{plays:[{...play,start:Date.now()/1000+3600}]}},fail=false,intent={dimension:'overview',tag:null,notes:null}}={}){
   const records=[],operations=[];
-  const db={rpc:async()=>({data:[],error:null}),from(table){const op={table};operations.push(op);const chain={select(){return chain},eq(k,v){op[k]=v;return chain},order(){return chain},limit(){return chain},lte(k,v){op[k]=v;return chain},delete(){op.delete=true;return chain},upsert(value,options){op.options=options;if(!records.some(x=>x.id===value.id))records.push(value);return Promise.resolve({error:fail?Error('db down'):null})},then(resolve){if(op.delete){const matched=records.filter(x=>x.id===op.id&&x.user_id===op.user_id);if(!fail)for(const row of matched)records.splice(records.indexOf(row),1);return Promise.resolve({data:matched.map(x=>({id:x.id})),error:fail?Error('db down'):null}).then(resolve);}return Promise.resolve({data:table==='customer_tracked_plays'?records.filter(x=>x.user_id===op.user_id):table==='member_publication_settings'?[{paused:false}]:[],error:fail?Error('db down'):null}).then(resolve)}};return chain;}};
+  const db={rpc:async()=>({data:[],error:null}),from(table){const op={table};operations.push(op);const chain={select(){return chain},eq(k,v){op[k]=v;return chain},order(){return chain},limit(){return chain},lte(k,v){op[k]=v;return chain},update(patch){op.patch=patch;return chain},delete(){op.delete=true;return chain},upsert(value,options){op.options=options;if(!records.some(x=>x.id===value.id))records.push(value);return Promise.resolve({error:fail?Error('db down'):null})},then(resolve){if(op.patch){const matched=records.filter(x=>x.id===op.id&&x.user_id===op.user_id);if(!fail)for(const row of matched)Object.assign(row,op.patch);return Promise.resolve({data:matched,error:fail?Error('db down'):null}).then(resolve);}if(op.delete){const matched=records.filter(x=>x.id===op.id&&x.user_id===op.user_id);if(!fail)for(const row of matched)records.splice(records.indexOf(row),1);return Promise.resolve({data:matched.map(x=>({id:x.id})),error:fail?Error('db down'):null}).then(resolve);}return Promise.resolve({data:table==='customer_tracked_plays'?records.filter(x=>x.user_id===op.user_id):table==='member_publication_settings'?[{paused:false}]:[],error:fail?Error('db down'):null}).then(resolve)}};return chain;}};
   const source=fs.readFileSync('pages/api/tracked-plays.js','utf8').replace(/^import[^\n]+\n/gm,'').replace('export default async function handler','async function handler');
-  const context={require:()=>core,URL,Date,AbortSignal,process:{env:{}},getServerUser:async()=>auth,customerFeedContext:async()=>({user:auth}),customerFeed:async()=>feed,createSupabaseServiceClient:()=>db,module:{exports:{}}};
+  const context={require:()=>core,URL,Date,AbortSignal,process:{env:{}},interpretQuestion:async()=>intent,getServerUser:async()=>auth,customerFeedContext:async()=>({user:auth}),customerFeed:async()=>feed,createSupabaseServiceClient:()=>db,module:{exports:{}}};
   vm.runInNewContext(source+'\nmodule.exports=handler;',context);
   async function call(method,body={},headers={origin:'https://app.test',host:'app.test'}){let code,json;await context.module.exports({method,body,query:{},headers},{setHeader(){},status(n){code=n;return this},json(v){json=v;return this}});return {code,json};}
   return {call,records,operations};
@@ -80,4 +80,52 @@ test('failed deletion keeps the stored play and reports failure',async()=>{
   const r=route({fail:true});r.records.push(row());
   assert.equal((await r.call('POST',{action:'delete',id:row().id})).code,503);
   assert.equal(r.records.length,1);
+});
+
+test('notes and tags validation accepts clearing and rejects bad inputs',()=>{
+  assert.deepEqual(core.annotation({notes:' context ',tags:[' Injury news ','injury news','My tag']}),{notes:'context',tags:['Injury news','My tag']});
+  assert.deepEqual(core.annotation({notes:'',tags:[]}),{notes:'',tags:[]});
+  for(const bad of [{notes:{}},{notes:'x'.repeat(2001)},{tags:'bad'},{tags:Array(11).fill('x')},{tags:['']},{tags:['x'.repeat(41)]},{tags:[{}]}])assert.throws(()=>core.annotation({notes:'',tags:[],...bad}));
+});
+test('annotations update only owner notes and tags; missing and foreign rows denied; errors preserve original',async()=>{
+  const r=route();r.records.push(row(),{...row(),id:'foreign',user_id:'other'});
+  const before={...r.records[0]};
+  const body={action:'annotate',id:before.id,notes:'Injury confirmed',tags:['Injury news'],user_id:'other',odds_american:800,stake_cents:1,snapshot:{}};
+  assert.equal((await r.call('POST',body)).code,200);
+  assert.deepEqual(r.records[0],{...before,notes:'Injury confirmed',tags:['Injury news']});
+  assert.equal((await r.call('POST',{...body,id:'foreign'})).code,404);
+  assert.equal((await r.call('POST',{...body,id:'missing'})).code,404);
+  assert.equal((await r.call('POST',{...body,notes:1})).code,400);
+  assert.equal((await r.call('POST',{...body,id:'bad.id'})).code,400);
+  assert.equal((await route({auth:null}).call('POST',body)).code,401);
+  assert.equal((await r.call('POST',body,{origin:'https://evil.test',host:'app.test'})).code,403);
+  const failed=route({fail:true});failed.records.push(row());assert.equal((await failed.call('POST',body)).code,503);assert.equal(failed.records[0].notes,undefined);
+  assert.equal((await r.call('POST',{...body,notes:'',tags:[]})).code,200);assert.deepEqual(r.records[0].tags,[]);
+});
+const annotatedRows=()=>['win','loss',null].map((result,i)=>core.gradeTrackedPlay({...row(),id:'row'+i,notes:i===1?'weather concern':'Injury confirmed',tags:i===1?['My tag']:['Injury news','Follow-up']},{...play,result}));
+test('notes search and tag filters intersect existing filters and recalculate totals',()=>{
+  const rows=annotatedRows();assert.equal(core.dashboard(rows,{tag:'injury news',notes:'CONFIRMED'}).summary.total,2);
+  assert.equal(core.dashboard(rows,{tag:'Injury news',status:'pending'}).summary.open_stake_cents,2500);
+  assert.equal(core.dashboard(rows,{tag:'Injury news',book:'Other'}).summary.total,0);
+  assert.equal(core.dashboard(rows,{tag:'Injury news',notes:'weather'}).summary.total,0);
+  assert.equal(core.dashboard(rows,{notes:'confirmed'}).summary.pnl_cents,2273);
+});
+test('insights use only scoped rows; pending excluded; overlap, no matches and unsupported handled',()=>{
+  const rows=annotatedRows(),overview={dimension:'overview',tag:'Injury news',notes:null};
+  assert.match(core.insight(rows,{},overview),/2 tracked plays: 1 wins, 0 losses.*1 pending.*\$22.73/);
+  assert.match(core.insight(rows,{status:'pending'},overview),/settled ROI unavailable/);
+  assert.match(core.insight(rows,{}, {...overview,tag:'missing'}),/not in your saved/);
+  assert.match(core.insight(rows,{tag:'My tag'},overview),/No tracked plays/);
+  assert.match(core.insight(rows,{}, {...overview,tag:null,notes:'weather'}),/\-\$25.00/);
+  assert.match(core.insight(rows,{}, {dimension:'tag',metric:'roi',direction:'best'}),/groups can overlap/);
+  assert.match(core.insight(rows,{}, {dimension:'unsupported'}),/Select a tag/);
+});
+test('real ask route applies tag and notes scope and returns tag options',async()=>{
+  const r=route({intent:{dimension:'overview',tag:'Injury news',notes:'confirmed'}});r.records.push({...row(),notes:'Injury confirmed',tags:['Injury news']});
+  const result=await r.call('POST',{action:'ask',question:'How did my Injury news bets do?',filters:{}});
+  assert.equal(result.code,200);assert.match(result.json.answer,/1 tracked plays/);assert.deepEqual([...result.json.options.tags],['Injury news']);
+});
+
+test('tag grouping combines case variants just like the tag filter',()=>{
+ const rows=annotatedRows();rows[1].tags=['injury news'];const grouped=core.dashboard(rows).tags.find(x=>x.name.toLowerCase()==='injury news');assert.equal(grouped.total,3);assert.equal(core.tagNames(rows).filter(x=>x.toLowerCase()==='injury news').length,1);
 });

@@ -2,7 +2,7 @@ import {getServerUser} from '../../lib/authServer';
 import {createSupabaseServiceClient} from '../../lib/supabaseServer';
 import {customerFeedContext,customerFeed} from '../../lib/customerFeedServer';
 import {interpretQuestion} from '../../lib/betQuestion.mjs';
-const {signalKey,createTrackedPlay,gradeTrackedPlay,dashboard,answerQuestion}=require('../../lib/trackedPlays.cjs');
+const {signalKey,createTrackedPlay,gradeTrackedPlay,dashboard,annotation,insight,quickIntent,tagNames}=require('../../lib/trackedPlays.cjs');
 const questionWindows=new Map();
 
 export default async function handler(req,res) {
@@ -17,6 +17,14 @@ export default async function handler(req,res) {
   try {
     const db=createSupabaseServiceClient();
     const body=req.body&&typeof req.body==='object'?req.body:{};
+    if(req.method==='POST' && body.action==='annotate') {
+      if(typeof body.id!=='string' || !/^[A-Za-z0-9_-]{1,128}$/.test(body.id))return res.status(400).json({ok:false,error:'Choose a valid play.'});
+      let patch;try{patch=annotation(body);}catch(error){return res.status(400).json({ok:false,error:error.message});}
+      const saved=await db.from('customer_tracked_plays').update(patch).eq('id',body.id).eq('user_id',user.id).select('id,notes,tags');
+      if(saved.error)throw saved.error;
+      if(!saved.data?.length)return res.status(404).json({ok:false,error:'Play not found.'});
+      return res.status(200).json({ok:true,...saved.data[0]});
+    }
     if(req.method==='POST' && body.action==='delete') {
       if(typeof body.id!=='string' || !/^[A-Za-z0-9_-]{1,128}$/.test(body.id)) return res.status(400).json({ok:false,error:'Choose a valid play to delete.'});
       const deleted=await db.from('customer_tracked_plays').delete().eq('id',body.id).eq('user_id',user.id).select('id');
@@ -67,11 +75,10 @@ export default async function handler(req,res) {
     let answer;
     if(body.action==='ask') {
       try {
-        const intent=await interpretQuestion(body.question);
-        const supported=['book','market'].includes(intent.dimension);
-        answer=supported?answerQuestion(data,`${intent.dimension==='book'?'sportsbook':'market'} ${intent.direction==='worst'?'worst':'best'} ${intent.metric==='roi'?'ROI':'profit'}`):'I can compare your sportsbooks and markets by profit or ROI. Use the dashboard filters to choose your view; I cannot predict future results or access other users.';
+        const intent=quickIntent(body.question)||await interpretQuestion(body.question,tagNames(all));
+        answer=insight(all,filters||{},intent);
       } catch {answer='The question service is temporarily unavailable. Your sportsbook and market breakdowns are still available above.';}
     }
-    return res.status(200).json({ok:true,...data,options:{books:[...new Set(all.map(x=>x.sportsbook))],markets:[...new Set(all.map(x=>x.play.market))]},partial,publishing_paused:paused,...(answer?{answer}:{})});
+    return res.status(200).json({ok:true,...data,options:{books:[...new Set(all.map(x=>x.sportsbook))],markets:[...new Set(all.map(x=>x.play.market))],tags:tagNames(all).sort()},partial,publishing_paused:paused,...(answer?{answer}:{})});
   } catch {return res.status(503).json({ok:false,error:'Your tracked plays are temporarily unavailable. Please try again.'});}
 }
