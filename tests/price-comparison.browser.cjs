@@ -2,6 +2,7 @@
 require("node:fs").mkdirSync("work", { recursive: true });
 const http = require("node:http"),
   assert = require("node:assert/strict");
+const {spawn} = require("node:child_process");
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const now = Date.now(),
   base = "http://sharps.local.test:3025";
@@ -38,6 +39,9 @@ const play = {
   start: (now + 3600000) / 1000,
   entry_at: (now - 3600000) / 1000,
 };
+process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:4025";
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "local-anon";
+process.env.MEMBER_FEED_BACKEND_URL = "http://127.0.0.1:4025";
 process.env.SUPABASE_URL = "http://127.0.0.1:4025";
 process.env.SUPABASE_SERVICE_ROLE_KEY = "local-service";
 process.env.ODDS_API_KEY = "local-odds";
@@ -58,6 +62,11 @@ global.fetch = async (url, options) => {
         bookmakers: missing
           ? []
           : [
+              {
+                key: "williamhill_us",
+                last_update: new Date(Date.now() - 20000).toISOString(),
+                markets: [{key:"h2h",outcomes:[{name:play.side,price:1+100/119}]}],
+              },
               {
                 key: "draftkings",
                 last_update: new Date().toISOString(),
@@ -119,8 +128,13 @@ const service = http.createServer(async (req, res) => {
 });
 (async () => {
   await new Promise((r) => service.listen(4025, "127.0.0.1", r));
+  let output = "";
+  const app = spawn(process.execPath, [require.resolve("next/dist/bin/next"), "dev", "--hostname", "127.0.0.1", "--port", "3025"], {env:process.env,stdio:["ignore","pipe","pipe"]});
+  app.stdout.on("data",c=>{output+=c;require("node:fs").appendFileSync("work/browser-server.log",c);});app.stderr.on("data",c=>{output+=c;require("node:fs").appendFileSync("work/browser-server.log",c);});
+  for(let i=0;i<120;i++){try{if(app.exitCode!==null) throw Error(output);await rawFetch("http://127.0.0.1:3025", {signal:AbortSignal.timeout(2000)});break;}catch{if(app.exitCode!==null){service.close();throw Error(output);}await new Promise(r=>setTimeout(r,500));}}
+  console.log("Local app ready; launching browser");
   const browser = await chromium.launch({
-    executablePath: "/usr/bin/chromium",
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
     headless: true,
     args: [
       "--no-sandbox",
@@ -143,9 +157,11 @@ const service = http.createServer(async (req, res) => {
     await context.addInitScript(() =>
       localStorage.setItem("ss_analytics_consent", "no"),
     );
+    context.setDefaultTimeout(15000);
     const page = await context.newPage(),
       errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
+    console.log("Opening dashboard");
     await page.goto(base + "/dashboard");
     await page.locator(".latest-signal-card").waitFor();
     assert.equal(providerCalls, 0);
@@ -157,6 +173,7 @@ const service = http.createServer(async (req, res) => {
     await page.getByLabel("Betting location").selectOption("NY");
     await page.getByLabel("DraftKings", { exact: true }).check();
     const card = page.locator(".latest-signal-card").first();
+    console.log("Waiting for best quote");
     await card
       .getByText("Best observed: -122 · DraftKings", { exact: true })
       .waitFor();
@@ -170,9 +187,46 @@ const service = http.createServer(async (req, res) => {
     await dialog
       .getByText("Best observed: -122 · DraftKings", { exact: true })
       .waitFor();
-    assert.equal(await dialog.locator("input[name=odds]").inputValue(), "-125");
+    assert.equal(await dialog.locator("input[name=odds]").inputValue(), "-122");
+    assert.equal(await dialog.getByLabel("Sportsbook", {exact:true}).inputValue(), "DraftKings");
+    assert.equal(await dialog.getByLabel("Your stake ($)").inputValue(), "10.00");
     assert.equal(providerCalls, 1);
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    // Save a preference, reload, then compare the same four-book scenario as the reported bug.
+    await page.getByLabel("Default stake ($)").fill("17.50");
+    await page.getByRole("button",{name:"Save default stake",exact:true}).click();
+    await page.reload();
+    await page.waitForFunction(()=>document.querySelector("input[name=defaultStake]")?.value === "17.50");
+    assert.equal(await page.getByLabel("Default stake ($)").inputValue(),"17.50");
+    await page.getByText("Choose your sportsbooks for price comparisons",{exact:true}).click();
+    await page.getByLabel("Caesars",{exact:true}).check();
+    await card.getByText("Best observed: -119 · Caesars",{exact:true}).waitFor();
+    await card.getByRole("button",{name:"Tail this pick",exact:true}).click();
+    await dialog.getByText("Best observed: -119 · Caesars",{exact:true}).waitFor();
+    assert.equal(await dialog.getByLabel("Sportsbook",{exact:true}).inputValue(),"Caesars");
+    assert.equal(await dialog.getByLabel("Your American odds").inputValue(),"-119");
+    assert.equal(await dialog.getByLabel("Your stake ($)").inputValue(),"17.50");
+    await dialog.getByLabel("Sportsbook",{exact:true}).selectOption("DraftKings");
+    assert.equal(await dialog.getByLabel("Your American odds").inputValue(),"-122");
+    await dialog.getByLabel("Your American odds").fill("-120");
+    await dialog.getByRole("button",{name:"Refresh prices",exact:true}).click();
+    await page.waitForFunction(()=>!document.querySelector("dialog[open] .price-refresh")?.disabled);
+    assert.equal(await dialog.getByLabel("Your American odds").inputValue(),"-120");
+    await dialog.getByRole("button",{name:"Cancel",exact:true}).click();
+    await card.getByRole("button",{name:"Tail this pick",exact:true}).click();
+    assert.equal(await dialog.getByLabel("Sportsbook",{exact:true}).inputValue(),"Caesars");
+    assert.equal(await dialog.getByLabel("Your American odds").inputValue(),"-119");
+    assert.equal(await dialog.getByLabel("Your stake ($)").inputValue(),"17.50");
+    await dialog.screenshot({path:"work/tail-defaults-desktop.png"});
+    await page.setViewportSize({width:390,height:844});
+    await dialog.screenshot({path:"work/tail-defaults-mobile.png"});
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    let submitted;
+    await page.route("**/api/tracked-plays",async route=>{submitted=route.request().postDataJSON();await route.fulfill({json:{ok:true}});});
+    await dialog.getByLabel("My play has this exact selection and line.").check();
+    await dialog.getByRole("button",{name:"Save to my plays",exact:true}).click();
+    await page.getByRole("link",{name:/Tracked/}).waitFor();
+    assert.equal(submitted.sportsbook,"Caesars");assert.equal(submitted.odds,"-119");assert.equal(submitted.stake,"17.50");
     await card.screenshot({ path: "work/price-card-desktop.png" });
     await page.setViewportSize({ width: 390, height: 844 });
     await card.screenshot({ path: "work/price-card-mobile.png" });
@@ -201,10 +255,11 @@ const service = http.createServer(async (req, res) => {
       .waitFor();
     assert.deepEqual(errors, []);
     console.log(
-      "PASS: browser preferences → Next proxy → actual backend authorization/publication → provider fixture → -122 vs original -125; tracking dialog preserves actual-entry fields; no hidden-dialog requests; mobile/desktop; unavailable and closed states.",
+      "PASS: browser preferences → Next proxy → actual backend authorization/publication → provider fixture → -122 vs original -125; tracking dialog prefills best quote, dropdown follows book prices, editable fields survive refresh, saved stake persists, submit payload matches; no hidden-dialog requests; mobile/desktop; unavailable and closed states.",
     );
   } finally {
     await browser.close();
+    app.kill();
     service.close();
   }
 })().catch((e) => {

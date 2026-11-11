@@ -1,4 +1,5 @@
-import PriceComparison from './PriceComparison';
+import PriceComparison, {usePriceComparison, usePricePreferences} from './PriceComparison';
+import {BOOKS} from '../lib/priceComparison.cjs';
 import {useRef,useState,useEffect,useId} from 'react';
 import Link from 'next/link';
 import {signalKey} from '../lib/signalChanges.cjs';
@@ -9,6 +10,13 @@ import styles from '../styles/tracked.module.css';
 export default function TailPick({play}) {
   const titleId=useId();
   const dialog=useRef(null), [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[saved,setSaved]=useState(false),[error,setError]=useState(''),[now,setNow]=useState(Date.now());
+  const {defaultStake = '10.00'} = usePricePreferences();
+  const {view, loading} = usePriceComparison(play, open);
+  const [entry, setEntry] = useState(null);
+  const [stake, setStake] = useState(defaultStake);
+  const suggestion = view.best ? {sportsbook:view.best.name, odds:decimalToAmericanLabel(view.best.decimal,'')} : {sportsbook:'', odds:''};
+  const current = entry ?? suggestion;
+  const bookNames = [...new Set([...Object.values(BOOKS), sportsbookName(play.book,''), current.sportsbook].filter(Boolean))];
   useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),30000);return()=>clearInterval(timer);},[]);
   const start=typeof play.start==='number'?play.start*1000:Date.parse(play.start);
   const available=play.entry_id&&play.play_key&&start>now&&!play.result;
@@ -21,16 +29,17 @@ export default function TailPick({play}) {
     } catch(error) {setError(error.message);} finally {setBusy(false);}
   }
   return <div className={styles.tail}>
-    {saved?<Link className="button-secondary" href="/my-plays">Tracked ✓ · My plays</Link>:<button className="button-primary" disabled={!available} onClick={()=>{setError('');setOpen(true);dialog.current.showModal();}}>{available?'Tail this pick':'Tracking closed'}</button>}
+    {saved?<Link className="button-secondary" href="/my-plays">Tracked ✓ · My plays</Link>:<button className="button-primary" disabled={!available} onClick={()=>{setError('');setEntry(null);setStake(defaultStake);setOpen(true);dialog.current.showModal();}}>{available?'Tail this pick':'Tracking closed'}</button>}
     <dialog ref={dialog} aria-labelledby={titleId} className={styles.dialog} onClose={()=>setOpen(false)} onCancel={event=>{if(busy)event.preventDefault();}}>
       <form onSubmit={submit}>
         <span className="eyebrow">ADD TO MY PLAYS</span><h2 id={titleId}>Tail this pick</h2>
         <h3>{play.side} {play.point??play.line??''}</h3><p>{play.away} @ {play.home}</p>
         <p className="muted">Record your own play. This does not place a wager. Keep the selection and line shown above so its result can be matched correctly.</p>
-        {open&&<PriceComparison play={play}/>}<label>Sportsbook<input name="sportsbook" maxLength={60} required defaultValue={sportsbookName(play.book,'')} placeholder="e.g. FanDuel"/></label>
-        <div className={styles.two}><label>Your American odds<input name="odds" type="number" step="1" required defaultValue={decimalToAmericanLabel(play.decimal,'')} placeholder="-110"/></label><label>Your stake ($)<input name="stake" type="number" min="0.01" max="100000" step="0.01" required placeholder="25.00"/></label></div>
-        <p className="small muted">The suggested book and odds are captured values. Confirm what you actually took. Each selection is tracked once; repeat saves keep your original details.</p>
+        {open&&<PriceComparison play={play}/>}<label htmlFor={titleId+"-sportsbook"}>Sportsbook</label><select id={titleId+"-sportsbook"} name="sportsbook" required value={current.sportsbook} onChange={event=>{const name=event.target.value;const quote=view.quotes.find(q=>q.name===name&&q.status==='current');setEntry({sportsbook:name,odds:quote?decimalToAmericanLabel(quote.decimal,''):''});}}><option value="">Choose sportsbook</option>{bookNames.map(name=><option key={name} value={name}>{name}</option>)}</select>
+        <div className={styles.two}><label>Your American odds<input name="odds" type="number" step="1" required value={current.odds} onChange={event=>setEntry({...current,odds:event.target.value})} placeholder="-110"/></label><label>Your stake ($)<input name="stake" type="number" min="0.01" max="100000" step="0.01" required value={stake} onChange={event=>setStake(event.target.value)}/></label></div>
+        <p className="small muted">The best recent book and odds are filled in automatically. Confirm what you actually took. Each selection is tracked once; repeat saves keep your original details.</p>
         <label className={styles.check}><input type="checkbox" required/>My play has this exact selection and line.</label>
+        {!view.best&&!loading&&<p className="small muted">No recent matching quote. Refresh prices or enter your actual sportsbook and odds.</p>}
         {error&&<p role="alert" className={styles.error}>{error}</p>}
         <div className={styles.actions}><button type="button" className="button-secondary" disabled={busy} onClick={()=>dialog.current.close()}>Cancel</button><button className="button-primary" disabled={busy}>{busy?'Saving…':'Save to my plays'}</button></div>
       </form>

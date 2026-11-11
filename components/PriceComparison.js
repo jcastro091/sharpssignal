@@ -1,12 +1,19 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import useSWR from "swr";
 import { decimalToAmericanLabel } from "../lib/oddsDisplay.cjs";
 import { sportsbookName } from "../lib/sportsbookDisplay.cjs";
 import { signalKey } from "../lib/signalChanges.cjs";
 const { BOOKS, time, quoteState } = require("../lib/priceComparison.cjs");
 const Context = createContext({ region: "", books: [], ready: false });
-const cache = new Map();
+export function usePricePreferences() { return useContext(Context); }
 export function PriceComparisonProvider({ children }) {
   const [prefs, setPrefs] = useState({ region: "", books: [], ready: false });
+  const [now, setNow] = useState(Date.now());
+  const syncClock = useCallback(() => setNow(Date.now()), []);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
   useEffect(() => {
     try {
       const saved = JSON.parse(
@@ -17,29 +24,39 @@ export function PriceComparisonProvider({ children }) {
         books: Array.isArray(saved.books)
           ? saved.books.filter((b) => Object.hasOwn(BOOKS, b))
           : [],
+        defaultStake: Number(saved.defaultStake) > 0 && Number(saved.defaultStake) <= 100000 ? Number(saved.defaultStake).toFixed(2) : "10.00",
         ready: true,
       });
     } catch {
-      setPrefs({ region: "", books: [], ready: true });
+      setPrefs({ region: "", books: [], defaultStake: "10.00", ready: true });
     }
   }, []);
   function update(next) {
+    next = { ...prefs, ...next };
     setPrefs({ ...next, ready: true });
     try {
       localStorage.setItem("ss_price_preferences", JSON.stringify(next));
     } catch {}
   }
   return (
-    <Context.Provider value={{ ...prefs, update }}>{children}</Context.Provider>
+    <Context.Provider value={{ defaultStake: "10.00", ...prefs, now, syncClock, update }}>{children}</Context.Provider>
   );
 }
 export function SportsbookPricePreferences() {
-  const { region, books, update } = useContext(Context);
+  const { region, books, defaultStake, update } = useContext(Context);
+  const [stake, setStake] = useState(defaultStake);
+  const [stakeSaved, setStakeSaved] = useState(false);
+  useEffect(() => setStake(defaultStake), [defaultStake]);
   return (
     <section
       className="price-preferences"
       aria-label="Sportsbook price preferences"
     >
+      <form onSubmit={event => { event.preventDefault(); update({ defaultStake: Number(stake).toFixed(2) }); setStakeSaved(true); }}>
+        <label>Default stake ($)<input name="defaultStake" type="number" min="0.01" max="100000" step="0.01" required value={stake ?? "10.00"} onChange={event => { setStake(event.target.value); setStakeSaved(false); }}/></label>
+        <button type="submit" className="button-secondary">Save default stake</button>
+        <p className="small muted" role="status">{stakeSaved ? "Default stake saved. " : ""}Used for every new tail. You can change each play’s stake. Saved in this browser.</p>
+      </form>
       <details>
         <summary>Choose your sportsbooks for price comparisons</summary>
         <p>
@@ -116,59 +133,28 @@ function Stamp({ value }) {
     </time>
   );
 }
+async function fetchPrices(url) {
+  const response = await fetch(url, { cache: "no-store" });
+  const result = await response.json();
+  if (!response.ok || !result.ok) throw Error("Prices unavailable. Please try again shortly.");
+  return result;
+}
+export function usePriceComparison(play, enabled = true) {
+  const { region, books, ready, syncClock, now = Date.now() } = useContext(Context);
+  const pick = signalKey(play), bookKey = [...books].sort().join(",");
+  const closed = quoteState(play, null, now).status === "closed";
+  const key = enabled && ready && region === "NY" && bookKey && !closed
+    ? "/api/price-comparison?" + new URLSearchParams({ pick, books: bookKey, region }) : null;
+  const { data, error, isLoading, isValidating, mutate } = useSWR(key, fetchPrices, {
+    onSuccess: syncClock,
+    refreshInterval: 60000, dedupingInterval: 5000, revalidateOnFocus: true,
+    shouldRetryOnError: false,
+  });
+  return { region, books, data, error: error?.message || "", loading: isLoading || isValidating,
+    view: quoteState(play, key ? data : null, now), refresh: () => mutate() };
+}
 export default function PriceComparison({ play }) {
-  const { region, books, ready } = useContext(Context);
-  const [data, setData] = useState(null),
-    [loading, setLoading] = useState(false),
-    [error, setError] = useState(""),
-    [refresh, setRefresh] = useState(0),
-    [now, setNow] = useState(Date.now());
-  const pick = signalKey(play),
-    bookKey = [...books].sort().join(","),
-    closed = quoteState(play, null, now).status === "closed";
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 15000);
-    return () => clearInterval(timer);
-  }, []);
-  useEffect(() => {
-    let active = true;
-    setData(null);
-    setError("");
-    if (!ready || region !== "NY" || !bookKey || closed) return;
-    const key = pick + "|" + bookKey;
-    for (const [k, v] of cache) if (v.until < Date.now()) cache.delete(k);
-    let entry = cache.get(key);
-    if (refresh) entry = null;
-    if (!entry) {
-      const promise = fetch(
-        "/api/price-comparison?" +
-          new URLSearchParams({ pick, books: bookKey, region }),
-        { cache: "no-store" },
-      ).then(async (r) => {
-        const d = await r.json();
-        if (!r.ok || !d.ok)
-          throw Error("Prices unavailable. Please try again shortly.");
-        return d;
-      });
-      entry = { promise, until: Date.now() + 60000 };
-      if (cache.size < 100) cache.set(key, entry);
-    }
-    setLoading(true);
-    entry.promise
-      .then((d) => {
-        if (active) setData(d);
-      })
-      .catch((e) => {
-        if (active) setError(e.message);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [pick, bookKey, region, ready, refresh, closed]);
-  const view = quoteState(play, data, now);
+  const { region, books, data, error, loading, view, refresh } = usePriceComparison(play);
   return (
     <div className="price-comparison">
       <p>
@@ -265,8 +251,7 @@ export default function PriceComparison({ play }) {
             className="price-refresh"
             disabled={loading}
             onClick={() => {
-              setNow(Date.now());
-              setRefresh((x) => x + 1);
+              refresh();
             }}
           >
             Refresh prices
