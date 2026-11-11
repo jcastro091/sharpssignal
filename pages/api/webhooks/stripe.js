@@ -3,6 +3,7 @@ import { buffer } from "micro";
 import Stripe from "stripe";
 import { createSupabaseServiceClient } from "../../../lib/supabaseServer";
 import { createStripeWebhook } from "../../../lib/stripeWebhook";
+import { createStripeWebhookStore } from "../../../lib/stripeWebhookStore.mjs";
 export const config = { api: { bodyParser: false } };
 
 function canonical(value) {
@@ -15,34 +16,7 @@ function canonical(value) {
     );
   return value;
 }
-function getStore() {
-  const db = createSupabaseServiceClient();
-  async function one(table, column, value) {
-    const { data, error } = await db
-      .from(table)
-      .select("*")
-      .eq(column, value)
-      .maybeSingle();
-    if (error) throw error;
-    return data;
-  }
-  return {
-    event: (id) => one("stripe_webhook_events", "event_id", id),
-    subscription: (id) => one("subscriptions", "stripe_subscription_id", id),
-    async user(id) {
-      const { data, error } = await db.auth.admin.getUserById(id);
-      if (error) throw error;
-      return data?.user;
-    },
-    async apply(payload) {
-      const { data, error } = await db.rpc("apply_verified_stripe_event", {
-        payload,
-      });
-      if (error) throw error;
-      return data;
-    },
-  };
-}
+function getStore() { return createStripeWebhookStore(createSupabaseServiceClient()); }
 const verifiedWebhook=createStripeWebhook({
   readBody: req=>req.verifiedRawBody||buffer(req),
   getStripe: () =>
