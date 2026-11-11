@@ -77,7 +77,7 @@ export default async function handler(req,res) {
       try {
         const intent=quickIntent(body.question)||await interpretQuestion(body.question,tagNames(all));
         answer=insight(all,filters||{},intent);
-      } catch {answer='The question service is temporarily unavailable. Your sportsbook and market breakdowns are still available above.';}
+      } catch(error) {console.warn('tracked_play_question_unavailable',JSON.stringify({name:error?.name||'Error',status:error?.statusCode||null,code:error?.code||null}));answer='The question service is temporarily unavailable. Your sportsbook and market breakdowns are still available above.';}
     }
     return res.status(200).json({ok:true,...data,options:{books:[...new Set(all.map(x=>x.sportsbook))],markets:[...new Set(all.map(x=>x.play.market))],tags:tagNames(all).sort()},partial,publishing_paused:paused,...(answer?{answer}:{})});
   } catch {return res.status(503).json({ok:false,error:'Your tracked plays are temporarily unavailable. Please try again.'});}
