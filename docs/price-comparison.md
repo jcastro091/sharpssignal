@@ -36,3 +36,5 @@ The fixture uses the real frontend proxy and backend handler, checks -125 versus
 ## Default stake
 
 The dashboard defaults new tails to $10.00. Users can save another positive cent amount (up to the existing $100,000 tracking limit) under Default stake; it is stored with sportsbook preferences in this browser. Per-play stake edits do not change that default. No account-wide preference synchronization is claimed.
+
+The American odds field accepts signed text (for example +140 and -110); HTML number inputs erase leading-plus values. The server still validates whole American odds and the existing range. Run the browser fixture with `POSITIVE_ODDS=1` to cover positive autofill, book changes, reload, refresh and the submitted signed value.
