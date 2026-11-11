@@ -4,6 +4,7 @@ const http = require("node:http"),
   assert = require("node:assert/strict");
 const {spawn} = require("node:child_process");
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
+const positive = process.env.POSITIVE_ODDS === "1", dkOdds = positive ? "+140" : "-122", caesarsOdds = positive ? "+145" : "-119";
 const now = Date.now(),
   base = "http://sharps.local.test:3025";
 const user = {
@@ -65,7 +66,7 @@ global.fetch = async (url, options) => {
               {
                 key: "williamhill_us",
                 last_update: new Date(Date.now() - 20000).toISOString(),
-                markets: [{key:"h2h",outcomes:[{name:play.side,price:1+100/119}]}],
+                markets: [{key:"h2h",outcomes:[{name:play.side,price:positive ? 2.45 : 1+100/119}]}],
               },
               {
                 key: "draftkings",
@@ -73,7 +74,7 @@ global.fetch = async (url, options) => {
                 markets: [
                   {
                     key: "h2h",
-                    outcomes: [{ name: play.side, price: 1 + 100 / 122 }],
+                    outcomes: [{ name: play.side, price: positive ? 2.4 : 1 + 100 / 122 }],
                   },
                 ],
               },
@@ -175,7 +176,7 @@ const service = http.createServer(async (req, res) => {
     const card = page.locator(".latest-signal-card").first();
     console.log("Waiting for best quote");
     await card
-      .getByText("Best observed: -122 · DraftKings", { exact: true })
+      .getByText("Best observed: "+dkOdds+" · DraftKings", { exact: true })
       .waitFor();
     await card.getByText("Original signal:", { exact: true }).waitFor();
     assert.equal(providerCalls, 1);
@@ -185,9 +186,9 @@ const service = http.createServer(async (req, res) => {
       .click();
     const dialog = page.locator("dialog[open]");
     await dialog
-      .getByText("Best observed: -122 · DraftKings", { exact: true })
+      .getByText("Best observed: "+dkOdds+" · DraftKings", { exact: true })
       .waitFor();
-    assert.equal(await dialog.locator("input[name=odds]").inputValue(), "-122");
+    assert.equal(await dialog.locator("input[name=odds]").inputValue(), dkOdds);
     assert.equal(await dialog.getByLabel("Sportsbook", {exact:true}).inputValue(), "DraftKings");
     assert.equal(await dialog.getByLabel("Your stake ($)").inputValue(), "10.00");
     assert.equal(providerCalls, 1);
@@ -200,14 +201,14 @@ const service = http.createServer(async (req, res) => {
     assert.equal(await page.getByLabel("Default stake ($)").inputValue(),"17.50");
     await page.getByText("Choose your sportsbooks for price comparisons",{exact:true}).click();
     await page.getByLabel("Caesars",{exact:true}).check();
-    await card.getByText("Best observed: -119 · Caesars",{exact:true}).waitFor();
+    await card.getByText("Best observed: "+caesarsOdds+" · Caesars",{exact:true}).waitFor();
     await card.getByRole("button",{name:"Tail this pick",exact:true}).click();
-    await dialog.getByText("Best observed: -119 · Caesars",{exact:true}).waitFor();
+    await dialog.getByText("Best observed: "+caesarsOdds+" · Caesars",{exact:true}).waitFor();
     assert.equal(await dialog.getByLabel("Sportsbook",{exact:true}).inputValue(),"Caesars");
-    assert.equal(await dialog.getByLabel("Your American odds").inputValue(),"-119");
+    assert.equal(await dialog.getByLabel("Your American odds").inputValue(),caesarsOdds);
     assert.equal(await dialog.getByLabel("Your stake ($)").inputValue(),"17.50");
     await dialog.getByLabel("Sportsbook",{exact:true}).selectOption("DraftKings");
-    assert.equal(await dialog.getByLabel("Your American odds").inputValue(),"-122");
+    assert.equal(await dialog.getByLabel("Your American odds").inputValue(),dkOdds);
     await dialog.getByLabel("Your American odds").fill("-120");
     await dialog.getByRole("button",{name:"Refresh prices",exact:true}).click();
     await page.waitForFunction(()=>!document.querySelector("dialog[open] .price-refresh")?.disabled);
@@ -215,7 +216,7 @@ const service = http.createServer(async (req, res) => {
     await dialog.getByRole("button",{name:"Cancel",exact:true}).click();
     await card.getByRole("button",{name:"Tail this pick",exact:true}).click();
     assert.equal(await dialog.getByLabel("Sportsbook",{exact:true}).inputValue(),"Caesars");
-    assert.equal(await dialog.getByLabel("Your American odds").inputValue(),"-119");
+    assert.equal(await dialog.getByLabel("Your American odds").inputValue(),caesarsOdds);
     assert.equal(await dialog.getByLabel("Your stake ($)").inputValue(),"17.50");
     await dialog.screenshot({path:"work/tail-defaults-desktop.png"});
     await page.setViewportSize({width:390,height:844});
@@ -226,7 +227,7 @@ const service = http.createServer(async (req, res) => {
     await dialog.getByLabel("My play has this exact selection and line.").check();
     await dialog.getByRole("button",{name:"Save to my plays",exact:true}).click();
     await page.getByRole("link",{name:/Tracked/}).waitFor();
-    assert.equal(submitted.sportsbook,"Caesars");assert.equal(submitted.odds,"-119");assert.equal(submitted.stake,"17.50");
+    assert.equal(submitted.sportsbook,"Caesars");assert.equal(submitted.odds,caesarsOdds);assert.equal(submitted.stake,"17.50");
     await card.screenshot({ path: "work/price-card-desktop.png" });
     await page.setViewportSize({ width: 390, height: 844 });
     await card.screenshot({ path: "work/price-card-mobile.png" });
@@ -255,7 +256,7 @@ const service = http.createServer(async (req, res) => {
       .waitFor();
     assert.deepEqual(errors, []);
     console.log(
-      "PASS: browser preferences → Next proxy → actual backend authorization/publication → provider fixture → -122 vs original -125; tracking dialog prefills best quote, dropdown follows book prices, editable fields survive refresh, saved stake persists, submit payload matches; no hidden-dialog requests; mobile/desktop; unavailable and closed states.",
+      "PASS: browser preferences → Next proxy → actual backend authorization/publication → provider fixture → signed odds (positive and negative fixtures); tracking dialog prefills best quote, dropdown follows book prices, editable fields survive refresh, saved stake persists, submit payload matches; no hidden-dialog requests; mobile/desktop; unavailable and closed states.",
     );
   } finally {
     await browser.close();
