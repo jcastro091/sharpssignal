@@ -71,9 +71,10 @@ function LiveScore({row}) {
  const probability=live.probability;
  const chance=value=>probability?.experimental?(value<.01?'<1%':value>.99?'>99%':Math.round(value*100)+'%'):(value*100).toFixed(1)+'%';
  return <span className={styles.liveScore}>
-  <span>{live.state==='in'?'Live · ':''}{live.status}</span>
+  <span className={styles.scoreStatus}>{live.state==='in'?'Live · ':''}{live.status}</span>
   {live.home_score!==null&&live.away_score!==null&&<span className={styles.scoreTeams}><b>{live.away} {live.away_score}</b><b>{live.home} {live.home_score}</b></span>}
-  {row.play.market==='totals'&&live.home_score!==null&&live.away_score!==null&&<span className={styles.scoreTeams}><span>Current total: {live.home_score+live.away_score}</span><span>Your line: {row.play.point??row.play.line??'—'}</span></span>}
+  <span className={styles.scoreMetrics}>{row.play.market==='totals'&&live.home_score!==null&&live.away_score!==null&&<span className={styles.scoreTeams}><span>Current total: {live.home_score+live.away_score}</span><span>Your line: {row.play.point??row.play.line??'—'}</span></span>}
   {probability?<span className={styles.probability}><span>{row.play.market==='spreads'?'Cover chance':'Win chance'}</span><b>{chance(probability.win)}</b><small>{probability.experimental?'SharpsSignal · Experimental':probability.source}</small></span>:live.state==='in'&&<small>Win chance unavailable</small>}
+  </span>
  </span>;
 }
