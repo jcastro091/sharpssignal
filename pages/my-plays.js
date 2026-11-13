@@ -74,7 +74,6 @@ function LiveScore({row}) {
   <span>{live.state==='in'?'Live · ':''}{live.status}</span>
   {live.home_score!==null&&live.away_score!==null&&<span className={styles.scoreTeams}><b>{live.away} {live.away_score}</b><b>{live.home} {live.home_score}</b></span>}
   {row.play.market==='totals'&&live.home_score!==null&&live.away_score!==null&&<span className={styles.scoreTeams}><span>Current total: {live.home_score+live.away_score}</span><span>Your line: {row.play.point??row.play.line??'—'}</span></span>}
-  {probability?<span className={styles.probability}><span>{row.play.market==='spreads'?'Cover chance':'Win chance'}</span><b>{chance(probability.win)}</b><small>{probability.experimental?'SharpsSignal · Experimental':probability.source}</small><small>As of {new Date(probability.as_of).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</small></span>:live.state==='in'&&<small>Win chance unavailable</small>}
-  <small>{live.source}</small><small>Checked {new Date(live.checked_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</small>
+  {probability?<span className={styles.probability}><span>{row.play.market==='spreads'?'Cover chance':'Win chance'}</span><b>{chance(probability.win)}</b><small>{probability.experimental?'SharpsSignal · Experimental':probability.source}</small></span>:live.state==='in'&&<small>Win chance unavailable</small>}
  </span>;
 }
