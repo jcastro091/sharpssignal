@@ -39,3 +39,5 @@ test('malformed external arrays never produce an estimate or match',()=>{
 });
 
 test('missing ESPN probability uses own moneyline model',async()=>{const p={...play,sport:'basketball_wnba'};const [row]=await enrichLiveScores([{id:'fallback',play:p,result:'pending'}],{fetcher:async url=>({ok:true,json:async()=>url.includes('summary')?{}:{events:[event]}}),now});assert.equal(row.live.probability.model,'scoring-rate-v1');assert.equal(row.result,'pending');});
+
+test('fresh football provider probabilities resolve play freshness from drive history',()=>{const football={...summary,plays:undefined,drives:{previous:[],current:{plays:summary.plays}}};assert.equal(moneylineProbability(play,football,now).win,.72);assert.equal(moneylineProbability(play,{...football,drives:{previous:[],current:{plays:[{id:"latest",wallclock:new Date(now-181000).toISOString()}]}}},now),null);});
