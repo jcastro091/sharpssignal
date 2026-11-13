@@ -13,3 +13,6 @@
 
 .scoreTeams,.probability,.betTerms{display:grid;gap:6px}.liveScore .probability{margin:8px 0}.liveScore .probability>b{font-size:32px;line-height:1.15;font-weight:750}.liveScore .scoreTeams>b{font-size:16px;line-height:1.5}.slip summary{flex-direction:column}.result{text-align:left}.result strong{display:block;margin:6px 0 0}
 .slip small.betTerms{display:grid;gap:6px}.slip summary>span:first-child>small>span{display:block}
+
+.slips{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}.slip{min-width:0}.slip dl{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:759px){.slips{grid-template-columns:minmax(0,1fr)}}
