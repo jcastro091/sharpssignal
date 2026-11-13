@@ -3,6 +3,7 @@ import {createSupabaseServiceClient} from '../../lib/supabaseServer';
 import {customerFeedContext,customerFeed} from '../../lib/customerFeedServer';
 import {interpretQuestion} from '../../lib/betQuestion.mjs';
 const {signalKey,createTrackedPlay,gradeTrackedPlay,dashboard,annotation,insight,quickIntent,tagNames}=require('../../lib/trackedPlays.cjs');
+const {enrichLiveScores}=require('../../lib/liveScores.cjs');
 const questionWindows=new Map();
 
 export default async function handler(req,res) {
@@ -72,6 +73,7 @@ export default async function handler(req,res) {
     const all=rows.map(row=>gradeTrackedPlay(row,versions.get(row.play_key)));
     const filters=req.method==='GET'?req.query:body.filters;
     const data=dashboard(all,filters||{});
+    if(req.method==='GET')try{data.rows=await enrichLiveScores(data.rows);}catch{data.rows=data.rows.map(row=>({...row,live:{unavailable:true}}));}
     let answer;
     if(body.action==='ask') {
       try {
