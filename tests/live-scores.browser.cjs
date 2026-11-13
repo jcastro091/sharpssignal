@@ -43,8 +43,8 @@ const service=http.createServer(async(req,res)=>{
   await page.goto(origin+'/my-plays');await page.getByRole('button',{name:'Refresh results',exact:true}).waitFor();
   assert.equal(await page.locator('details:has(> summary strong)').count(),2);
   assert.match(await page.locator('details:has(> summary strong)').first().locator('summary').innerText(),/Current total: 125/);
-  assert.match(await page.locator('details:has(> summary strong)').first().locator('summary').innerText(),/Estimated bet win/);
-  assert.match(await page.locator('details:has(> summary strong)').nth(1).locator('summary').innerText(),/Estimated game win 63.0%.*Lose 37.0%/);
+  assert.match(await page.locator('details:has(> summary strong)').first().locator('summary').innerText(),/Win chance/);
+  assert.match(await page.locator('details:has(> summary strong)').nth(1).locator('summary').innerText(),/Win chance\s+63.0%/);
   assert.match(await page.locator('details:has(> summary strong)').nth(1).locator('summary').innerText(),/ESPN game-win model/);
   const initialRequests=scoreRequests;
   await page.clock.fastForward(60000);
@@ -58,11 +58,13 @@ const service=http.createServer(async(req,res)=>{
   await page.getByText(/Current total: 128/).waitFor();
   assert.equal(await page.getByRole('alert').filter({hasText:'Showing the last update'}).count(),0);
   spreadMode=true;await page.getByRole('button',{name:'Refresh results',exact:true}).click();
-  await page.getByText(/Estimated cover/).waitFor();
-  assert.match(await page.locator('details:has(> summary strong)').first().locator('summary').innerText(),/Push/);
-  assert.match(await page.locator('details:has(> summary strong)').first().locator('summary').innerText(),/Experimental, not calibrated/);
-  assert.match(await page.locator('details:has(> summary strong)').nth(1).locator('summary').innerText(),/SharpsSignal experimental model/);
+  await page.getByText(/Cover chance/).waitFor();
+  assert.doesNotMatch(await page.locator('details:has(> summary strong)').first().locator('summary').innerText(),/Lose|Push|Estimate, not a guarantee/);
+  assert.match(await page.locator('details:has(> summary strong)').first().locator('summary').innerText(),/Experimental/);
+  assert.match(await page.locator('details:has(> summary strong)').nth(1).locator('summary').innerText(),/SharpsSignal/);
   await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  const layout=await page.locator('details:has(> summary strong)').first().locator('summary').evaluate(summary=>{const box=summary.querySelector('[class*=liveScore]'),teams=box.querySelectorAll('[class*=scoreTeams] b'),probability=box.querySelector('[class*=probability]>b');const terms=summary.querySelectorAll('[class*=betTerms]>span');return {termsStacked:terms[1].getBoundingClientRect().top>=terms[0].getBoundingClientRect().bottom,stacked:teams[1].getBoundingClientRect().top>=teams[0].getBoundingClientRect().bottom,scoreWeight:Number(getComputedStyle(teams[0]).fontWeight),scoreSize:parseFloat(getComputedStyle(teams[0]).fontSize),chanceSize:parseFloat(getComputedStyle(probability).fontSize)};});
+  assert.ok(layout.stacked);assert.ok(layout.termsStacked);assert.ok(layout.scoreWeight>=700);assert.ok(layout.chanceSize>layout.scoreSize);
   await page.getByRole('button',{name:'No thanks',exact:true}).click().catch(()=>{});
   await page.locator('details:has(> summary strong)').first().screenshot({path:'out/live-score-mobile.png'});
   assert.deepEqual(errors,[]);console.log('PASS: collapsed live scores, totals progress, experimental totals/spreads with push and moneyline fallback, sourced moneyline win/loss estimate, mobile fit, no page errors');
