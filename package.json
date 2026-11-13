@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:positioning": "node scripts/verify-private-positioning.mjs"
+    "test:positioning": "node scripts/verify-private-positioning.mjs",
+    "test:live-probabilities": "node --test tests/live-state-models.test.cjs tests/live-probability.test.cjs tests/live-scores.test.cjs",
+    "prebuild": "npm run test:live-probabilities"
   },
   "dependencies": {
     "@ai-sdk/openai": "4.0.91",
