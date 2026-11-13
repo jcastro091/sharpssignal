@@ -37,12 +37,13 @@ const service=http.createServer(async(req,res)=>{
   const context=await browser.newContext({viewport:{width:1440,height:1100}});await context.addCookies([{name:'sb-127-auth-token',value:JSON.stringify([token,'local-test',null,null,null]),domain:'sharps.local.test',path:'/'}]);
   const page=await context.newPage();await page.clock.install();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   // Render fixtures test display only; provider matching/freshness is tested separately.
-  let scoreRequests=0,failRefresh=false;
-  await page.route('**/api/tracked-plays?*',async route=>{scoreRequests++;if(failRefresh)return route.fulfill({status:503,json:{ok:false,error:'fixture unavailable'}});const response=await route.fetch({url:route.request().url().replace('sharps.local.test','127.0.0.1')});const body=await response.json();body.rows=body.rows.map((row,i)=>({...row,play:i?row.play:{...row.play,market:'totals',point:150.5},live:{state:'in',status:'4:12 - 2nd',away:row.play.away,home:row.play.home,away_score:64+scoreRequests,home_score:60,checked_at:new Date().toISOString(),source:'ESPN',probability:i?{win:.63,lose:.37,tie:0,as_of:new Date().toISOString(),source:'ESPN game-win model'}:null}}));await route.fulfill({response,json:body});});
+  let scoreRequests=0,failRefresh=false,spreadMode=false;
+  const {modelProbability}=require('../lib/liveProbability.cjs');
+  await page.route('**/api/tracked-plays?*',async route=>{scoreRequests++;if(failRefresh)return route.fulfill({status:503,json:{ok:false,error:'fixture unavailable'}});const response=await route.fetch({url:route.request().url().replace('sharps.local.test','127.0.0.1')});const body=await response.json();body.rows=body.rows.map((row,i)=>{const play=i?{...row.play,sport:'basketball_ncaab'}:{...row.play,sport:'basketball_ncaab',market:spreadMode?'spreads':'totals',side:spreadMode?row.play.home:'Over',point:spreadMode?4:150.5};const game={date:new Date(play.start*1000).toISOString(),status:{type:{state:'in'},period:2,displayClock:'4:12'},competitors:[{homeAway:'home',score:'60',team:{displayName:play.home}},{homeAway:'away',score:String(64+scoreRequests),team:{displayName:play.away}}]};return {...row,play,live:{state:'in',status:'4:12 - 2nd',away:play.away,home:play.home,away_score:64+scoreRequests,home_score:60,checked_at:new Date().toISOString(),source:'ESPN',probability:i&&!spreadMode?{win:.63,lose:.37,tie:0,as_of:new Date().toISOString(),source:'ESPN game-win model'}:modelProbability(play,game,Date.now(),Date.now())}};});await route.fulfill({response,json:body});});
   await page.goto(origin+'/my-plays');await page.getByRole('button',{name:'Refresh results',exact:true}).waitFor();
   assert.equal(await page.locator('details:has(> summary strong)').count(),2);
   assert.match(await page.locator('details:has(> summary strong)').first().locator('summary').innerText(),/Current total: 125/);
-  assert.match(await page.locator('details:has(> summary strong)').first().locator('summary').innerText(),/Live probability unavailable for this bet type/);
+  assert.match(await page.locator('details:has(> summary strong)').first().locator('summary').innerText(),/Estimated bet win/);
   assert.match(await page.locator('details:has(> summary strong)').nth(1).locator('summary').innerText(),/Estimated game win 63.0%.*Lose 37.0%/);
   assert.match(await page.locator('details:has(> summary strong)').nth(1).locator('summary').innerText(),/ESPN game-win model/);
   const initialRequests=scoreRequests;
@@ -56,10 +57,14 @@ const service=http.createServer(async(req,res)=>{
   failRefresh=false;await page.clock.fastForward(60000);
   await page.getByText(/Current total: 128/).waitFor();
   assert.equal(await page.getByRole('alert').filter({hasText:'Showing the last update'}).count(),0);
+  spreadMode=true;await page.getByRole('button',{name:'Refresh results',exact:true}).click();
+  await page.getByText(/Estimated cover/).waitFor();
+  assert.match(await page.locator('details:has(> summary strong)').first().locator('summary').innerText(),/Push/);
+  assert.match(await page.locator('details:has(> summary strong)').first().locator('summary').innerText(),/Experimental, not calibrated/);
+  assert.match(await page.locator('details:has(> summary strong)').nth(1).locator('summary').innerText(),/SharpsSignal experimental model/);
   await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.getByRole('button',{name:'No thanks',exact:true}).click().catch(()=>{});
   await page.locator('details:has(> summary strong)').first().screenshot({path:'out/live-score-mobile.png'});
-  assert.deepEqual(errors,[]);console.log('PASS: collapsed live scores, totals progress, honest unavailable total probability, sourced moneyline win/loss estimate, mobile fit, no page errors');
+  assert.deepEqual(errors,[]);console.log('PASS: collapsed live scores, totals progress, experimental totals/spreads with push and moneyline fallback, sourced moneyline win/loss estimate, mobile fit, no page errors');
  }catch(e){console.error(output.slice(-3000));throw e}finally{await browser?.close();app.kill('SIGTERM');service.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});
-

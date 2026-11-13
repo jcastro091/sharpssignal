@@ -1,0 +1,18 @@
+# Live probabilities: scoring-rate-v1
+
+This is an experimental, uncalibrated model, not a validated forecast or sportsbook price. It does not change bet grading or place wagers.
+
+Coverage: NBA, NCAA men's basketball, WNBA, NHL; full-game totals, spreads and two-way moneylines. ESPN's fresh exact-game probability takes precedence for moneylines. Football and baseball remain unavailable: their possession and inning processes need separate models. Unsupported/missing clock, pregame, final, delayed, stale, malformed and shootout inputs produce no local estimate.
+
+For each team, rate = (current score + prior rate * prior minutes) / (elapsed minutes + prior minutes). Remaining scoring is a compound Poisson distribution with that rate times time remaining. A scoring event has basketball marks 1/2/3 with assumed probabilities .18/.60/.22; hockey marks are single goals. Numerical probability mass is normalized only when the retained mass exceeds .999999. Predictions integrate the joint home/away distributions against the exact saved selection and line. Integer-line equality is a separate push probability.
+
+These are engineering assumptions, not measured current league averages: starting full-game totals NBA 228, NCAA men 144, WNBA 164, NHL 6. Each team's prior is half the total per regulation minute. Prior weight is 12 minutes for basketball, 30 for hockey. No team ratings or bet odds enter this model. An extreme early pace is therefore shrunk toward a neutral prior. Basketball regulation durations are 48/40/40 minutes; NHL 60. Overtime elapsed time is included when deriving observed pace.
+
+Basketball ties use a five-minute overtime scoring distribution conditioned on a non-tie. This approximates repeated overtime and understates totals in multiple-overtime games. Hockey ties resolve with one winner goal, assigning the winner in proportion to the smoothed scoring rates. This approximates overtime/shootout outcomes from regulation; actual shootouts are unavailable. It does not model special bookmaker rules. The independent constant-rate assumption ignores possession, fouls, intentional fouling, penalties, pulled goalies, injuries, lineup strength and tactical changes. Extreme or late-game estimates can be wrong. Predictions are not confidence intervals. No accuracy, edge or calibration claim is made.
+
+Source age uses the scoreboard fetch timestamp; it cannot detect an upstream frozen feed. The existing one-minute scoreboard cache and browser refresh remain. Local predictions use only boards fetched within 90 seconds, guard identity/date/side/line, and cap evaluation at 80 distinct selections per request. Duplicate selections share their calculation. Own percentages display whole numbers and <1%/>99% at extremes; ESPN retains its existing display. Win + lose + push sums to one within numerical tolerance.
+
+Validation: numerical distribution mass/expectation; over/under complement; selected-side and spread sign; monotonic score/line effects; push separation; clock boundaries and overtime; NHL winning goal; invalid/stale identity rejection; ESPN priority and fallback; browser totals, spread, push and local-source rendering with automatic refresh and failure recovery. These are correctness checks, not historical predictive validation. Historical backtesting with Brier score, log loss and reliability curves by sport/market/time remaining is required before calling the forecasts calibrated.
+
+Mathematical reference: https://www.itl.nist.gov/div898/handbook/eda/section3/eda366j.htm
+NBA clock reference: https://official.nba.com/rule-no-5-scoring-and-timing/
