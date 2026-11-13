@@ -25,6 +25,7 @@ test('football possession, red-zone position and late kneel-down state affect th
  const own=get('americanfootball_nfl','h2h',{...late,situation:{...late.situation,possessionText:'HOM 5'}}).win;assert.ok(red>own);
  const kneel={...late,competitors:competitors.map((c,i)=>({...c,score:i?'17':'20'})),situation:{...late.situation,awayTimeouts:0}};close(get('americanfootball_nfl','h2h',kneel).win,1);
  assert.equal(get('americanfootball_nfl','h2h',{...late,situation:{}}),null);
+ assert.equal(get('americanfootball_nfl','h2h',{...late,competitors:late.competitors.map(({id,...c})=>c),situation:{}}),null);
 });
 test('NFL overtime allows regular-season ties; NCAA overtime resolves without ties',()=>{
  const tied={...base,status:{period:4,displayClock:'0:00',type:{state:'in'}},competitors:competitors.map(c=>({...c,score:'20'}))};
