@@ -41,3 +41,23 @@ test('malformed external arrays never produce an estimate or match',()=>{
 test('missing ESPN probability uses own moneyline model',async()=>{const p={...play,sport:'basketball_wnba'};const [row]=await enrichLiveScores([{id:'fallback',play:p,result:'pending'}],{fetcher:async url=>({ok:true,json:async()=>url.includes('summary')?{}:{events:[event]}}),now});assert.equal(row.live.probability.model,'scoring-rate-v1');assert.equal(row.result,'pending');});
 
 test('fresh football provider probabilities resolve play freshness from drive history',()=>{const football={...summary,plays:undefined,drives:{previous:[],current:{plays:summary.plays}}};assert.equal(moneylineProbability(play,football,now).win,.72);assert.equal(moneylineProbability(play,{...football,drives:{previous:[],current:{plays:[{id:"latest",wallclock:new Date(now-181000).toISOString()}]}}},now),null);});
+
+test('verified Youngstown alias matches scores and both probability paths without weakening identity',async()=>{
+ const p={...play,sport:'basketball_ncaab',home:'Youngstown St Penguins',away:'Marshall Thundering Herd',side:'Youngstown St Penguins'};
+ const g={...game,competitors:[{homeAway:'home',score:'67',team:{displayName:'Youngstown State Penguins'}},{homeAway:'away',score:'60',team:{displayName:p.away}}]};
+ const e={...event,competitions:[g]},s={...summary,header:{competitions:[g]}};
+ assert.equal(matchGame(p,[e]).event.id,'123');
+ assert.equal(matchGame({...p,away:'Other Herd'},[e]),null);
+ assert.equal(matchGame({...p,start:p.start-86400},[e]),null);
+ assert.equal(matchGame(p,[e,e]),null);
+ assert.equal(matchGame({...p,home:p.away,away:p.home},[e]),null);
+ assert.equal(moneylineProbability(p,s,now).win,.72);
+ const [row]=await enrichLiveScores([{id:'alias',play:p,result:'pending'}],{now,fetcher:async url=>({ok:true,json:async()=>url.includes('summary')?{}:{events:[e]}})});
+ assert.equal(row.live.home_score,67);assert.equal(row.live.probability.model,'scoring-rate-v1');
+});
+
+test('scoreboard requests use supported limit so late-day college games are included',async()=>{
+ const p={...play,sport:'americanfootball_ncaaf'};let requested;
+ const [row]=await enrichLiveScores([{id:'late-game',play:p}],{now,fetcher:async url=>{requested=url;return {ok:true,json:async()=>({events:url.includes('limit=500')?[{...event,competitions:[{...game,status:{type:{state:'pre'}}}]}]:[]})};}});
+ assert.equal(new URL(requested).searchParams.get('limit'),'500');assert.equal(row.live.state,'pre');assert.equal(row.live.home_score,null);
+});
