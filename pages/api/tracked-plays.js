@@ -4,6 +4,7 @@ import {customerFeedContext,customerFeed} from '../../lib/customerFeedServer';
 import {interpretQuestion} from '../../lib/betQuestion.mjs';
 const {signalKey,createTrackedPlay,gradeTrackedPlay,dashboard,annotation,insight,quickIntent,tagNames}=require('../../lib/trackedPlays.cjs');
 const {enrichLiveScores}=require('../../lib/liveScores.cjs');
+const {personalSettlement}=require('../../lib/personalSettlement.cjs');
 const questionWindows=new Map();
 
 export default async function handler(req,res) {
@@ -70,10 +71,24 @@ export default async function handler(req,res) {
       if(found.error) throw found.error;
       for(const item of found.data) versions.set(item.play_key,item.payload);
     }
-    const all=rows.map(row=>gradeTrackedPlay(row,versions.get(row.play_key)));
+    let all=rows.map(row=>gradeTrackedPlay(row,versions.get(row.play_key)));
+    // Personal slips retain their own final-score receipt even when research is excluded.
+    // Both ordinary views and questions use the same settlement path.
+    try {all=await enrichLiveScores(all);} catch {all=all.map(row=>({...row,live:{unavailable:true}}));}
+    let personalWrites=0;
+    for(let index=0;index<rows.length&&personalWrites<25;index++) {
+      const row=rows[index];
+      if(all[index].result!=='pending'||row.settlement)continue;
+      const settlement=personalSettlement(row,all[index].live);
+      if(!settlement)continue;
+      personalWrites++;
+      const saved=await db.from('customer_tracked_plays').update({settlement}).eq('id',row.id).eq('user_id',user.id).is('settlement',null).select('id');
+      if(saved.error)throw saved.error;
+      if(!saved.data?.length)continue;
+      all[index]={...gradeTrackedPlay({...row,settlement},versions.get(row.play_key)),live:all[index].live};
+    }
     const filters=req.method==='GET'?req.query:body.filters;
     const data=dashboard(all,filters||{});
-    if(req.method==='GET')try{data.rows=await enrichLiveScores(data.rows);}catch{data.rows=data.rows.map(row=>({...row,live:{unavailable:true}}));}
     let answer;
     if(body.action==='ask') {
       try {
