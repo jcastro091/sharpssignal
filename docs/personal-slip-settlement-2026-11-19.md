@@ -1,0 +1,9 @@
+# Personal slip settlement independent of research eligibility
+
+The saved Florida -1.5 slip remained pending because My Plays consumed published research results only. The original Houston–Florida research entry was later excluded for a provider schedule conflict, so no verified final research version was published. The live-score widget independently displayed the correct final (Florida 76, Houston 86). Personal performance must reflect the actual saved selection without re-admitting excluded research.
+
+A private settlement column stores a server-verified final-score receipt bound to the original slip identity, source selection, exact line, stake, odds and original timestamp. Original snapshots, notes and research receipts remain unchanged. The existing service-role-only table grants and authenticated owner checks are preserved; public and authenticated clients cannot read or update the table directly.
+
+Only a uniquely matched ESPN full-game final with both provider team IDs, completed final status, integer scores, exact oriented teams, an official start within 30 minutes of the original schedule and a pregame tracking timestamp can create a receipt. Live scores, cancellations, ambiguous games, unsupported markets and missing evidence remain pending. At most 25 new receipts are persisted per request. Saved receipts survive the 36-hour live-score window. Ordinary views and questions share the same result path and user-specific P&L uses the originally recorded stake and odds.
+
+Validation: all 137 Node tests pass, including exact $10 loss, altered-selection/odds/stake rejection, cancellation/nonfinal/stale-data rejection and owner isolation through the real API handler. Production Next.js build is verified with nonproduction build-only public configuration. Supabase production migration 20261119154245 adds only the private nullable JSONB column; RLS and grants were rechecked. Deployment and actual saved-slip verification follow below.
