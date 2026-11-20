@@ -140,3 +140,19 @@ test('a final personal receipt persists only for the signed-in owner and is used
  const asked=await r.call('POST',{action:'ask',question:'How am I doing?'});assert.equal(asked.code,200);assert.equal(asked.json.summary.losses,1);
  const write=r.operations.find(x=>x.patch?.settlement);assert.equal(write.user_id,'owner');assert.equal(write.id,stored.id);
 });
+
+test('an older saved slip recovers strategy labels and uses its own odds against the same book close',()=>{
+  const {gradeTrackedPlay,publicationKey,summarize}=require('../lib/trackedPlays.cjs');
+  const snapshot={entry_id:'pick',cohort:'Original forward',play_key:'game',side:'Home'};
+  const row={snapshot,play_key:publicationKey(snapshot),sportsbook:'FanDuel',odds_american:150,
+    created_at:new Date(1000).toISOString(),stake_cents:100};
+  const released={...snapshot,book:'fanduel',clv_status:'measured',closing_decimal:2,closing_at:2,
+    matched_strategies:['C0','M1'],clv_pct:0.1};
+  const graded=gradeTrackedPlay(row,released);
+  assert.deepEqual(graded.strategies,['C0','M1']);
+  assert.equal(graded.clv_pct,0.25);
+  assert.equal(summarize([graded]).avg_clv_pct,0.25);
+  assert.equal(gradeTrackedPlay({...row,sportsbook:'DraftKings'},released).clv_pct,null);
+  assert.equal(gradeTrackedPlay({...row,created_at:new Date(3000).toISOString()},released).clv_pct,null);
+  assert.equal(gradeTrackedPlay(row,{...released,entry_id:'other',source_entry_ids:['pick']}).clv_pct,null);
+});
