@@ -25,7 +25,7 @@ export default function LatestSignals({section,feed,error,updated=[]}) {
       <div className="signal-card-top"><span className="eyebrow">{sports?marketLabel(play.market):play.direction>0?'Long':play.direction<0?'Short':'Direction unavailable'}</span><span className="status-pill">{sports?human(play.result):marketOutcome(play)}</span></div>
       {sports&&<div className="signal-team-logos"><TeamLogo name={play.away} sport={play.sport}/><span>vs</span><TeamLogo name={play.home} sport={play.sport}/></div>}
       <h3>{sports?<>{play.side}{play.point!=null?' '+play.point:play.line!=null?' '+play.line:''}</>:play.symbol}</h3>
-      {sports&&<p className="signal-matchup">{play.away} @ {play.home}</p>}
+      {sports&&<p className="signal-matchup">{play.away} @ {play.home}{play.cohort==='Independent ML'?' · Independent ML':''}</p>}
       {!sports&&<dl className="signal-levels"><div><dt>Entry</dt><dd>{formatMarketPrice(play.entry_price)}</dd></div><div><dt>Stop</dt><dd>{formatMarketPrice(play.stop)}</dd></div><div><dt>Target</dt><dd>{formatMarketPrice(play.target)}</dd></div></dl>}
       <div className="signal-card-details"><p><span>{sports?'Game time':'Recorded'}</span><b>{stamp(sports?play.start:play.entry_time)}</b></p>{sports?null:<p><span>Paper P&amp;L</span><b>{play.status==='closed'?(Number.isFinite(play.net_pnl)?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(play.net_pnl):'Not available'):'Pending'}</b></p>}</div>
       {sports&&<><PriceComparison play={play}/><TailPick play={play}/></>}<p className="signal-card-note">{sports?'Simulated selection · captured odds may have changed.':'Recorded paper trade; entry, stop and target are research levels.'}</p>
