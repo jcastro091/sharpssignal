@@ -35,7 +35,7 @@ function route({pilot=null,auth=user,feed={status:200,body:{plays:[{...play,star
   const records=[],operations=[];
   const db={rpc:async()=>({data:[],error:null}),from(table){const op={table};operations.push(op);const chain={select(){return chain},is(k,v){op[k]=v;return chain},eq(k,v){op[k]=v;return chain},order(){return chain},limit(){return chain},lte(k,v){op[k]=v;return chain},update(patch){op.patch=patch;return chain},delete(){op.delete=true;return chain},upsert(value,options){op.options=options;if(!records.some(x=>x.id===value.id))records.push(value);return Promise.resolve({error:fail?Error('db down'):null})},then(resolve){if(op.patch){const matched=records.filter(x=>x.id===op.id&&x.user_id===op.user_id);if(!fail)for(const row of matched)Object.assign(row,op.patch);return Promise.resolve({data:matched,error:fail?Error('db down'):null}).then(resolve);}if(op.delete){const matched=records.filter(x=>x.id===op.id&&x.user_id===op.user_id);if(!fail)for(const row of matched)records.splice(records.indexOf(row),1);return Promise.resolve({data:matched.map(x=>({id:x.id})),error:fail?Error('db down'):null}).then(resolve);}return Promise.resolve({data:table==='customer_tracked_plays'?records.filter(x=>x.user_id===op.user_id):table==='member_publication_settings'?[{paused:false}]:[],error:fail?Error('db down'):null}).then(resolve)}};return chain;}};
   const source=fs.readFileSync('pages/api/tracked-plays.js','utf8').replace(/^import[^\n]+\n/gm,'').replace('export default async function handler','async function handler');
-  const context={require:path=>path.includes('liveTrackedPlays')?require('../lib/liveTrackedPlays.cjs'):path.includes('liveScores')?{enrichLiveScores:live}:path.includes('personalSettlement')?require('../lib/personalSettlement.cjs'):core,URL,Date,AbortSignal,process:{env:{}},interpretQuestion:async()=>intent,ownerLivePlays:async()=>pilot,getServerUser:async()=>auth,customerFeedContext:async()=>({user:auth}),customerFeed:async()=>feed,createSupabaseServiceClient:()=>db,module:{exports:{}}};
+  const context={require:path=>path.includes('predictionMyPlays')?require('../lib/predictionMyPlays.cjs'):path.includes('liveTrackedPlays')?require('../lib/liveTrackedPlays.cjs'):path.includes('liveScores')?{enrichLiveScores:live}:path.includes('personalSettlement')?require('../lib/personalSettlement.cjs'):core,URL,Date,AbortSignal,process:{env:{}},interpretQuestion:async()=>intent,ownerLivePlays:async()=>pilot,getServerUser:async()=>auth,customerFeedContext:async()=>({user:auth}),customerFeed:async()=>feed,createSupabaseServiceClient:()=>db,module:{exports:{}}};
   vm.runInNewContext(source+'\nmodule.exports=handler;',context);
   async function call(method,body={},headers={origin:'https://app.test',host:'app.test'}){let code,json;await context.module.exports({method,body,query:{},headers},{setHeader(){},status(n){code=n;return this},json(v){json=v;return this}});return {code,json};}
   return {call,records,operations};
@@ -165,4 +165,28 @@ test('real API merges verified live fills with manual slips and refuses live mut
  for(const action of ['annotate','delete']){const denied=await api.call('POST',{action,id:'live_'+'a'.repeat(64),notes:'edit',tags:[]});assert.equal(denied.code,403);}
  assert.equal(api.records.length,1);
  const fallback=await route({pilot,fail:true}).call('GET');assert.equal(fallback.code,200);assert.equal(fallback.json.manual_unavailable,true);assert.equal(fallback.json.rows.length,1);
+});
+
+const predictionOwner={id:'964c9fcb-dcfb-46df-acfc-766998148ff0',email:'sharpssignal@gmail.com',email_confirmed_at:'2026-01-01'};
+test('prediction-only owner rejects retail entries before any save; other members retain retail tracking',async()=>{
+ const r=route({auth:predictionOwner});
+ assert.equal((await r.call('POST',{action:'tail',pick:core.signalKey(play),...input})).code,400);
+ assert.equal(r.records.length,0);
+ const saved=await r.call('POST',{action:'tail',pick:core.signalKey(play),...input,sportsbook:'polymarket_us'});
+ assert.equal(saved.code,200);assert.equal(r.records[0].sportsbook,'Polymarket US');
+ assert.equal((await route().call('POST',{action:'tail',pick:core.signalKey(play),...input})).code,200);
+});
+test('owner GET excludes nonvenue slips before personal settlement and retains permitted manual records',async()=>{
+ const r=route({auth:predictionOwner});
+ r.records.push({...row(),user_id:predictionOwner.id},{...row(),id:'allowed',user_id:predictionOwner.id,sportsbook:'Kalshi'},{...row(),id:'foreign',user_id:'other'});
+ const response=await r.call('GET');assert.equal(response.code,200);assert.equal(response.json.summary.total,1);assert.equal(response.json.rows[0].sportsbook,'Kalshi');assert.equal(response.json.prediction_only,true);
+ assert.ok(!response.json.options.books.includes('FanDuel'));assert.equal(r.records.length,3);
+});
+test('venue classification and restriction use verified account identity, never metadata',()=>{
+ const {predictionOnlyOwner,predictionVenue}=require('../lib/predictionMyPlays.cjs');
+ assert.equal(predictionOnlyOwner(predictionOwner),true);
+ for(const change of [{id:'other'},{email:'other@example.com'},{email_confirmed_at:null}])assert.equal(predictionOnlyOwner({...predictionOwner,...change}),false);
+ assert.equal(predictionOnlyOwner({id:'other',user_metadata:predictionOwner}),false);
+ for(const name of ['Kalshi',' kalshi ','Polymarket','Polymarket US','polymarket_us','polymarket-us'])assert.ok(predictionVenue(name));
+ for(const name of ['',null,'FanDuel','Polymarket demo','unknown'])assert.equal(predictionVenue(name),null);
 });

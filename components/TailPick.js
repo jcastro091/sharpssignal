@@ -1,7 +1,9 @@
 import PriceComparison, {usePriceComparison, usePricePreferences} from './PriceComparison';
 import {BOOKS} from '../lib/priceComparison.cjs';
-import {useRef,useState,useEffect,useId} from 'react';
+import {useRef,useState,useEffect,useId,useContext} from 'react';
 import Link from 'next/link';
+import {AuthContext} from '../lib/AuthContext';
+import {predictionOnlyOwner} from '../lib/predictionMyPlays.cjs';
 import {signalKey} from '../lib/signalChanges.cjs';
 import {decimalToAmericanLabel} from '../lib/oddsDisplay.cjs';
 import {sportsbookName} from '../lib/sportsbookDisplay.cjs';
@@ -9,14 +11,16 @@ import styles from '../styles/tracked.module.css';
 
 export default function TailPick({play}) {
   const titleId=useId();
+  const {user}=useContext(AuthContext);
+  const predictionOnly=predictionOnlyOwner(user);
   const dialog=useRef(null), [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[saved,setSaved]=useState(false),[error,setError]=useState(''),[now,setNow]=useState(Date.now());
   const {defaultStake = '10.00'} = usePricePreferences();
   const {view, loading} = usePriceComparison(play, open);
   const [entry, setEntry] = useState(null);
   const [stake, setStake] = useState(defaultStake);
-  const suggestion = view.best ? {sportsbook:view.best.name, odds:decimalToAmericanLabel(view.best.decimal,'')} : {sportsbook:'', odds:''};
+  const suggestion = !predictionOnly&&view.best ? {sportsbook:view.best.name, odds:decimalToAmericanLabel(view.best.decimal,'')} : {sportsbook:'', odds:''};
   const current = entry ?? suggestion;
-  const bookNames = [...new Set([...Object.values(BOOKS), sportsbookName(play.book,''), current.sportsbook].filter(Boolean))];
+  const bookNames = predictionOnly?['Polymarket US','Kalshi']:[...new Set([...Object.values(BOOKS), sportsbookName(play.book,''), current.sportsbook].filter(Boolean))];
   useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),30000);return()=>clearInterval(timer);},[]);
   const start=typeof play.start==='number'?play.start*1000:Date.parse(play.start);
   const available=play.entry_id&&play.play_key&&start>now&&!play.result;
@@ -35,9 +39,9 @@ export default function TailPick({play}) {
         <span className="eyebrow">ADD TO MY PLAYS</span><h2 id={titleId}>Tail this pick</h2>
         <h3>{play.side} {play.point??play.line??''}</h3><p>{play.away} @ {play.home}</p>
         <p className="muted">Record your own play. This does not place a wager. Keep the selection and line shown above so its result can be matched correctly.</p>
-        {open&&<PriceComparison play={play}/>}<label htmlFor={titleId+"-sportsbook"}>Sportsbook</label><select id={titleId+"-sportsbook"} name="sportsbook" required value={current.sportsbook} onChange={event=>{const name=event.target.value;const quote=view.quotes.find(q=>q.name===name&&q.status==='current');setEntry({sportsbook:name,odds:quote?decimalToAmericanLabel(quote.decimal,''):''});}}><option value="">Choose sportsbook</option>{bookNames.map(name=><option key={name} value={name}>{name}</option>)}</select>
+        {open&&!predictionOnly&&<PriceComparison play={play}/>}<label htmlFor={titleId+"-sportsbook"}>Sportsbook</label><select id={titleId+"-sportsbook"} name="sportsbook" required value={current.sportsbook} onChange={event=>{const name=event.target.value;const quote=view.quotes.find(q=>q.name===name&&q.status==='current');setEntry({sportsbook:name,odds:quote?decimalToAmericanLabel(quote.decimal,''):''});}}><option value="">Choose sportsbook</option>{bookNames.map(name=><option key={name} value={name}>{name}</option>)}</select>
         <div className={styles.two}><label>Your American odds<input name="odds" type="text" pattern="(?:\+|-)?[0-9]+" title="American odds, such as +140 or -110" required value={current.odds} onChange={event=>setEntry({...current,odds:event.target.value})} placeholder="-110"/></label><label>Your stake ($)<input name="stake" type="number" min="0.01" max="100000" step="0.01" required value={stake} onChange={event=>setStake(event.target.value)}/></label></div>
-        <p className="small muted">The best recent book and odds are filled in automatically. Confirm what you actually took. Each selection is tracked once; repeat saves keep your original details.</p>
+        <p className="small muted">{predictionOnly?'Only record your own Polymarket or Kalshi bet. Automated fills already appear in My Plays; do not add them again.':'The best recent book and odds are filled in automatically. Confirm what you actually took. Each selection is tracked once; repeat saves keep your original details.'}</p>
         <label className={styles.check}><input type="checkbox" required/>My play has this exact selection and line.</label>
         {!view.best&&!loading&&<p className="small muted">No recent matching quote. Refresh prices or enter your actual sportsbook and odds.</p>}
         {error&&<p role="alert" className={styles.error}>{error}</p>}
