@@ -27,3 +27,5 @@
 .balanceCards article {display:grid;gap:.5rem;padding:1rem;border:1px solid #dce4ee;border-radius:12px;background:#f8fafc;color:#172b4d;}
 .balanceCards small {color:#526175;line-height:1.5;}
 @media(max-width:600px){.trendChart{height:280px}.balanceCards{grid-template-columns:1fr}}
+
+.dateFilters {display:contents;}
