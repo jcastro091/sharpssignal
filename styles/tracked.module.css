@@ -29,3 +29,5 @@
 @media(max-width:600px){.trendChart{height:280px}.balanceCards{grid-template-columns:1fr}}
 
 .dateFilters {display:contents;}
+
+.trendChart {overflow:hidden;}
