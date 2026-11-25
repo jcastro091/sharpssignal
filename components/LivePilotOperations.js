@@ -1,0 +1,16 @@
+const usd=v=>v==null?'Not measured':new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(v));
+const when=v=>v?new Date(v*1000).toLocaleString('en-US',{timeZone:'America/New_York'}):'Not recorded';
+export default function LivePilotOperations({data}){
+ if(!data)return null;
+ const current=data.current===true&&Date.now()/1000-data.generated_at<=180;
+ const location=data.kalshi_location_verification||{},alert=data.first_order_alert||{};
+ return <details className="live-pilot-operations"><summary><strong>Automated betting · operations</strong><span>{current?'Heartbeat current':'Heartbeat unavailable or stale'} · {when(data.generated_at)} ET</span></summary>
+ <p>{data.runtime_host_requirement||'Hosting status unavailable'}. Read-only monitoring; these controls do not place bets.</p>
+ <div className="live-accounts">{Object.entries(data.venues||{}).map(([venue,v])=><article key={venue}><h3>{venue==='kalshi'?'Kalshi':'Polymarket US'}</h3><p><b>{current?(v.effective_enabled?'Enabled':v.status_reason||data.control?.kill_reason||'Stopped'):'Operation unknown'}</b></p><p>Cash {usd(v.cash_usd)} · Unit {usd(v.unit_and_caps?.unit_cash)}</p><p>Open {usd(v.pilot_open_cash_usd)} + {usd(v.external_open_cash_usd)} external · Spent today {usd(v.pilot_daily_spend_usd)}</p><p>Order/game cap {usd(v.unit_and_caps?.per_order_cash)} · Open/day cap {usd(v.unit_and_caps?.total_open_cash)} / {usd(v.unit_and_caps?.daily_cash)} · Loss cap {usd(v.unit_and_caps?.daily_loss)}</p><p>{(v.allowed_strategies||[]).map(s=>s.strategy+(s.model_name?' + '+s.model_name.replaceAll('_',' '):'')).join(' · ')}</p></article>)}</div>
+ <p>Kalshi verification: {location.state||'Unknown'} · {location.deadline_eastern||'Deadline not verified'}. Renew personally in Kalshi; expired verification blocks new Kalshi orders.</p><p>{(location.deliveries||[]).map(w=>`${w.window.replaceAll('_',' ')}: ${when(w.at)} ET (${w.status})`).join(' · ')}</p>
+ <p>First-order alert: {alert.destination_title||'Destination unavailable'} · {alert.delivery_states?.unknown?'Delivery uncertain':alert.delivery_states?.sent?'Delivered':alert.first_attempt_recorded?'Awaiting delivery':'Awaiting first attempt'}.</p>
+ <p>Attempts {(data.orders||[]).filter(o=>o.attempted_at).length} · Accepted {(data.orders||[]).filter(o=>o.accepted).length}. Attempts without fills stay in operations and are excluded from your bet totals.</p>
+ <ul>{(data.orders||[]).filter(o=>!Number(o.filled_contracts)).map(o=><li key={o.record_key||o.reference}>{o.side} · {o.venue} · {o.state} · {when(o.created_at)} ET</li>)}</ul>
+ {(data.latest_cycle_results||[]).length>0&&<details><summary>Latest decisions and skips</summary><ul>{data.latest_cycle_results.map((r,i)=><li key={i}>{r.venue}: {r.status} {r.reason||''}</li>)}</ul></details>}
+ </details>;
+}

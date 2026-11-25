@@ -31,11 +31,11 @@ test('ROI uses graded stake only; void excluded and pending excluded; correct lo
   assert.match(core.answerQuestion(data,'What sportsbooks am I losing with the most?'),/FanDuel.*lowest.*3 graded/);
   assert.match(core.answerQuestion(core.dashboard([]),'What markets are we crushing?'),/no graded plays/);
 });
-function route({auth=user,feed={status:200,body:{plays:[{...play,start:Date.now()/1000+3600}]}},fail=false,intent={dimension:'overview',tag:null,notes:null},live=async rows=>rows}={}){
+function route({pilot=null,auth=user,feed={status:200,body:{plays:[{...play,start:Date.now()/1000+3600}]}},fail=false,intent={dimension:'overview',tag:null,notes:null},live=async rows=>rows}={}){
   const records=[],operations=[];
   const db={rpc:async()=>({data:[],error:null}),from(table){const op={table};operations.push(op);const chain={select(){return chain},is(k,v){op[k]=v;return chain},eq(k,v){op[k]=v;return chain},order(){return chain},limit(){return chain},lte(k,v){op[k]=v;return chain},update(patch){op.patch=patch;return chain},delete(){op.delete=true;return chain},upsert(value,options){op.options=options;if(!records.some(x=>x.id===value.id))records.push(value);return Promise.resolve({error:fail?Error('db down'):null})},then(resolve){if(op.patch){const matched=records.filter(x=>x.id===op.id&&x.user_id===op.user_id);if(!fail)for(const row of matched)Object.assign(row,op.patch);return Promise.resolve({data:matched,error:fail?Error('db down'):null}).then(resolve);}if(op.delete){const matched=records.filter(x=>x.id===op.id&&x.user_id===op.user_id);if(!fail)for(const row of matched)records.splice(records.indexOf(row),1);return Promise.resolve({data:matched.map(x=>({id:x.id})),error:fail?Error('db down'):null}).then(resolve);}return Promise.resolve({data:table==='customer_tracked_plays'?records.filter(x=>x.user_id===op.user_id):table==='member_publication_settings'?[{paused:false}]:[],error:fail?Error('db down'):null}).then(resolve)}};return chain;}};
   const source=fs.readFileSync('pages/api/tracked-plays.js','utf8').replace(/^import[^\n]+\n/gm,'').replace('export default async function handler','async function handler');
-  const context={require:path=>path.includes('liveScores')?{enrichLiveScores:live}:path.includes('personalSettlement')?require('../lib/personalSettlement.cjs'):core,URL,Date,AbortSignal,process:{env:{}},interpretQuestion:async()=>intent,getServerUser:async()=>auth,customerFeedContext:async()=>({user:auth}),customerFeed:async()=>feed,createSupabaseServiceClient:()=>db,module:{exports:{}}};
+  const context={require:path=>path.includes('liveTrackedPlays')?require('../lib/liveTrackedPlays.cjs'):path.includes('liveScores')?{enrichLiveScores:live}:path.includes('personalSettlement')?require('../lib/personalSettlement.cjs'):core,URL,Date,AbortSignal,process:{env:{}},interpretQuestion:async()=>intent,ownerLivePlays:async()=>pilot,getServerUser:async()=>auth,customerFeedContext:async()=>({user:auth}),customerFeed:async()=>feed,createSupabaseServiceClient:()=>db,module:{exports:{}}};
   vm.runInNewContext(source+'\nmodule.exports=handler;',context);
   async function call(method,body={},headers={origin:'https://app.test',host:'app.test'}){let code,json;await context.module.exports({method,body,query:{},headers},{setHeader(){},status(n){code=n;return this},json(v){json=v;return this}});return {code,json};}
   return {call,records,operations};
@@ -155,4 +155,14 @@ test('an older saved slip recovers strategy labels and uses its own odds against
   assert.equal(gradeTrackedPlay({...row,sportsbook:'DraftKings'},released).clv_pct,null);
   assert.equal(gradeTrackedPlay({...row,created_at:new Date(3000).toISOString()},released).clv_pct,null);
   assert.equal(gradeTrackedPlay(row,{...released,entry_id:'other',source_entry_ids:['pick']}).clv_pct,null);
+});
+
+
+test('real API merges verified live fills with manual slips and refuses live mutation',async()=>{
+ const pilot={schema:'prediction_live_tracking_v1',source_status:'ready',orders:[{record_key:'a'.repeat(64),sport:'basketball_ncaab',market:'h2h',side:'Live Away',home:'Home',away:'Away',venue:'polymarket_us',strategy:'C0',created_at:100,filled_contracts:'2',state:'settled',actual_cash_usd:'.71',fees_usd:'.03',outcome_price_usd:'.34',settlement_payout_usd:'0',realized_net_pnl_usd:'-.71'}]};
+ const api=route({pilot});const saved=row();api.records.push(saved);
+ const reply=await api.call('GET');assert.equal(reply.code,200);assert.equal(reply.json.rows.length,2);assert.ok(reply.json.options.books.includes('Polymarket US'));assert.ok(reply.json.options.books.includes('Kalshi'));assert.ok(reply.json.options.sports.includes('basketball_ncaab'));
+ for(const action of ['annotate','delete']){const denied=await api.call('POST',{action,id:'live_'+'a'.repeat(64),notes:'edit',tags:[]});assert.equal(denied.code,403);}
+ assert.equal(api.records.length,1);
+ const fallback=await route({pilot,fail:true}).call('GET');assert.equal(fallback.code,200);assert.equal(fallback.json.manual_unavailable,true);assert.equal(fallback.json.rows.length,1);
 });

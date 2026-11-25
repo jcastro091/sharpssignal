@@ -1,3 +1,5 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.live-pilot-operations{margin:24px 0;padding:22px;border:1px solid #cbded7;border-radius:14px;background:#f3f8f5;font-size:14px;line-height:1.6}.live-pilot-operations summary{cursor:pointer;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.live-pilot-operations summary span{font-size:12px;color:#45655d}.live-accounts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.live-accounts article{min-width:0;overflow-wrap:anywhere}@media(max-width:680px){.live-accounts{grid-template-columns:1fr}}
