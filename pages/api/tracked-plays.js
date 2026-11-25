@@ -7,6 +7,7 @@ const {signalKey,createTrackedPlay,gradeTrackedPlay,dashboard,annotation,insight
 const {enrichLiveScores}=require('../../lib/liveScores.cjs');
 const {personalSettlement}=require('../../lib/personalSettlement.cjs');
 const {mergeRows}=require('../../lib/liveTrackedPlays.cjs');
+const {predictionOnlyOwner,predictionVenue}=require('../../lib/predictionMyPlays.cjs');
 const questionWindows=new Map();
 
 export default async function handler(req,res) {
@@ -18,6 +19,7 @@ export default async function handler(req,res) {
     try {if (new URL(req.headers.origin).host!==req.headers.host || req.headers['sec-fetch-site']==='cross-site') throw Error();}
     catch {return res.status(403).json({ok:false,error:'This request must come from your dashboard.'});}
   }
+  const predictionOnly=predictionOnlyOwner(user);
   const livePromise=(req.method==='GET'||req.body?.action==='ask')?ownerLivePlays(req,res,user):Promise.resolve(null);
   try {
     const db=createSupabaseServiceClient();
@@ -46,6 +48,8 @@ export default async function handler(req,res) {
       window.count++;questionWindows.set(user.id,window);
     }
     if (req.method==='POST' && body.action==='tail') {
+      if(predictionOnly&&!predictionVenue(body.sportsbook))return res.status(400).json({ok:false,error:'My Plays is limited to Polymarket and Kalshi.'});
+      if(predictionOnly)body.sportsbook=predictionVenue(body.sportsbook);
       const ctx=await customerFeedContext(req,res,'sports');
       if (!ctx || ctx.user.id!==user.id) return res.status(401).json({ok:false,error:'Please sign in again.'});
       const feed=await customerFeed(ctx,'sports');
@@ -62,7 +66,7 @@ export default async function handler(req,res) {
     if (req.method==='POST' && body.action!=='ask') return res.status(400).json({ok:false,error:'Unknown action.'});
     const {data:stored,error}=await db.from('customer_tracked_plays').select('*').eq('user_id',user.id).order('created_at',{ascending:false}).limit(1001);
     if(error) throw error;
-    const partial=stored.length>1000, rows=stored.slice(0,1000), versions=new Map();
+    const partial=stored.length>1000, rows=stored.slice(0,1000).filter(row=>!predictionOnly||predictionVenue(row.sportsbook)), versions=new Map();
     // Read archived exact selections, including plays older than the 100-row feed.
     // The RPC releases verified finals immediately for these owned selection keys.
     // The discovery-feed delay remains the fallback for other snapshot versions.
@@ -102,10 +106,10 @@ export default async function handler(req,res) {
         answer=insight(all,filters||{},intent);
       } catch(error) {console.warn('tracked_play_question_unavailable',JSON.stringify({name:error?.name||'Error',status:error?.statusCode||null,code:error?.code||null}));answer='The question service is temporarily unavailable. Your sportsbook and market breakdowns are still available above.';}
     }
-    return res.status(200).json({ok:true,...data,live_pilot:live,manual_unavailable:false,options:{sports:[...new Set(all.map(x=>x.play.sport).filter(Boolean))],books:[...new Set([...all.map(x=>x.sportsbook),...(live?['Polymarket US','Kalshi']:[])])],markets:[...new Set(all.map(x=>x.play.market))],tags:tagNames(all).sort()},partial:partial||Boolean(live&&live.history_total>live.history_limit),publishing_paused:paused,...(answer?{answer}:{})});
+    return res.status(200).json({ok:true,...data,prediction_only:predictionOnly,live_pilot:live,manual_unavailable:false,options:{sports:[...new Set(all.map(x=>x.play.sport).filter(Boolean))],books:[...new Set([...all.map(x=>x.sportsbook),...((live||predictionOnly)?['Polymarket US','Kalshi']:[])])],markets:[...new Set(all.map(x=>x.play.market))],tags:tagNames(all).sort()},partial:partial||Boolean(live&&live.history_total>live.history_limit),publishing_paused:paused,...(answer?{answer}:{})});
   } catch {
     const live=await livePromise;
-    if(req.method==='GET'&&live&&live.source_status!=='unavailable'){const all=mergeRows([],live);return res.status(200).json({ok:true,...dashboard(all,req.query||{}),live_pilot:live,manual_unavailable:true,options:{books:['Polymarket US','Kalshi'],sports:[...new Set(all.map(x=>x.play.sport).filter(Boolean))],markets:[...new Set(all.map(x=>x.play.market))],tags:tagNames(all)},partial:live.history_total>live.history_limit});}
+    if(req.method==='GET'&&live&&live.source_status!=='unavailable'){const all=mergeRows([],live);return res.status(200).json({ok:true,...dashboard(all,req.query||{}),prediction_only:predictionOnly,live_pilot:live,manual_unavailable:true,options:{books:['Polymarket US','Kalshi'],sports:[...new Set(all.map(x=>x.play.sport).filter(Boolean))],markets:[...new Set(all.map(x=>x.play.market))],tags:tagNames(all)},partial:live.history_total>live.history_limit});}
     return res.status(503).json({ok:false,error:'Your tracked plays are temporarily unavailable. Please try again.'});
   }
 }
