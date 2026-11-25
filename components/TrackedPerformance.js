@@ -1,0 +1,21 @@
+import {useState} from 'react';
+import {ResponsiveContainer,LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,Legend,ReferenceLine} from 'recharts';
+import {performance} from '../lib/trackedPerformance.cjs';
+import styles from '../styles/tracked.module.css';
+const usd=n=>n==null?'Unavailable':new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n/100);
+const date=t=>new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date(t));
+const color={polymarket_us:'#2169c7',kalshi:'#16845d'};
+export default function TrackedPerformance({rows=[],live,book=''}){
+ const [mode,setMode]=useState('profit');const data=performance(rows,live,book,mode);
+ return <section className={styles.panel} aria-label="Performance trend"><div className={styles.top}><div><span className="eyebrow">ACTUAL SETTLED RESULTS</span><h2>Performance over time</h2></div><label>Chart view<select aria-label="Chart view" value={mode} onChange={e=>setMode(e.target.value)}><option value="profit">Cumulative net profit</option><option value="bankroll">Starting cash + results</option></select></label></div>
+ <p className="muted">{mode==='profit'?'Starts at $0. Each step adds a venue-confirmed settlement, after fees.':'Illustrative: original pilot starting cash plus the filtered settled profit. Excludes deposits, withdrawals, other trading and open-position value. This is not historical account equity.'} Uses the same filters as your slips; dates filter when a bet was tracked, while chart steps show when settlement was recorded (Eastern).</p>
+ <div className={styles.balanceCards}>{data.series.map(s=><article key={s.key}><strong>{s.name}</strong><span>Current account cash <b>{usd(s.cash)}</b></span><small>{s.cashAt>0?'Observed '+date(s.cashAt)+' ET':'Cash snapshot unavailable'} · All account activity; not strategy-filtered</small><span>Original pilot starting cash: {usd(s.baseline)}</span></article>)}</div>
+ {!data.settled&&<p role="status">No settled automated bets match this view yet. A flat starting line does not represent a wager or a return.</p>}
+ {data.missingTime>0&&<p role="status">{data.missingTime} settled record(s) lack a verified settlement timestamp and are excluded from the trend.</p>}
+ {data.manual>0&&<p className="small muted">This chart covers verified automated bets only; self-reported manual slips are excluded.</p>}
+ {mode==='bankroll'&&data.series.some(s=>s.baseline==null)&&<p role="status">Starting cash is unavailable for one or more venues; no baseline is assumed.</p>}
+ {data.points.length>1&&<div className={styles.trendChart}><ResponsiveContainer width="100%" height="100%"><LineChart data={data.points} accessibilityLayer margin={{top:15,right:18,left:8,bottom:16}}><CartesianGrid strokeDasharray="3 4" stroke="#dce4ee"/><XAxis dataKey="at" type="number" domain={['dataMin','dataMax']} scale="time" tickFormatter={date} minTickGap={75} tick={{fontSize:11}}/><YAxis tickFormatter={usd} width={72} domain={mode==='profit'?['auto','auto']:['dataMin - 100','dataMax + 100']} tick={{fontSize:11}}/><Tooltip labelFormatter={t=>date(t)+' ET · settlement recorded'} formatter={(v,name)=>[usd(v),name]}/><Legend/>{mode==='profit'&&<ReferenceLine y={0} stroke="#667085"/>}{data.series.map(s=><Line key={s.key} name={s.name} dataKey={s.key} type="stepAfter" stroke={color[s.key]} strokeWidth={2.5} strokeDasharray={s.key==='kalshi'?'5 3':undefined} dot={false} activeDot={{r:5}} isAnimationActive={false} connectNulls={false}/>)}</LineChart></ResponsiveContainer></div>}
+ <p className="small muted">Hover, tap, or focus the chart and use arrow keys for values. C0 and C0 + gradient boosting can share one order: it counts once in each matching filtered view, and once in the combined total. Strategy views overlap and must not be added together.</p>
+ <details><summary>View settlement data ({data.settled})</summary><div className={styles.table}><table><thead><tr><th>Settlement recorded (ET)</th><th>Venue</th><th>Net change</th><th>Cumulative net profit</th></tr></thead><tbody>{data.series.flatMap(s=>{let sum=0;return s.events.map(e=>{sum+=e.pnl;return <tr key={e.id}><td>{date(e.at)}</td><td>{s.name}</td><td>{usd(e.pnl)}</td><td>{usd(sum)}</td></tr>;})})}</tbody></table></div></details>
+ </section>;
+}

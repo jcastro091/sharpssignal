@@ -21,3 +21,9 @@
 @media(max-width:420px){.liveScore{column-gap:10px}.scoreMetrics{padding-left:10px}.liveScore .scoreTeams>b{font-size:14px}.liveScore .probability>b{font-size:30px}}
 
 .filters{flex-wrap:wrap}.filters label{flex:1 1 160px}
+
+.trendChart {height:320px; width:100%; min-width:0; margin:1.4rem 0;}
+.balanceCards {display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1rem;margin:1rem 0;}
+.balanceCards article {display:grid;gap:.5rem;padding:1rem;border:1px solid #dce4ee;border-radius:12px;background:#f8fafc;color:#172b4d;}
+.balanceCards small {color:#526175;line-height:1.5;}
+@media(max-width:600px){.trendChart{height:280px}.balanceCards{grid-template-columns:1fr}}
