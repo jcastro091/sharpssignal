@@ -31,3 +31,5 @@
 .dateFilters {display:contents;}
 
 .trendChart {overflow:hidden;}
+
+.timeline{margin-top:1rem;padding-top:1rem;border-top:1px solid #d6e5df}.timelineChart{height:210px;width:100%;min-width:0}.timelineTable{overflow-x:auto;max-width:100%}.timelineTable table{width:100%;text-align:left;border-collapse:collapse}.timelineTable th,.timelineTable td{padding:.5rem;vertical-align:top}
