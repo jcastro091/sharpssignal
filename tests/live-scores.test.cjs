@@ -61,3 +61,22 @@ test('scoreboard requests use supported limit so late-day college games are incl
  const [row]=await enrichLiveScores([{id:'late-game',play:p}],{now,fetcher:async url=>{requested=url;return {ok:true,json:async()=>({events:url.includes('limit=500')?[{...event,competitions:[{...game,status:{type:{state:'pre'}}}]}]:[]})};}});
  assert.equal(new URL(requested).searchParams.get('limit'),'500');assert.equal(row.live.state,'pre');assert.equal(row.live.home_score,null);
 });
+
+test('Army Knights tracked side resolves to the ESPN Army Black Knights away probability', async () => {
+ const tip = Date.parse('2026-11-26T17:00:00Z');
+ const observed = tip + 40 * 60000;
+ const p = {...play, start:tip / 1000, sport:'basketball_ncaab', side:'Army Knights', away:'Army Knights', home:'UTSA Roadrunners'};
+ const g = {...game, id:'401912231', date:new Date(tip).toISOString(), competitors:[
+  {homeAway:'home', score:'27', team:{displayName:p.home}},
+  {homeAway:'away', score:'43', team:{displayName:'Army Black Knights'}},
+ ]};
+ const e = {id:g.id, competitions:[g]};
+ const s = {...summary, header:{competitions:[g]}, plays:[{id:'latest', wallclock:new Date(observed - 30000).toISOString()}]};
+ const fetcher = async url => ({ok:true, json:async () => url.includes('summary') ? s : {events:[e]}});
+ const [row] = await enrichLiveScores([{id:'army', play:p, result:'pending'}], {now:observed, fetcher});
+ assert.equal(row.live.event_id, g.id);
+ assert.equal(row.live.away_score, 43);
+ assert.equal(row.live.probability.source, 'ESPN game-win model');
+ assert.ok(Math.abs(row.live.probability.win - 0.28) < 1e-10);
+ assert.equal(matchGame({...p, home:'Air Force Falcons'}, [e]), null);
+});
