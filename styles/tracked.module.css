@@ -33,3 +33,7 @@
 .trendChart {overflow:hidden;}
 
 .timeline{margin-top:1rem;padding-top:1rem;border-top:1px solid #d6e5df}.timelineChart{height:210px;width:100%;min-width:0}.timelineTable{overflow-x:auto;max-width:100%}.timelineTable table{width:100%;text-align:left;border-collapse:collapse}.timelineTable th,.timelineTable td{padding:.5rem;vertical-align:top}
+.betAmounts{display:flex;flex-wrap:wrap;gap:12px 20px;margin:14px 0;color:#193d36}
+.betAmounts>span{display:flex;flex-direction:column;gap:3px}
+.betAmounts>span>span{font-size:12px;color:#52706b}
+.betAmounts strong{font-size:16px}
