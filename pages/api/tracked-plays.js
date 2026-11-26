@@ -6,7 +6,7 @@ import {interpretQuestion} from '../../lib/betQuestion.mjs';
 const {signalKey,createTrackedPlay,gradeTrackedPlay,dashboard,annotation,insight,quickIntent,tagNames}=require('../../lib/trackedPlays.cjs');
 const {enrichLiveScores}=require('../../lib/liveScores.cjs');
 const {personalSettlement}=require('../../lib/personalSettlement.cjs');
-const {mergeRows}=require('../../lib/liveTrackedPlays.cjs');
+const {mergeWithLiveScores}=require('../../lib/liveTrackedPlays.cjs');
 const {predictionOnlyOwner,predictionVenue}=require('../../lib/predictionMyPlays.cjs');
 const questionWindows=new Map();
 
@@ -96,7 +96,7 @@ export default async function handler(req,res) {
       all[index]={...gradeTrackedPlay({...row,settlement},versions.get(row.play_key)),live:all[index].live};
     }
     const live=await livePromise;
-    all=mergeRows(all,live);
+    all=await mergeWithLiveScores(all,live,enrichLiveScores);
     const filters=req.method==='GET'?req.query:body.filters;
     const data=dashboard(all,filters||{});
     let answer;
@@ -109,7 +109,7 @@ export default async function handler(req,res) {
     return res.status(200).json({ok:true,...data,prediction_only:predictionOnly,live_pilot:live,manual_unavailable:false,options:{strategies:[...new Set(all.flatMap(x=>x.strategies||[]))].sort(),sports:[...new Set(all.map(x=>x.play.sport).filter(Boolean))],books:[...new Set([...all.map(x=>x.sportsbook),...((live||predictionOnly)?['Polymarket US','Kalshi']:[])])],markets:[...new Set(all.map(x=>x.play.market))],tags:tagNames(all).sort()},partial:partial||Boolean(live&&live.history_total>live.history_limit),publishing_paused:paused,...(answer?{answer}:{})});
   } catch {
     const live=await livePromise;
-    if(req.method==='GET'&&live&&live.source_status!=='unavailable'){const all=mergeRows([],live);return res.status(200).json({ok:true,...dashboard(all,req.query||{}),prediction_only:predictionOnly,live_pilot:live,manual_unavailable:true,options:{strategies:[...new Set(all.flatMap(x=>x.strategies||[]))].sort(),books:['Polymarket US','Kalshi'],sports:[...new Set(all.map(x=>x.play.sport).filter(Boolean))],markets:[...new Set(all.map(x=>x.play.market))],tags:tagNames(all)},partial:live.history_total>live.history_limit});}
+    if(req.method==='GET'&&live&&live.source_status!=='unavailable'){const all=await mergeWithLiveScores([],live,enrichLiveScores);return res.status(200).json({ok:true,...dashboard(all,req.query||{}),prediction_only:predictionOnly,live_pilot:live,manual_unavailable:true,options:{strategies:[...new Set(all.flatMap(x=>x.strategies||[]))].sort(),books:['Polymarket US','Kalshi'],sports:[...new Set(all.map(x=>x.play.sport).filter(Boolean))],markets:[...new Set(all.map(x=>x.play.market))],tags:tagNames(all)},partial:live.history_total>live.history_limit});}
     return res.status(503).json({ok:false,error:'Your tracked plays are temporarily unavailable. Please try again.'});
   }
 }
