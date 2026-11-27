@@ -80,3 +80,33 @@ test('Army Knights tracked side resolves to the ESPN Army Black Knights away pro
  assert.ok(Math.abs(row.live.probability.win - 0.28) < 1e-10);
  assert.equal(matchGame({...p, home:'Air Force Falcons'}, [e]), null);
 });
+
+test('verified neutral-site orientation preserves the tracked team scores and probabilities', async () => {
+ const tip = Date.parse('2026-11-27T02:00:00Z');
+ const observed = tip + 90 * 60000;
+ const p = {sport:'basketball_ncaab', market:'h2h', start:tip/1000, side:'Louisville Cardinals',
+  home:'Louisville Cardinals', away:"St. John's Red Storm"};
+ const g = {...game, id:'401920530', date:new Date(tip).toISOString(), neutralSite:true, competitors:[
+  {homeAway:'home', score:'90', team:{id:'2599', displayName:p.away}},
+  {homeAway:'away', score:'93', team:{id:'97', displayName:p.home}},
+ ]};
+ const liveSummary = {...summary, header:{competitions:[g]},
+  plays:[{id:'latest',wallclock:new Date(observed-30000).toISOString()}]};
+ const finalGame = {...g,status:{type:{state:'post',completed:true,shortDetail:'Final'}}};
+ const finalEvent = {id:g.id, competitions:[finalGame]};
+ assert.equal(matchGame(p,[finalEvent]).event.id,g.id);
+ assert.equal(matchGame(p,[{...finalEvent,competitions:[{...finalGame,neutralSite:false}]}]),null);
+ assert.equal(matchGame(p,[finalEvent,finalEvent]),null);
+ assert.ok(Math.abs(moneylineProbability(p,liveSummary,observed).win-0.28)<1e-10);
+ const [row] = await enrichLiveScores([{id:'louisville',play:p,result:'win'}],
+  {now:observed,fetcher:async()=>({ok:true,json:async()=>({events:[finalEvent]})})});
+ assert.equal(row.live.home_score,93);
+ assert.equal(row.live.away_score,90);
+ assert.equal(row.live.home_team_id,'97');
+ assert.equal(row.live.away_team_id,'2599');
+ assert.equal(row.result,'win');
+ const [fallback] = await enrichLiveScores([{id:'neutral-live',play:p,result:'pending'}],
+  {now:observed+61000,fetcher:async url=>({ok:true,json:async()=>url.includes('summary')?{}:{events:[{id:g.id,competitions:[g]}]}})});
+ assert.equal(fallback.live.probability.model,'scoring-rate-v1');
+ assert.equal(fallback.live.home_score,93);
+});
