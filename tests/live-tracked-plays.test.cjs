@@ -20,3 +20,16 @@ test('automated cards receive live scores/probabilities without changing actual 
  const failed=await mergeWithLiveScores([],input,async()=>{throw Error()});assert.equal(failed[0].live.unavailable,true);assert.equal(failed[0].pnl_cents,-71);
  const final=await mergeWithLiveScores([],input,async actual=>actual.map(r=>({...r,live:null})));assert.equal(final[0].live,null);
 });
+
+
+test('verified close compares the actual paid price with the same-contract closing price',()=>{
+ const {liveRows}=require('../lib/liveTrackedPlays.cjs');
+ const fill={record_key:'a'.repeat(64),venue:'kalshi',sport:'basketball_ncaab',created_at:100,
+   strategy:'C0',market:'h2h',filled_contracts:'2',actual_cash_usd:'.85',outcome_price_usd:'.41'};
+ const [measured]=liveRows({orders:[{...fill,clv:{status:'measured',closing_price_usd:'.44'}}]});
+ assert.ok(Math.abs(measured.clv_pct-(.44/.41-1))<.000001);
+ assert.equal(measured.play.sport,'basketball_ncaab');
+ const [pending]=liveRows({orders:[{...fill,clv:{status:'awaiting_close',closing_price_usd:'.44'}}]});
+ assert.equal(pending.clv_pct,null);
+ assert.equal(pending.execution.clv_status,'awaiting_close');
+});
